@@ -5,26 +5,28 @@
 
 ---
 
-## 🏗️ Phase 1: Foundation & Infrastructure (Status: ON GOING)
+## 🏗️ Phase 1: Foundation & Infrastructure (Status: COMPLETED ✅)
 
 _Fokus: Setup lingkungan kerja yang mendukung testing & dokumentasi sejak hari pertama._
 
 - [x] **Project Setup**
   - [x] Init project & Docker Compose (App, Postgres, Redis, MinIO).
   - [x] Downgrade Prisma ke v6 (Stable) & Fix Docker Permission.
-- [ ] **Documentation Engine**
-  - [ ] **Setup Swagger:** Install `@nestjs/swagger` dan konfigurasi di `main.ts` agar siap pakai.
-- [ ] **Global Utilities**
-  - [ ] **Config:** Setup `@nestjs/config` dengan validasi `Joi` (Test: Pastikan app gagal start kalau ENV kurang).
-  - [ ] **Interceptors:** `TransformInterceptor` (Standar Response).
-  - [ ] **Filters:** `AllExceptionsFilter` (Handling Error).
+- [x] **Documentation Engine**
+  - [x] **Setup Swagger:** Install `@nestjs/swagger` dan konfigurasi di `main.ts` agar siap pakai.
+- [x] **Global Utilities**
+  - [x] **Config:** Setup `@nestjs/config` dengan validasi `Joi` (Test: Pastikan app gagal start kalau ENV kurang).
+  - [x] **Interceptors:** `TransformInterceptor` (Standar Response).
+  - [x] **Filters:** `AllExceptionsFilter` (Handling Error).
 
 ---
 
-## 🔐 Phase 2: Authentication Module
+## 🔐 Phase 2: Authentication Module (Status: ON GOING 🚀)
 
 _Definition of Done: User bisa Register/Login, API terdokumentasi, dan Unit Test Service hijau._
 
+- [ ] **Step 0: Preparation**
+  - [ ] Install Dependencies: `pnpm add @nestjs/passport passport passport-jwt @nestjs/jwt bcryptjs` dan `pnpm add -D @types/passport-jwt @types/bcryptjs`.
 - [ ] **Step 1: Interface (DTO & Docs)**
   - [ ] Buat `RegisterDto` & `LoginDto`.
   - [ ] **Doc:** Tambahkan `@ApiProperty()` (Example & Description) di DTO.
