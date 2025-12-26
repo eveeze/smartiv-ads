@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { TransformInterceptor } from './common/interceptors/transform/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions/all-exceptions.filter';
 import { ConfigService } from '@nestjs/config';
+import { apiReference } from '@scalar/nestjs-api-reference';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,7 +15,7 @@ async function bootstrap() {
 
   // Global Settings
   app.setGlobalPrefix('api');
-  app.enableCors(); // Penting untuk frontend nanti
+  app.enableCors();
 
   // Global Validation
   app.useGlobalPipes(
@@ -29,7 +30,9 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter(httpAdapter));
 
-  // Swagger Documentation Setup
+  // -----------------------------------------------------------
+  // 📄 DOCUMENTATION SETUP (Scalar UI)
+  // -----------------------------------------------------------
   const config = new DocumentBuilder()
     .setTitle('SmartIV Ads API')
     .setDescription('Enterprise Backend for SmartIV Hospitality TV Ads')
@@ -37,14 +40,26 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
 
+  // 2. Generate JSON Spec dari NestJS Swagger
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+
+  // 3. Render UI menggunakan Scalar
+  app.use(
+    '/reference',
+    apiReference({
+      // PERBAIKAN: Langsung gunakan 'content' tanpa wrapper 'spec'
+      content: document,
+      theme: 'purple',
+    }),
+  );
 
   // Start Server
   const port = configService.get<number>('port') || 3000;
   await app.listen(port);
 
   logger.log(`🚀 Application is running on: http://localhost:${port}/api`);
-  logger.log(`📄 Swagger Docs available at: http://localhost:${port}/api/docs`);
+  logger.log(
+    `📚 API Reference (Scalar) at: http://localhost:${port}/reference`,
+  );
 }
 bootstrap();
