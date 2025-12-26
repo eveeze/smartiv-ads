@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  app:
+    # Build menggunakan target 'builder' yang punya devDependencies
+    build:
+      context: .
+      target: builder
+
+    # -------------------------------------------------------
+    # MAGIC SAUCE: Jalankan migrate DB dulu, baru start dev watch
+    # -------------------------------------------------------
+    command: sh -c "pnpm prisma db push && pnpm run start:dev"
+
+    # Environment khusus dev
+    environment:
+      - NODE_ENV=development
+      # Pastikan URL DB mengarah ke service 'postgres'
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/smartiv_db?schema=public
+
+    user: '${UID:-1000}:${GID:-1000}'
+
+    # Mount volume agar Hot Reload jalan
+    volumes:
+      - .:/app
+      # PENTING: Jangan biarkan node_modules lokal menimpa container
+      - /app/node_modules
+
+    # Port Debugger (Opsional) & API
+    ports:
+      - '3000:3000'
+      - '9229:9229'

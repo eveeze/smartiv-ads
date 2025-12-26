@@ -1,0 +1,295 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------------------
+// ENUMS
+// --------------------------------------
+
+enum Role {
+  SUPER_ADMIN
+  ADVERTISER
+  PROPERTY_OPERATOR
+}
+
+enum PropertyType {
+  HOTEL
+  HOSPITAL
+  APARTMENT
+  VILLA
+  MALL
+  OTHER
+}
+
+enum PropertyClass {
+  BUDGET
+  STANDARD
+  PREMIUM
+  LUXURY
+}
+
+enum ScreenStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum ScreenOrientation {
+  LANDSCAPE
+  PORTRAIT
+}
+
+enum AdZone {
+  SCREENSAVER
+  BACKGROUND
+  INFORMATION
+}
+
+enum RoomCategory {
+  STANDARD
+  DELUXE
+  SUITE
+  VIP
+  VVIP
+  LOBBY
+  WAITING_ROOM
+  RESTAURANT
+  OTHER
+}
+
+enum CampaignStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  REJECTED
+  COMPLETED
+  PAUSED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  HTML
+}
+
+enum TransactionType {
+  DEPOSIT
+  SPEND
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// --------------------------------------
+// MODELS
+// --------------------------------------
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(ADVERTISER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wallet    Wallet?
+  campaigns Campaign[]
+  logs      AuditLog[]
+  media     Media[]
+
+  propertyId Int?
+  property   Property? @relation(fields: [propertyId], references: [id])
+
+  @@map("users")
+}
+
+model Wallet {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id])
+  balance   BigInt   @default(0)
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id            Int               @id @default(autoincrement())
+  walletId      Int
+  wallet        Wallet            @relation(fields: [walletId], references: [id])
+  amount        BigInt
+  type          TransactionType
+  status        TransactionStatus @default(PENDING)
+  referenceCode String?           @unique
+  description   String?
+  createdAt     DateTime          @default(now())
+
+  @@map("transactions")
+}
+
+model Property {
+  id             Int           @id @default(autoincrement())
+  name           String
+  type           PropertyType  @default(HOTEL)
+  classification PropertyClass @default(STANDARD)
+
+  address String?
+  city    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  screens   Screen[]
+  operators User[]
+  rateCards RateCard[]
+
+  @@map("properties")
+}
+
+model Screen {
+  id         Int      @id @default(autoincrement())
+  propertyId Int
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  name        String
+  resolution  String?
+  orientation ScreenOrientation @default(LANDSCAPE)
+
+  zone AdZone @default(SCREENSAVER)
+
+  roomCategory RoomCategory @default(STANDARD)
+
+  status     ScreenStatus @default(ONLINE)
+  lastPing   DateTime?
+  ipAddress  String?
+  macAddress String?      @unique
+
+  priceOverride BigInt?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  impressions ImpressionLog[]
+
+  @@map("screens")
+}
+
+model RateCard {
+  id         Int       @id @default(autoincrement())
+  propertyId Int?
+  property   Property? @relation(fields: [propertyId], references: [id])
+
+  classification PropertyClass?
+  targetZone     AdZone?
+
+  pricePerDay BigInt
+  currency    String @default("IDR")
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("rate_cards")
+}
+
+model Campaign {
+  id           Int  @id @default(autoincrement())
+  advertiserId Int
+  advertiser   User @relation(fields: [advertiserId], references: [id])
+
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  totalCost BigInt
+  status    CampaignStatus @default(DRAFT)
+
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items       CampaignItem[]
+  impressions ImpressionLog[]
+
+  @@map("campaigns")
+}
+
+model CampaignItem {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  mediaId Int
+  media   Media @relation(fields: [mediaId], references: [id])
+
+  targetRoomCategory RoomCategory[]
+  targetZone         AdZone
+
+  durationSec Int @default(15)
+
+  createdAt DateTime @default(now())
+
+  @@map("campaign_items")
+}
+
+model Media {
+  id         Int  @id @default(autoincrement())
+  uploaderId Int
+  uploader   User @relation(fields: [uploaderId], references: [id])
+
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  type         MediaType
+
+  url          String
+  thumbnailUrl String?
+
+  hlsUrl       String?
+  isTranscoded Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  campaignItems CampaignItem[]
+
+  @@map("media")
+}
+
+model ImpressionLog {
+  id       BigInt @id @default(autoincrement())
+  screenId Int
+  screen   Screen @relation(fields: [screenId], references: [id])
+
+  campaignId Int
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  timestamp DateTime @default(now())
+  duration  Int
+
+  @@map("impression_logs")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}

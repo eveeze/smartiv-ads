@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  # ---------------------------
+  # 1. Aplikasi Backend (NestJS)
+  # ---------------------------
+  app:
+    container_name: smartiv-backend
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      # Koneksi ke container lain pakai nama service (postgres, redis, minio)
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/smartiv_db?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=smartiv-media
+      - JWT_SECRET=ganti_dengan_secret_yang_panjang_dan_aman
+      - JWT_EXPIRES_IN=1d
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    networks:
+      - smartiv-network
+    restart: unless-stopped
+
+  # ---------------------------
+  # 2. Database (PostgreSQL)
+  # ---------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: smartiv-postgres
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: smartiv_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - smartiv-network
+
+  # ---------------------------
+  # 3. Queue & Cache (Redis)
+  # ---------------------------
+  redis:
+    image: redis:alpine
+    container_name: smartiv-redis
+    ports:
+      - '6379:6379'
+    networks:
+      - smartiv-network
+
+  # ---------------------------
+  # 4. Storage (MinIO - S3 Compatible)
+  # ---------------------------
+  minio:
+    image: minio/minio
+    container_name: smartiv-minio
+    ports:
+      - '9000:9000' # API Port
+      - '9001:9001' # Console UI Port
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - smartiv-network
+
+  # ---------------------------
+  # 5. Helper: Auto Create Bucket
+  # ---------------------------
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/smartiv-media;
+      /usr/bin/mc anonymous set public myminio/smartiv-media;
+      exit 0;
+      "
+    networks:
+      - smartiv-network
+
+networks:
+  smartiv-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:
