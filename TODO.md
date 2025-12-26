@@ -1,133 +1,117 @@
-# 📝 TODO List - SmartIV Ads Management (NestJS Migration)
+# 📝 TODO List - SmartIV Ads Management (NestJS Enterprise)
 
-**Target Architecture:** Modular Monolith (Enterprise Standard)
-**Tech Stack:** NestJS, Prisma, BullMQ (Redis), MinIO, PostgreSQL.
-
----
-
-## 🏗️ Phase 1: Foundation & Infrastructure Setup
-
-Membangun fondasi framework dan koneksi database.
-
-- [ ] **Project Initialization**
-  - [ ] Init project baru: `nest new smartiv-backend` (Package manager: Bun/Yarn).
-  - [ ] Setup Docker Compose (App, Postgres, Redis, MinIO).
-- [ ] **Database (Prisma)**
-  - [ ] Copy file `schema.prisma` dari project lama.
-  - [ ] Generate Prisma Client: `npx prisma generate`.
-  - [ ] Buat **`PrismaModule`** (Global Module).
-  - [ ] Implementasi `PrismaService` (sebagai connection provider).
-- [ ] **Configuration**
-  - [ ] Install `@nestjs/config`.
-  - [ ] Setup validasi environment variables menggunakan `Joi` atau `Zod` (Validasi `DATABASE_URL`, `JWT_SECRET`, dll).
-- [ ] **Global Interceptors & Filters**
-  - [ ] Buat `TransformInterceptor`: Standarisasi response `{ success: true, data: ... }`.
-  - [ ] Buat `AllExceptionsFilter`: Global Error Handling untuk menangkap `HttpException` & Prisma Error.
+**Development Philosophy:** Test-Driven & Document-First.
+**Tech Stack:** NestJS, Prisma v6, BullMQ, MinIO, pnpm.
 
 ---
 
-## 🔐 Phase 2: Authentication & Authorization (Auth Module)
+## 🏗️ Phase 1: Foundation & Infrastructure (Status: ON GOING)
 
-Migrasi logika login dari manual ke `Passport` strategy.
+_Fokus: Setup lingkungan kerja yang mendukung testing & dokumentasi sejak hari pertama._
 
-- [ ] **Dependencies**: Install `@nestjs/passport`, `@nestjs/jwt`, `passport-jwt`, `bcrypt`.
-- [ ] **Auth DTOs**
-  - [ ] Buat `RegisterDto` & `LoginDto` menggunakan `class-validator` (Gantikan validasi `elysia.t`).
-- [ ] **Auth Service**
-  - [ ] Porting logic `register` (Hash password, Create User, Create Wallet).
-  - [ ] Porting logic `login` (Validate User, Sign JWT).
-- [ ] **Strategies & Guards**
-  - [ ] Implementasi `JwtStrategy` (Extract token dari Bearer Header).
-  - [ ] Implementasi `JwtAuthGuard`.
-  - [ ] Implementasi `RolesGuard` (RBAC: Admin vs Advertiser).
-  - [ ] Buat Decorator custom: `@CurrentUser()` dan `@Roles()`.
+- [x] **Project Setup**
+  - [x] Init project & Docker Compose (App, Postgres, Redis, MinIO).
+  - [x] Downgrade Prisma ke v6 (Stable) & Fix Docker Permission.
+- [ ] **Documentation Engine**
+  - [ ] **Setup Swagger:** Install `@nestjs/swagger` dan konfigurasi di `main.ts` agar siap pakai.
+- [ ] **Global Utilities**
+  - [ ] **Config:** Setup `@nestjs/config` dengan validasi `Joi` (Test: Pastikan app gagal start kalau ENV kurang).
+  - [ ] **Interceptors:** `TransformInterceptor` (Standar Response).
+  - [ ] **Filters:** `AllExceptionsFilter` (Handling Error).
 
 ---
 
-## 🏨 Phase 3: Inventory & Data Master (Inventory Module)
+## 🔐 Phase 2: Authentication Module
 
-Manajemen Hotel, Screen, dan Harga.
+_Definition of Done: User bisa Register/Login, API terdokumentasi, dan Unit Test Service hijau._
 
-- [ ] **Inventory Module**
-  - [ ] `CreateHotelDto` & `CreateScreenDto` (Validasi Enum & Types).
-  - [ ] `InventoryService`: Logic CRUD Hotel & Screen (Inject `PrismaService`).
-  - [ ] `InventoryController`: Endpoint Admin dengan proteksi `@Roles(Role.ADMIN)`.
-- [ ] **Pricing Logic**
-  - [ ] `PricingService`: Logic `upsertRateCard` (Harga per bintang/hotel).
-- [ ] **Internal Sync (S2S Integration)**
-  - [ ] Buat `InternalKeyGuard`: Validasi `INTERNAL_SECRET` (Bypass JWT).
-  - [ ] Endpoint `/internal/sync/screen` untuk webhook sinkronisasi alat.
-
----
-
-## 🎥 Phase 4: Media Pipeline (HLS & Queue)
-
-Bagian terberat: Upload, Antrian, dan Transcoding Video.
-
-- [ ] **Infrastructure**
-  - [ ] Install `@nestjs/bull` (Wrapper BullMQ) & `@nestjs/platform-express` (Multer).
-  - [ ] Setup `BullModule` di `AppModule` (Koneksi ke Redis).
-- [ ] **Storage Service**
-  - [ ] Buat `StorageService`: Wrapper untuk upload file ke MinIO/S3.
-- [ ] **Media Module**
-  - [ ] `MediaController`: Endpoint Upload (Filter MimeType Video/Image).
-  - [ ] `MediaService`: Simpan metadata ke DB -> Add Job to Queue (`video-transcoding`).
-- [ ] **Transcode Worker (Consumer)**
-  - [ ] Buat `TranscodeProcessor` (`@Processor`).
-  - [ ] Logic `@Process`: Jalankan FFmpeg (Convert MP4 -> HLS .m3u8).
-  - [ ] Update status `Media` di DB (READY/FAILED).
-  - [ ] (Optional) Generate Signed URL logic.
+- [ ] **Step 1: Interface (DTO & Docs)**
+  - [ ] Buat `RegisterDto` & `LoginDto`.
+  - [ ] **Doc:** Tambahkan `@ApiProperty()` (Example & Description) di DTO.
+- [ ] **Step 2: Business Logic (TDD Approach)**
+  - [ ] **Test:** Buat `auth.service.spec.ts` (Mock Prisma, test logic hashing password).
+  - [ ] Implementasi `AuthService` (`register`, `validateUser`, `login`).
+- [ ] **Step 3: Security Strategy**
+  - [ ] Implementasi `JwtStrategy` & `JwtAuthGuard`.
+  - [ ] Decorator `@CurrentUser()` & `@Roles()`.
+- [ ] **Step 4: API & Verification**
+  - [ ] Implementasi `AuthController`.
+  - [ ] **Doc:** Tambahkan `@ApiOperation`, `@ApiResponse` (200, 401, 403) di Controller.
+  - [ ] **E2E Test:** Buat `test/auth.e2e-spec.ts` (Skenario: Register -> Login -> Dapat Token).
 
 ---
 
-## 💰 Phase 5: Campaign & Finance (Business Logic)
+## 🏢 Phase 3: Property & Inventory Module
 
-Inti bisnis: Booking slot iklan dan pembayaran.
+_Definition of Done: Admin bisa CRUD Property/Screen, Validasi Mac Address unik._
 
-- [ ] **Finance Module**
-  - [ ] `WalletService`: Logic Atomic Transaction (Topup & Deduct Balance).
-  - [ ] `DepositController`: Handle callback payment gateway.
-- [ ] **Campaign Module**
-  - [ ] `CreateCampaignDto` (Validasi tanggal & target screen).
-  - [ ] `CampaignService`:
-    - [ ] `calculateCost()`: Hitung estimasi biaya (Rate _ Days _ Screens).
-    - [ ] `submitCampaign()`: Gunakan `prisma.$transaction` (Cek Slot -> Potong Saldo -> Create Campaign).
-  - [ ] `CampaignController`: CRUD Campaign untuk Advertiser.
-
----
-
-## 📺 Phase 6: Player API (High Performance)
-
-API yang diakses ribuan TV secara bersamaan.
-
-- [ ] **Caching**
-  - [ ] Setup `@nestjs/cache-manager` (Redis Store).
-- [ ] **Player Module**
-  - [ ] `PlayerService`:
-    - [ ] `getPlaylist(screenId)`: Query jadwal aktif.
-    - [ ] Implementasi Cache: Simpan hasil playlist selama 5-10 menit.
-  - [ ] `PlayerController`: Endpoint `/player/playlist` dan `/player/telemetry`.
-  - [ ] Kompresi Gzip untuk response JSON besar.
+- [ ] **Step 1: Interface**
+  - [ ] DTO: `CreatePropertyDto`, `CreateScreenDto` (Enum Validation).
+  - [ ] **Doc:** Lengkapi Swagger Schema untuk Property & Screen.
+- [ ] **Step 2: Logic & Testing**
+  - [ ] **Test:** `inventory.service.spec.ts` (Test logic assignment `AdZone`).
+  - [ ] Service: CRUD Property & Screen.
+- [ ] **Step 3: API Implementation**
+  - [ ] Controller: Endpoint Admin (Guard: `@Roles(SUPER_ADMIN)`).
+  - [ ] **Doc:** Dokumentasikan Endpoint Admin di Swagger.
 
 ---
 
-## 📊 Phase 7: Reporting & Analytics
+## 🎥 Phase 4: Media Pipeline (Hard Part)
 
-Visualisasi data performa iklan.
+_Definition of Done: Upload file -> Masuk Queue -> Transcoding Sukses -> Update DB._
 
-- [ ] **Reporting Module**
-  - [ ] `ReportService`: Aggregation query (Count Impression, Total Spend).
-  - [ ] `ReportController`: Endpoint download CSV/PDF.
+- [ ] **Step 1: Infrastructure**
+  - [ ] Setup `BullModule` (Redis) & `StorageModule` (MinIO/S3).
+  - [ ] **Test:** Unit test `StorageService` (Mock AWS SDK).
+- [ ] **Step 2: Upload Logic**
+  - [ ] DTO: `UploadMediaDto` (Validasi MimeType).
+  - [ ] **Doc:** Setup Swagger untuk File Upload (Multipart/Form-Data).
+  - [ ] Controller & Service: Handle upload raw file.
+- [ ] **Step 3: Transcoding Worker**
+  - [ ] Processor: `TranscodeProcessor` (Logic FFmpeg).
+  - [ ] **Integration Test:** Pastikan Job masuk ke Redis dan Worker bereaksi.
 
 ---
 
-## 🧪 Phase 8: Testing & Documentation (QA)
+## 💰 Phase 5: Campaign & Finance
 
-Standarisasi Enterprise.
+_Definition of Done: Saldo berkurang atomik saat campaign dibuat._
 
-- [ ] **Documentation**
-  - [ ] Setup `@nestjs/swagger`.
-  - [ ] Lengkapi Decorator `@ApiProperty` di semua DTO.
-- [ ] **Testing**
-  - [ ] Unit Test: `AuthService.spec.ts`, `CampaignService.spec.ts`.
-  - [ ] E2E Test: Flow Register -> Topup -> Create Campaign.
+- [ ] **Step 1: Wallet Logic (Critical)**
+  - [ ] **Test:** `wallet.service.spec.ts` (Wajib test Race Condition / Saldo Minus).
+  - [ ] Service: `topupBalance`, `deductBalance` (Prisma Transaction).
+- [ ] **Step 2: Campaign Logic**
+  - [ ] DTO: `CreateCampaignDto`.
+  - [ ] **Test:** `campaign.service.spec.ts` (Test logic hitung harga).
+  - [ ] Service: `submitCampaign` (Integrasi Wallet & Inventory).
+- [ ] **Step 3: End-to-End Flow**
+  - [ ] **E2E Test:** `test/campaign-flow.e2e-spec.ts`
+    - Flow: Register -> Topup -> Create Campaign -> Cek Saldo & Status.
+
+---
+
+## 📺 Phase 6: Player API
+
+_Definition of Done: API cepat (<50ms) & Ter-cache._
+
+- [ ] **Step 1: Logic & Caching**
+  - [ ] Setup `@nestjs/cache-manager`.
+  - [ ] Service: `getPlaylist(macAddress)`.
+- [ ] **Step 2: API & Load Test**
+  - [ ] Controller: `/player/config/:mac`.
+  - [ ] **Doc:** Dokumentasikan struktur JSON Playlist response.
+  - [ ] **Manual Test:** Cek response time saat cache miss vs cache hit.
+
+---
+
+## 📊 Phase 7: Reporting
+
+_Definition of Done: Data akurat & bisa di-export._
+
+- [ ] **Step 1: Aggregation**
+  - [ ] **Test:** Test query SQL/Prisma aggregation (Sum/Count).
+  - [ ] Service: `getPerformanceReport()`.
+- [ ] **Step 2: Export API**
+  - [ ] Controller: Download CSV.
+  - [ ] **Doc:** Dokumentasikan format CSV.
