@@ -44,23 +44,23 @@ _Definition of Done: User bisa Register/Login, API terdokumentasi di Scalar, dan
 
 ---
 
-## 🏢 Phase 3: Property & Inventory Module (Status: COMPLETED ✅)
+## 🏢 Phase 3: Inventory Module (Production Grade)
 
-_Definition of Done: Admin bisa CRUD Property/Screen, setting Slot Iklan, dan Test Passed._
+_Definition of Done: Admin bisa Full CRUD Property/Screen dengan Pagination, Filter, dan Validasi Ketat._
 
 - [x] **Step 1: Interface & Schema**
-  - [x] Update Schema: `AdSlot` (Synced with SmartIV Core), `MediaType`, `Property` Sync Fields.
-  - [x] DTO: `CreatePropertyDto` (Strict Validation), `CreateScreenDto`.
-- [x] **Step 2: Logic Implementation**
-  - [x] Service: `createProperty` (Check Duplicates), `createScreen` (Check Duplicates & Relations).
-  - [x] Controller: Endpoint Admin (`@Roles(SUPER_ADMIN)`).
-- [x] **Step 3: Testing & Verification**
-  - [x] **Unit Test:** `inventory.service.spec.ts` (Mocking Prisma).
-  - [x] **Unit Test:** `inventory.controller.spec.ts` (Mocking Service).
-  - [x] **E2E Test:** `test/inventory.e2e-spec.ts` (Full Integration Flow).
-  - [x] **Doc:** Dokumentasi di Scalar UI untuk Inventory Endpoints.
-
----
+  - [x] Update Prisma Schema (AdSlot, Sync Fields).
+  - [x] DTO: `CreatePropertyDto`, `CreateScreenDto`.
+- [ ] **Step 2: Advanced Features (DTO Update)**
+  - [ ] **DTO:** Buat `UpdatePropertyDto` & `UpdateScreenDto` (`PartialType`).
+  - [ ] **DTO:** Buat `PageOptionsDto` (untuk Pagination & Filter).
+- [ ] **Step 3: Logic Implementation (Full CRUD)**
+  - [ ] **Service:** Implementasi `findAll` (dengan Pagination & Search), `update`, `remove`.
+  - [ ] **Controller:** Endpoint `PATCH` dan `DELETE`.
+  - [ ] **Logic:** Soft Delete (jika perlu) atau validasi sebelum delete (Cek relasi).
+- [ ] **Step 4: Testing & Verification**
+  - [ ] **Unit Test:** Update test untuk cover Update, Delete, dan Pagination.
+  - [ ] **E2E Test:** Test flow lengkap CRUD.
 
 ## 🎥 Phase 4: Media Pipeline (Hard Part) (Status: NEXT UP 🚀)
 

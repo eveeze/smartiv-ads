@@ -3,6 +3,8 @@ import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { CreateScreenDto } from './dto/create-screen.dto';
+import { UpdatePropertyDto } from './dto/update-property.dto';
+import { PageOptionsDto } from '../../common/dto/page-options.dto';
 import {
   AdSlot,
   Property,
@@ -17,16 +19,20 @@ describe('InventoryController', () => {
   let controller: InventoryController;
   let service: InventoryService;
 
-  // Mock Object yang lengkap sesuai method di Service
+  // Mock Service Lengkap
   const mockInventoryService = {
     createProperty: jest.fn(),
     findAllProperties: jest.fn(),
     findOneProperty: jest.fn(),
+    updateProperty: jest.fn(),
+    removeProperty: jest.fn(),
     createScreen: jest.fn(),
     findAllScreens: jest.fn(),
+    findOneScreen: jest.fn(),
+    updateScreen: jest.fn(),
+    removeScreen: jest.fn(),
   };
 
-  // Sample Data untuk Mock Return
   const mockProperty: Property = {
     id: 1,
     name: 'Test Hotel',
@@ -52,7 +58,7 @@ describe('InventoryController', () => {
     resolution: '1920x1080',
     orientation: ScreenOrientation.LANDSCAPE,
     ipAddress: null,
-    roomCategory: 'LOBBY' as any, // Cast karena Enum RoomCategory mungkin belum di-export di spec ini
+    roomCategory: 'LOBBY' as any,
     status: ScreenStatus.ONLINE,
     lastPing: null,
     priceOverride: null,
@@ -81,80 +87,113 @@ describe('InventoryController', () => {
     expect(controller).toBeDefined();
   });
 
-  // --- 1. Test createProperty ---
+  // --- PROPERTY TESTS ---
+
   describe('createProperty', () => {
-    it('should create a property', async () => {
+    it('should create property', async () => {
       const dto: CreatePropertyDto = {
-        name: 'Test Hotel',
+        name: 'Test',
         enabledSlots: [AdSlot.SCREENSAVER],
-        smartivCode: 'TEST01',
       };
-
       mockInventoryService.createProperty.mockResolvedValue(mockProperty);
-
       const result = await controller.createProperty(dto);
-
       expect(service.createProperty).toHaveBeenCalledWith(dto);
       expect(result).toEqual(mockProperty);
     });
   });
 
-  // --- 2. Test findAllProperties ---
   describe('findAllProperties', () => {
-    it('should return an array of properties', async () => {
-      const mockResult = [mockProperty];
-      mockInventoryService.findAllProperties.mockResolvedValue(mockResult);
-
-      const result = await controller.findAllProperties();
-
-      expect(service.findAllProperties).toHaveBeenCalled();
-      expect(result).toEqual(mockResult);
-      expect(Array.isArray(result)).toBe(true);
+    it('should return properties list', async () => {
+      const pageOpts = new PageOptionsDto();
+      mockInventoryService.findAllProperties.mockResolvedValue({
+        data: [mockProperty],
+        meta: {},
+      });
+      await controller.findAllProperties(pageOpts);
+      expect(service.findAllProperties).toHaveBeenCalledWith(pageOpts);
     });
   });
 
-  // --- 3. Test findOneProperty ---
   describe('findOneProperty', () => {
-    it('should return a single property details', async () => {
-      const propertyId = 1;
+    it('should return one property', async () => {
       mockInventoryService.findOneProperty.mockResolvedValue(mockProperty);
-
-      const result = await controller.findOneProperty(propertyId);
-
-      expect(service.findOneProperty).toHaveBeenCalledWith(propertyId);
+      const result = await controller.findOneProperty(1);
+      expect(service.findOneProperty).toHaveBeenCalledWith(1);
       expect(result).toEqual(mockProperty);
     });
   });
 
-  // --- 4. Test createScreen ---
+  describe('updateProperty', () => {
+    it('should update property', async () => {
+      const dto: UpdatePropertyDto = { name: 'Updated' };
+      mockInventoryService.updateProperty.mockResolvedValue({
+        ...mockProperty,
+        name: 'Updated',
+      });
+      const result = await controller.updateProperty(1, dto);
+      expect(service.updateProperty).toHaveBeenCalledWith(1, dto);
+      expect(result.name).toBe('Updated');
+    });
+  });
+
+  describe('removeProperty', () => {
+    it('should remove property', async () => {
+      mockInventoryService.removeProperty.mockResolvedValue(mockProperty);
+      await controller.removeProperty(1);
+      expect(service.removeProperty).toHaveBeenCalledWith(1);
+    });
+  });
+
+  // --- SCREEN TESTS ---
+
   describe('createScreen', () => {
-    it('should create a screen', async () => {
+    it('should create screen', async () => {
       const dto: CreateScreenDto = {
         propertyId: 1,
-        code: 'MAC-001',
-        name: 'Lobby TV',
+        code: 'CODE',
+        name: 'Name',
       };
-
       mockInventoryService.createScreen.mockResolvedValue(mockScreen);
-
       const result = await controller.createScreen(dto);
-
       expect(service.createScreen).toHaveBeenCalledWith(dto);
       expect(result).toEqual(mockScreen);
     });
   });
 
-  // --- 5. Test findAllScreens ---
   describe('findAllScreens', () => {
-    it('should return an array of screens', async () => {
-      const mockResult = [mockScreen];
-      mockInventoryService.findAllScreens.mockResolvedValue(mockResult);
+    it('should return screens list', async () => {
+      const pageOpts = new PageOptionsDto();
+      mockInventoryService.findAllScreens.mockResolvedValue({
+        data: [mockScreen],
+        meta: {},
+      });
+      await controller.findAllScreens(pageOpts);
+      expect(service.findAllScreens).toHaveBeenCalledWith(pageOpts, undefined);
+    });
+  });
 
-      const result = await controller.findAllScreens();
+  describe('findOneScreen', () => {
+    it('should return one screen', async () => {
+      mockInventoryService.findOneScreen.mockResolvedValue(mockScreen);
+      const result = await controller.findOneScreen(1);
+      expect(service.findOneScreen).toHaveBeenCalledWith(1);
+      expect(result).toEqual(mockScreen);
+    });
+  });
 
-      expect(service.findAllScreens).toHaveBeenCalled();
-      expect(result).toEqual(mockResult);
-      expect(Array.isArray(result)).toBe(true);
+  describe('updateScreen', () => {
+    it('should update screen', async () => {
+      mockInventoryService.updateScreen.mockResolvedValue(mockScreen);
+      await controller.updateScreen(1, {});
+      expect(service.updateScreen).toHaveBeenCalledWith(1, {});
+    });
+  });
+
+  describe('removeScreen', () => {
+    it('should remove screen', async () => {
+      mockInventoryService.removeScreen.mockResolvedValue(mockScreen);
+      await controller.removeScreen(1);
+      expect(service.removeScreen).toHaveBeenCalledWith(1);
     });
   });
 });

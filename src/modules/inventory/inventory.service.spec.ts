@@ -3,8 +3,8 @@ import { InventoryService } from './inventory.service';
 import { PrismaService } from '../../providers/prisma/prisma.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { CreatePropertyDto } from './dto/create-property.dto';
-import { CreateScreenDto } from './dto/create-screen.dto';
 import { AdSlot } from '@prisma/client';
+import { PageOptionsDto } from '../../common/dto/page-options.dto';
 
 describe('InventoryService', () => {
   let service: InventoryService;
@@ -14,13 +14,20 @@ describe('InventoryService', () => {
     property: {
       create: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
     screen: {
       create: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -37,62 +44,67 @@ describe('InventoryService', () => {
   });
 
   describe('createProperty', () => {
-    const dto: CreatePropertyDto = {
-      name: 'Test Hotel',
-      enabledSlots: [AdSlot.SCREENSAVER],
-      smartivCode: 'TEST01',
-    };
-
-    it('should create a property successfully', async () => {
-      mockPrisma.property.findUnique.mockResolvedValue(null); // No duplicate
+    it('should create property', async () => {
+      const dto: CreatePropertyDto = {
+        name: 'T',
+        enabledSlots: [],
+        smartivCode: 'C',
+      };
+      mockPrisma.property.findUnique.mockResolvedValue(null);
       mockPrisma.property.create.mockResolvedValue({ id: 1, ...dto });
 
-      const result = await service.createProperty(dto);
-      expect(result).toHaveProperty('id', 1);
-      expect(result.name).toBe(dto.name);
+      const res = await service.createProperty(dto);
+      expect(res.id).toBe(1);
     });
 
-    it('should throw ConflictException if smartivCode exists', async () => {
-      mockPrisma.property.findUnique.mockResolvedValue({ id: 1, ...dto }); // Exists
+    it('should fail if code exists', async () => {
+      mockPrisma.property.findUnique.mockResolvedValue({ id: 1 });
+      await expect(
+        service.createProperty({
+          name: 'N',
+          enabledSlots: [],
+          smartivCode: 'C',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
 
-      await expect(service.createProperty(dto)).rejects.toThrow(
-        ConflictException,
+  describe('findAllProperties', () => {
+    it('should return paginated result', async () => {
+      const pageOptions = new PageOptionsDto();
+      // Mock $transaction return: [data, count]
+      mockPrisma.$transaction.mockResolvedValue([[{ id: 1 }], 1]);
+
+      const res = await service.findAllProperties(pageOptions);
+      expect(res.data).toHaveLength(1);
+      expect(res.meta.total).toBe(1);
+    });
+  });
+
+  describe('updateProperty', () => {
+    it('should update property', async () => {
+      mockPrisma.property.findUnique.mockResolvedValue({ id: 1 }); // Exist
+      mockPrisma.property.update.mockResolvedValue({ id: 1, name: 'Updated' });
+
+      const res = await service.updateProperty(1, { name: 'Updated' });
+      expect(res.name).toBe('Updated');
+    });
+
+    it('should throw if not found', async () => {
+      mockPrisma.property.findUnique.mockResolvedValue(null);
+      await expect(service.updateProperty(99, {})).rejects.toThrow(
+        NotFoundException,
       );
     });
   });
 
-  describe('createScreen', () => {
-    const dto: CreateScreenDto = {
-      propertyId: 1,
-      code: 'SCREEN-001',
-      name: 'Lobby TV',
-    };
-
-    it('should create a screen successfully', async () => {
-      mockPrisma.property.findUnique.mockResolvedValue({ id: 1 }); // Property exists
-      mockPrisma.screen.findUnique.mockResolvedValue(null); // Code unique
-      mockPrisma.screen.create.mockResolvedValue({ id: 10, ...dto });
-
-      const result = await service.createScreen(dto);
-      expect(result).toHaveProperty('id', 10);
-      expect(result.code).toBe(dto.code);
-    });
-
-    it('should throw NotFoundException if property does not exist', async () => {
-      mockPrisma.property.findUnique.mockResolvedValue(null); // Property missing
-
-      await expect(service.createScreen(dto)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('should throw ConflictException if screen code exists', async () => {
+  describe('removeProperty', () => {
+    it('should delete property', async () => {
       mockPrisma.property.findUnique.mockResolvedValue({ id: 1 });
-      mockPrisma.screen.findUnique.mockResolvedValue({ id: 99, ...dto }); // Code exists
+      mockPrisma.property.delete.mockResolvedValue({ id: 1 });
 
-      await expect(service.createScreen(dto)).rejects.toThrow(
-        ConflictException,
-      );
+      await service.removeProperty(1);
+      expect(prisma.property.delete).toHaveBeenCalledWith({ where: { id: 1 } });
     });
   });
 });

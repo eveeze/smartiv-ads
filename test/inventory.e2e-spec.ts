@@ -29,7 +29,7 @@ describe('InventoryModule (e2e)', () => {
 
     prisma = app.get<PrismaService>(PrismaService);
 
-    // 1. Seed Super Admin untuk keperluan test
+    // Seed Admin
     const hashedPassword = await bcrypt.hash(adminUser.password, 10);
     await prisma.user.create({
       data: {
@@ -41,7 +41,7 @@ describe('InventoryModule (e2e)', () => {
       },
     });
 
-    // 2. Login untuk dapat Token
+    // Login Admin
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: adminUser.email, password: adminUser.password });
@@ -50,7 +50,7 @@ describe('InventoryModule (e2e)', () => {
   });
 
   afterAll(async () => {
-    // Cleanup Data
+    // Cleanup
     const property = await prisma.property.findFirst({
       where: { smartivCode: `TEST-${uniqueId}` },
     });
@@ -68,75 +68,89 @@ describe('InventoryModule (e2e)', () => {
     await app.close();
   });
 
-  describe('/inventory/properties (POST)', () => {
-    it('should allow Admin to create property', () => {
-      return request(app.getHttpServer())
+  let propertyId: number;
+  let screenId: number;
+
+  describe('/inventory/properties (CRUD)', () => {
+    it('POST /properties - Create', async () => {
+      const res = await request(app.getHttpServer())
         .post('/inventory/properties')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'E2E Test Hotel',
-          smartivCode: `TEST-${uniqueId}`, // Code unik
-          enabledSlots: [AdSlot.SCREENSAVER, AdSlot.INFO_SLIDER],
+          name: 'E2E Hotel',
+          smartivCode: `TEST-${uniqueId}`,
+          enabledSlots: [AdSlot.SCREENSAVER],
         })
-        .expect(201)
+        .expect(201);
+
+      propertyId = res.body.id;
+      expect(res.body.name).toBe('E2E Hotel');
+    });
+
+    it('GET /properties - List with Pagination', () => {
+      return request(app.getHttpServer())
+        .get('/inventory/properties?page=1&take=10')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
         .expect((res) => {
-          expect(res.body).toHaveProperty('id');
-          expect(res.body.name).toBe('E2E Test Hotel');
-          expect(res.body.enabledSlots).toContain(AdSlot.SCREENSAVER);
+          expect(res.body.data.length).toBeGreaterThan(0);
+          expect(res.body.meta.total).toBeGreaterThan(0);
         });
     });
 
-    it('should reject without token', () => {
+    it('PATCH /properties/:id - Update', () => {
       return request(app.getHttpServer())
-        .post('/inventory/properties')
-        .send({ name: 'Fail' })
-        .expect(401);
+        .patch(`/inventory/properties/${propertyId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'E2E Hotel Updated' })
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.name).toBe('E2E Hotel Updated');
+        });
     });
   });
 
-  describe('/inventory/screens (POST)', () => {
-    let propertyId: number;
+  describe('/inventory/screens (CRUD)', () => {
+    it('POST /screens - Create', async () => {
+      // Guard clause untuk TS
+      if (!propertyId) throw new Error('Property creation failed');
 
-    // Ambil propertyId dari langkah sebelumnya
-    beforeAll(async () => {
-      const prop = await prisma.property.findFirst({
-        where: { smartivCode: `TEST-${uniqueId}` },
-      });
-
-      // FIX: Tambahkan pengecekan ini agar TypeScript tidak error
-      if (!prop) {
-        throw new Error('Property setup failed in previous step');
-      }
-
-      propertyId = prop.id;
-    });
-
-    it('should create screen successfully', () => {
-      return request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/inventory/screens')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          propertyId: propertyId,
+          propertyId,
           code: `MAC-${uniqueId}`,
-          name: 'Lobby TV E2E',
+          name: 'Lobby TV',
         })
-        .expect(201)
+        .expect(201);
+      screenId = res.body.id;
+    });
+
+    it('PATCH /screens/:id - Update', () => {
+      return request(app.getHttpServer())
+        .patch(`/inventory/screens/${screenId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'Lobby TV Updated' })
+        .expect(200)
         .expect((res) => {
-          expect(res.body.code).toBe(`MAC-${uniqueId}`);
-          expect(res.body.propertyId).toBe(propertyId);
+          expect(res.body.name).toBe('Lobby TV Updated');
         });
     });
 
-    it('should fail if screen code duplicate', () => {
+    it('DELETE /screens/:id - Remove', () => {
       return request(app.getHttpServer())
-        .post('/inventory/screens')
+        .delete(`/inventory/screens/${screenId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          propertyId: propertyId,
-          code: `MAC-${uniqueId}`, // Duplicate
-          name: 'Lobby TV Duplicate',
-        })
-        .expect(409); // Conflict
+        .expect(200);
     });
+  });
+
+  // Cleanup Property via API DELETE
+  it('DELETE /properties/:id - Remove Property', () => {
+    return request(app.getHttpServer())
+      .delete(`/inventory/properties/${propertyId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
   });
 });

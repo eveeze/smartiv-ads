@@ -6,7 +6,10 @@ import {
 import { PrismaService } from '../../providers/prisma/prisma.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { CreateScreenDto } from './dto/create-screen.dto';
-import { Property, Screen } from '@prisma/client';
+import { UpdatePropertyDto } from './dto/update-property.dto';
+import { UpdateScreenDto } from './dto/update-screen.dto';
+import { PageOptionsDto } from '../../common/dto/page-options.dto';
+import { Property, Screen, Prisma } from '@prisma/client';
 
 @Injectable()
 export class InventoryService {
@@ -15,7 +18,6 @@ export class InventoryService {
   // --- PROPERTY ---
 
   async createProperty(dto: CreatePropertyDto): Promise<Property> {
-    // Cek duplikasi smartivCode (jika ada inputnya)
     if (dto.smartivCode) {
       const exists = await this.prisma.property.findUnique({
         where: { smartivCode: dto.smartivCode },
@@ -35,13 +37,43 @@ export class InventoryService {
     });
   }
 
-  async findAllProperties(): Promise<Property[]> {
-    return this.prisma.property.findMany({
-      include: {
-        _count: { select: { screens: true } },
+  async findAllProperties(
+    pageOptionsDto: PageOptionsDto,
+  ): Promise<{ data: Property[]; meta: any }> {
+    // FIX: Pastikan 'take' memiliki nilai default agar tidak error matematika
+    const take = pageOptionsDto.take || 10;
+    const page = pageOptionsDto.page || 1;
+    const skip = pageOptionsDto.skip;
+    const { order, search } = pageOptionsDto;
+
+    const where: Prisma.PropertyWhereInput = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { smartivCode: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [data, count] = await this.prisma.$transaction([
+      this.prisma.property.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: order },
+        include: { _count: { select: { screens: true } } },
+      }),
+      this.prisma.property.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total: count,
+        page: page,
+        lastPage: Math.ceil(count / take), // take is guaranteed number now
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    };
   }
 
   async findOneProperty(id: number): Promise<Property> {
@@ -49,47 +81,107 @@ export class InventoryService {
       where: { id },
       include: { screens: true },
     });
-
-    if (!property) {
+    if (!property)
       throw new NotFoundException(`Property with ID ${id} not found`);
-    }
-
     return property;
   }
 
+  async updateProperty(id: number, dto: UpdatePropertyDto): Promise<Property> {
+    await this.findOneProperty(id);
+    return this.prisma.property.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async removeProperty(id: number): Promise<Property> {
+    await this.findOneProperty(id);
+    return this.prisma.property.delete({
+      where: { id },
+    });
+  }
+
+  // --- SCREEN ---
+
   async createScreen(dto: CreateScreenDto): Promise<Screen> {
-    // 1. Validasi Property Ada
     const property = await this.prisma.property.findUnique({
       where: { id: dto.propertyId },
     });
-    if (!property) {
-      throw new NotFoundException('Property ID not found');
-    }
+    if (!property) throw new NotFoundException('Property ID not found');
 
-    // 2. Validasi Kode Unik
     const existingScreen = await this.prisma.screen.findUnique({
       where: { code: dto.code },
     });
-    if (existingScreen) {
-      throw new ConflictException(
-        `Screen with code ${dto.code} already exists`,
-      );
-    }
+    if (existingScreen)
+      throw new ConflictException(`Screen code ${dto.code} already exists`);
 
-    // 3. Buat Screen
     return this.prisma.screen.create({
       data: dto,
     });
   }
 
-  async findAllScreens(): Promise<Screen[]> {
-    return this.prisma.screen.findMany({
-      include: {
-        property: {
-          select: { name: true, smartivCode: true },
-        },
+  async findAllScreens(
+    pageOptionsDto: PageOptionsDto,
+    propertyId?: number,
+  ): Promise<{ data: Screen[]; meta: any }> {
+    // FIX: Pastikan 'take' memiliki nilai default
+    const take = pageOptionsDto.take || 10;
+    const page = pageOptionsDto.page || 1;
+    const skip = pageOptionsDto.skip;
+    const { order, search } = pageOptionsDto;
+
+    const where: Prisma.ScreenWhereInput = {
+      ...(propertyId ? { propertyId } : {}),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { code: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const [data, count] = await this.prisma.$transaction([
+      this.prisma.screen.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: order },
+        include: { property: { select: { name: true } } },
+      }),
+      this.prisma.screen.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total: count,
+        page: page,
+        lastPage: Math.ceil(count / take), // take is guaranteed number now
       },
-      orderBy: { createdAt: 'desc' },
+    };
+  }
+
+  async findOneScreen(id: number): Promise<Screen> {
+    const screen = await this.prisma.screen.findUnique({
+      where: { id },
+      include: { property: true },
     });
+    if (!screen) throw new NotFoundException(`Screen with ID ${id} not found`);
+    return screen;
+  }
+
+  async updateScreen(id: number, dto: UpdateScreenDto): Promise<Screen> {
+    await this.findOneScreen(id);
+    return this.prisma.screen.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async removeScreen(id: number): Promise<Screen> {
+    await this.findOneScreen(id);
+    return this.prisma.screen.delete({ where: { id } });
   }
 }
