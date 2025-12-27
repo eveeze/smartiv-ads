@@ -46,10 +46,20 @@ enum ScreenOrientation {
   PORTRAIT
 }
 
-enum AdZone {
-  SCREENSAVER
-  BACKGROUND
-  INFORMATION
+// Slot Iklan yang disesuaikan dengan Menu SmartIV Core
+enum AdSlot {
+  SCREENSAVER       // /main-menu/promotion/screen-saver
+  INFO_SLIDER       // /main-menu/promotion/information-slider
+  APP_PROMOTION     // /main-menu/promotion/app-promotion
+  
+  // Leisure Menu Sections
+  LEISURE_CULINARY  // /main-menu/leisure/culinary
+  LEISURE_TOURISM   // /main-menu/leisure/tourism
+  LEISURE_GIFT
+  
+  // Other Placements
+  WELCOME_GREETING  // Greeting Pop-up
+  BACKGROUND        // Wallpaper/Theme
 }
 
 enum RoomCategory {
@@ -73,10 +83,10 @@ enum CampaignStatus {
   PAUSED
 }
 
+// UPDATED: Hanya IMAGE dan VIDEO (HTML dihapus)
 enum MediaType {
   IMAGE
   VIDEO
-  HTML
 }
 
 enum TransactionType {
@@ -144,12 +154,27 @@ model Transaction {
 
 model Property {
   id             Int           @id @default(autoincrement())
+  
+  // Identitas Internal Ads
   name           String
   type           PropertyType  @default(HOTEL)
   classification PropertyClass @default(STANDARD)
 
-  address String?
-  city    String?
+  // --- Sinkronisasi SmartIV Core ---
+  smartivId      Int?          @unique // Mapping dari company.id (misal: 212)
+  smartivCode    String?       @unique // Mapping dari company.code (misal: "0Q1MHI")
+  
+  // --- Branding (Untuk Preview Iklan) ---
+  baseColor      String?       // Mapping base_color
+  activeColor    String?       // Mapping active_color
+  logoUrl        String?       // Mapping logo_url
+
+  // --- Lokasi & Config ---
+  address        String?
+  city           String?
+  
+  // Config: Slot apa saja yang aktif di properti ini
+  enabledSlots   AdSlot[]      @default([SCREENSAVER])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -157,6 +182,7 @@ model Property {
   screens   Screen[]
   operators User[]
   rateCards RateCard[]
+  campaigns Campaign[] // Relasi balik ke campaign (opsional, tapi bagus untuk query)
 
   @@map("properties")
 }
@@ -166,18 +192,21 @@ model Screen {
   propertyId Int
   property   Property @relation(fields: [propertyId], references: [id])
 
-  name        String
+  name        String   // Misal: "TV Lobby", "TV Kamar 101"
+  
+  // KUNCI UTAMA: MAC Address atau Unique ID dari device
+  code        String   @unique 
+  
+  // Metadata Teknis
   resolution  String?
   orientation ScreenOrientation @default(LANDSCAPE)
-
-  zone AdZone @default(SCREENSAVER)
-
+  ipAddress   String?
+  
+  // Config Room
   roomCategory RoomCategory @default(STANDARD)
 
-  status     ScreenStatus @default(ONLINE)
-  lastPing   DateTime?
-  ipAddress  String?
-  macAddress String?      @unique
+  status      ScreenStatus @default(ONLINE)
+  lastPing    DateTime?
 
   priceOverride BigInt?
 
@@ -195,7 +224,9 @@ model RateCard {
   property   Property? @relation(fields: [propertyId], references: [id])
 
   classification PropertyClass?
-  targetZone     AdZone?
+  
+  // UPDATED: Menggunakan AdSlot
+  targetSlot     AdSlot? 
 
   pricePerDay BigInt
   currency    String @default("IDR")
@@ -210,6 +241,10 @@ model Campaign {
   id           Int  @id @default(autoincrement())
   advertiserId Int
   advertiser   User @relation(fields: [advertiserId], references: [id])
+
+  // Optional: Relasi langsung ke Property jika campaign ini Exclusive untuk 1 properti
+  propertyId   Int?
+  property     Property? @relation(fields: [propertyId], references: [id])
 
   name      String
   startDate DateTime
@@ -237,7 +272,9 @@ model CampaignItem {
   media   Media @relation(fields: [mediaId], references: [id])
 
   targetRoomCategory RoomCategory[]
-  targetZone         AdZone
+  
+  // UPDATED: Menggunakan AdSlot
+  targetSlot         AdSlot
 
   durationSec Int @default(15)
 
