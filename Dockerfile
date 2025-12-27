@@ -1,60 +1,58 @@
-# ----------------------------
-# Stage 1: Builder (Build App)
-# ----------------------------
+# --------------------------------------------------------
+# 1. Stage: Builder (Build aplikasi & Generate Prisma Client)
+# --------------------------------------------------------
 FROM node:20-alpine AS builder
 
-# Aktifkan pnpm bawaan Node.js
-RUN corepack enable
+# Install pnpm & dependencies sistem yang dibutuhkan
+RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# Copy file dependency definition
+# Copy config files
 COPY package.json pnpm-lock.yaml ./
-
-# Copy folder prisma (Tanpa prisma.config.ts karena kita pakai v6)
 COPY prisma ./prisma/
 
 # Install dependencies (termasuk devDependencies untuk build)
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma Client (Versi 6 Stable)
+# Generate Prisma Client
 RUN pnpm prisma generate
 
-# Copy seluruh source code
+# Copy source code & Build
 COPY . .
-
-# Build NestJS ke folder dist/
 RUN pnpm build
 
-# ----------------------------
-# Stage 2: Runner (Production)
-# ----------------------------
-FROM node:20-alpine
+# --------------------------------------------------------
+# 2. Stage: Runner (Image Production yang bersih)
+# --------------------------------------------------------
+FROM node:20-alpine AS runner
 
-# Aktifkan pnpm
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# Install FFmpeg (Wajib untuk HLS Transcoding)
-RUN apk add --no-cache ffmpeg
+ENV NODE_ENV=production
 
-# Copy package definition
+# Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies production only (Hemat size image)
+# Install HANYA production dependencies
 RUN pnpm install --prod --frozen-lockfile
 
 # Copy hasil build dari stage builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-# Penting: Copy Prisma Client yang sudah di-generate dari builder
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Expose port aplikasi
+# ---------------------------------------------------------------------
+# FIX UTAMA DI SINI:
+# Daripada copy folder node_modules/.prisma yang ribet path-nya di pnpm,
+# Kita jalankan ulang 'prisma generate' di stage runner.
+# Ini lebih aman dan menjamin binary yang cocok dengan OS Alpine.
+# ---------------------------------------------------------------------
+RUN pnpm prisma generate
+
 EXPOSE 3000
 
-# Command saat container jalan:
-# 1. Jalankan migrasi DB (deploy)
-# 2. Jalankan aplikasi
-CMD ["sh", "-c", "pnpm prisma migrate deploy && node dist/main"]
+CMD ["node", "dist/main"]
