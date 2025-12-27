@@ -1,7 +1,6 @@
 import { Body, Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
-// 1. PISAHKAN IMPORT TYPE DAN VALUE
 import { AUTH_SERVICE } from './interfaces/auth-service/auth-service.interface';
-import type { IAuthService } from './interfaces/auth-service/auth-service.interface'; // Gunakan 'import type'
+import type { IAuthService } from './interfaces/auth-service/auth-service.interface';
 
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -13,16 +12,12 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
-// 2. GUNAKAN 'import type' UNTUK PRISMA MODEL
 import type { User } from '@prisma/client';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(
-    // INJECT via TOKEN
-    // Karena pakai @Inject(TOKEN), NestJS tidak butuh metadata class asli IAuthService
-    // Jadi aman menggunakan 'import type' di sini.
     @Inject(AUTH_SERVICE)
     private readonly authService: IAuthService,
   ) {}
