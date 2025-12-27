@@ -51,16 +51,16 @@ _Definition of Done: Admin bisa Full CRUD Property/Screen dengan Pagination, Fil
 - [x] **Step 1: Interface & Schema**
   - [x] Update Prisma Schema (AdSlot, Sync Fields).
   - [x] DTO: `CreatePropertyDto`, `CreateScreenDto`.
-- [ ] **Step 2: Advanced Features (DTO Update)**
-  - [ ] **DTO:** Buat `UpdatePropertyDto` & `UpdateScreenDto` (`PartialType`).
-  - [ ] **DTO:** Buat `PageOptionsDto` (untuk Pagination & Filter).
-- [ ] **Step 3: Logic Implementation (Full CRUD)**
-  - [ ] **Service:** Implementasi `findAll` (dengan Pagination & Search), `update`, `remove`.
-  - [ ] **Controller:** Endpoint `PATCH` dan `DELETE`.
-  - [ ] **Logic:** Soft Delete (jika perlu) atau validasi sebelum delete (Cek relasi).
-- [ ] **Step 4: Testing & Verification**
-  - [ ] **Unit Test:** Update test untuk cover Update, Delete, dan Pagination.
-  - [ ] **E2E Test:** Test flow lengkap CRUD.
+- [x] **Step 2: Advanced Features (DTO Update)**
+  - [x] **DTO:** Buat `UpdatePropertyDto` & `UpdateScreenDto` (`PartialType`).
+  - [x] **DTO:** Buat `PageOptionsDto` (untuk Pagination & Filter).
+- [x] **Step 3: Logic Implementation (Full CRUD)**
+  - [x] **Service:** Implementasi `findAll` (dengan Pagination & Search), `update`, `remove`.
+  - [x] **Controller:** Endpoint `PATCH` dan `DELETE`.
+  - [x] **Logic:** Soft Delete (jika perlu) atau validasi sebelum delete (Cek relasi).
+- [x] **Step 4: Testing & Verification**
+  - [x] **Unit Test:** Update test untuk cover Update, Delete, dan Pagination.
+  - [x] **E2E Test:** Test flow lengkap CRUD.
 
 ## 🎥 Phase 4: Media Pipeline (Hard Part) (Status: NEXT UP 🚀)
 
