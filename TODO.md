@@ -21,59 +21,63 @@ _Fokus: Setup lingkungan kerja yang mendukung testing & dokumentasi sejak hari p
 
 ---
 
-## 🔐 Phase 2: Authentication Module (Status: ON GOING 🚀)
+## 🔐 Phase 2: Authentication Module (Status: COMPLETED ✅)
 
 _Definition of Done: User bisa Register/Login, API terdokumentasi di Scalar, dan Unit Test Service hijau._
 
-- [ ] **Step 0: Preparation**
-  - [ ] Install Dependencies: `pnpm add @nestjs/passport passport passport-jwt @nestjs/jwt bcryptjs` dan `pnpm add -D @types/passport-jwt @types/bcryptjs`.
-- [ ] **Step 1: Interface (DTO & Docs)**
-  - [ ] Buat `RegisterDto` & `LoginDto`.
-  - [ ] **Doc:** Tambahkan `@ApiProperty()` di DTO (Scalar akan membacanya otomatis).
-- [ ] **Step 2: Business Logic (TDD Approach)**
-  - [ ] **Test:** Buat `auth.service.spec.ts` (Mock Prisma, test logic hashing password).
-  - [ ] Implementasi `AuthService` (`register`, `validateUser`, `login`).
-- [ ] **Step 3: Security Strategy**
-  - [ ] Implementasi `JwtStrategy` & `JwtAuthGuard`.
-  - [ ] Decorator `@CurrentUser()` & `@Roles()`.
-- [ ] **Step 4: API & Verification**
-  - [ ] Implementasi `AuthController`.
-  - [ ] **Doc:** Tambahkan `@ApiOperation`, `@ApiResponse` di Controller.
-  - [ ] **Verification:** Cek tampilan di `http://localhost:3000/reference`.
-  - [ ] **E2E Test:** Buat `test/auth.e2e-spec.ts`.
+- [x] **Step 0: Preparation**
+  - [x] Install Dependencies: `pnpm add @nestjs/passport passport passport-jwt @nestjs/jwt bcryptjs`.
+- [x] **Step 1: Interface (DTO & Docs)**
+  - [x] Buat `RegisterDto` & `LoginDto`.
+  - [x] **Doc:** Tambahkan `@ApiProperty()` di DTO (Scalar akan membacanya otomatis).
+- [x] **Step 2: Business Logic (TDD Approach)**
+  - [x] **Test:** Buat `auth.service.spec.ts` (Mock Prisma, test logic hashing password).
+  - [x] Implementasi `AuthService` (`register`, `login`, `transaction`).
+- [x] **Step 3: Security Strategy**
+  - [x] Implementasi `JwtStrategy` & `JwtAuthGuard`.
+  - [x] Decorator `@CurrentUser()` & `@Roles()`.
+  - [x] Implementasi `RolesGuard` (RBAC).
+- [x] **Step 4: API & Verification**
+  - [x] Implementasi `AuthController`.
+  - [x] **Doc:** Tambahkan `@ApiOperation`, `@ApiResponse` di Controller.
+  - [x] **E2E Test:** Buat `test/auth.e2e-spec.ts` & Setup Test Environment.
 
 ---
 
-## 🏢 Phase 3: Property & Inventory Module
+## 🏢 Phase 3: Property & Inventory Module (Status: COMPLETED ✅)
 
-_Definition of Done: Admin bisa CRUD Property/Screen._
+_Definition of Done: Admin bisa CRUD Property/Screen, setting Slot Iklan, dan Test Passed._
 
-- [ ] **Step 1: Interface**
-  - [ ] DTO: `CreatePropertyDto`, `CreateScreenDto`.
-  - [ ] **Doc:** Lengkapi Schema Property & Screen agar muncul di Scalar Sidebar.
-- [ ] **Step 2: Logic & Testing**
-  - [ ] **Test:** `inventory.service.spec.ts`.
-  - [ ] Service: CRUD Property & Screen.
-- [ ] **Step 3: API Implementation**
-  - [ ] Controller: Endpoint Admin (Guard: `@Roles(SUPER_ADMIN)`).
-  - [ ] **Doc:** Dokumentasikan Endpoint Admin.
+- [x] **Step 1: Interface & Schema**
+  - [x] Update Schema: `AdSlot` (Synced with SmartIV Core), `MediaType`, `Property` Sync Fields.
+  - [x] DTO: `CreatePropertyDto` (Strict Validation), `CreateScreenDto`.
+- [x] **Step 2: Logic Implementation**
+  - [x] Service: `createProperty` (Check Duplicates), `createScreen` (Check Duplicates & Relations).
+  - [x] Controller: Endpoint Admin (`@Roles(SUPER_ADMIN)`).
+- [x] **Step 3: Testing & Verification**
+  - [x] **Unit Test:** `inventory.service.spec.ts` (Mocking Prisma).
+  - [x] **Unit Test:** `inventory.controller.spec.ts` (Mocking Service).
+  - [x] **E2E Test:** `test/inventory.e2e-spec.ts` (Full Integration Flow).
+  - [x] **Doc:** Dokumentasi di Scalar UI untuk Inventory Endpoints.
 
 ---
 
-## 🎥 Phase 4: Media Pipeline (Hard Part)
+## 🎥 Phase 4: Media Pipeline (Hard Part) (Status: NEXT UP 🚀)
 
-_Definition of Done: Upload file -> Masuk Queue -> Transcoding Sukses._
+_Definition of Done: Upload file -> Masuk Queue -> Transcoding Sukses -> Update Status._
 
 - [ ] **Step 1: Infrastructure**
-  - [ ] Setup `BullModule` (Redis) & `StorageModule` (MinIO/S3).
-  - [ ] **Test:** Unit test `StorageService`.
+  - [ ] Setup `BullModule` (Redis) di `app.module.ts`.
+  - [ ] Setup `StorageModule` (MinIO/S3) untuk handle upload.
+  - [ ] **Test:** Unit test `StorageService` (Mock S3 Client).
 - [ ] **Step 2: Upload Logic**
-  - [ ] DTO: `UploadMediaDto`.
+  - [ ] DTO: `UploadMediaDto` (Validation: MimeType Image/Video only).
   - [ ] **Doc:** Setup Scalar untuk File Upload (Multipart/Form-Data).
-  - [ ] Controller & Service: Handle upload raw file.
-- [ ] **Step 3: Transcoding Worker**
-  - [ ] Processor: `TranscodeProcessor`.
-  - [ ] **Integration Test:** Pastikan Job masuk ke Redis.
+  - [ ] Controller & Service: Handle upload raw file & save metadata to DB.
+- [ ] **Step 3: Transcoding Worker (Video Processing)**
+  - [ ] Processor: `TranscodeProcessor` (Menggunakan FFmpeg/Fluent-FFmpeg).
+  - [ ] Logic: Convert Video -> HLS (.m3u8) untuk streaming ringan di TV.
+  - [ ] **Integration Test:** Pastikan Job masuk ke Redis dan diproses.
 
 ---
 
@@ -83,30 +87,32 @@ _Definition of Done: Saldo berkurang atomik saat campaign dibuat._
 
 - [ ] **Step 1: Wallet Logic**
   - [ ] **Test:** `wallet.service.spec.ts`.
-  - [ ] Service: `topupBalance`, `deductBalance`.
+  - [ ] Service: `topupBalance` (Simulasi), `deductBalance` (Atomic Transaction).
 - [ ] **Step 2: Campaign Logic**
-  - [ ] DTO: `CreateCampaignDto`.
-  - [ ] **Test:** `campaign.service.spec.ts`.
-  - [ ] Service: `submitCampaign`.
+  - [ ] DTO: `CreateCampaignDto` (Pilih Property, Slot, Date Range).
+  - [ ] **Test:** `campaign.service.spec.ts` (Validasi Saldo & Ketersediaan Slot).
+  - [ ] Service: `submitCampaign` (Create Campaign + Deduct Wallet dalam 1 transaksi).
 - [ ] **Step 3: End-to-End Flow**
   - [ ] **E2E Test:** `test/campaign-flow.e2e-spec.ts`.
 
 ---
 
-## 📺 Phase 6: Player API
+## 📺 Phase 6: Player API (Integration Point)
+
+_Definition of Done: TV bisa request config dan dapat playlist iklan yang sesuai._
 
 - [ ] **Step 1: Logic & Caching**
-  - [ ] Setup `@nestjs/cache-manager`.
-  - [ ] Service: `getPlaylist(macAddress)`.
+  - [ ] Setup `@nestjs/cache-manager` (Redis Cache) untuk performa tinggi.
+  - [ ] Service: `getPlaylist(screenCode)` -> Filter Campaign aktif berdasarkan Property & Slot.
 - [ ] **Step 2: API & Load Test**
-  - [ ] Controller: `/player/config/:mac`.
-  - [ ] **Doc:** Dokumentasikan struktur JSON Playlist.
+  - [ ] Controller: `/player/config` (Query param: `code`).
+  - [ ] **Doc:** Dokumentasikan struktur JSON Playlist (Penting untuk Tim Mobile).
 
 ---
 
 ## 📊 Phase 7: Reporting
 
 - [ ] **Step 1: Aggregation**
-  - [ ] Service: `getPerformanceReport()`.
+  - [ ] Service: `getPerformanceReport()` (Hitung Impression).
 - [ ] **Step 2: Export API**
-  - [ ] Controller: Download CSV.
+  - [ ] Controller: Download CSV Laporan Campaign.
