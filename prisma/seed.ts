@@ -3,111 +3,136 @@ import {
   Role,
   PropertyType,
   PropertyClass,
-  AdZone,
+  ScreenOrientation,
+  AdSlot, // FIX: Menggunakan AdSlot bukan AdZone
+  RoomCategory,
+  ScreenStatus,
 } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting seeding...');
+  console.log('🌱 Starting seed...');
 
   // 1. Create Super Admin
-  const adminPassword = await bcrypt.hash('password123', 10);
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@smartiv.id' },
+  const hashedPassword = await bcrypt.hash('password123', 10);
+  const superAdmin = await prisma.user.upsert({
+    where: { email: 'admin@smartiv.com' },
     update: {},
     create: {
-      email: 'admin@smartiv.id',
+      email: 'admin@smartiv.com',
+      password: hashedPassword,
       name: 'Super Admin',
-      password: adminPassword,
       role: Role.SUPER_ADMIN,
       wallet: {
-        create: { balance: BigInt(0) }, // Saldo Unlimited (Logic di code nanti)
+        create: {
+          balance: 1000000000, // 1 Miliar
+        },
       },
     },
   });
-  console.log('✅ Super Admin created:', admin.email);
+  console.log('✅ Super Admin created:', superAdmin.email);
 
-  // 2. Create Advertiser Dummy
-  const advertiserPassword = await bcrypt.hash('advertiser123', 10);
+  // 2. Create Advertiser
   const advertiser = await prisma.user.upsert({
-    where: { email: 'client@brand.com' },
+    where: { email: 'ads@brand.com' },
     update: {},
     create: {
-      email: 'client@brand.com',
-      name: 'Brand Client A',
-      password: advertiserPassword,
+      email: 'ads@brand.com',
+      password: hashedPassword,
+      name: 'Brand Manager',
       role: Role.ADVERTISER,
       wallet: {
-        create: { balance: BigInt(5000000) }, // Saldo awal 5 Juta
+        create: {
+          balance: 50000000, // 50 Juta
+        },
       },
     },
   });
   console.log('✅ Advertiser created:', advertiser.email);
 
-  // 3. Create Property (Hotel Bintang 5)
-  const hotel = await prisma.property.create({
-    data: {
-      name: 'Grand SmartIV Hotel',
-      type: PropertyType.HOTEL,
-      classification: PropertyClass.LUXURY, // Bintang 5
-      city: 'Jakarta',
-      address: 'Jl. Sudirman Kav 1',
-      rateCards: {
-        create: [
-          {
-            pricePerDay: BigInt(100000), // 100rb per hari
-            targetZone: AdZone.SCREENSAVER, // Khusus Screensaver
-          },
-          {
-            pricePerDay: BigInt(250000), // 250rb per hari
-            targetZone: AdZone.BACKGROUND, // Khusus Background
-          },
-        ],
-      },
-    },
+  // 3. Create Property (Hotel)
+  // Kita gunakan ID SmartIV (212) sebagai unique constraint di logic seed ini
+  const propertyCheck = await prisma.property.findUnique({
+    where: { smartivId: 212 },
   });
-  console.log('✅ Property 1 Created:', hotel.name);
 
-  // 4. Create Property (Rumah Sakit)
-  const hospital = await prisma.property.create({
-    data: {
-      name: 'RS Sehat Sentosa',
-      type: PropertyType.HOSPITAL,
-      classification: PropertyClass.PREMIUM, // Kelas A/VIP
-      city: 'Surabaya',
-      address: 'Jl. Darmo No 10',
-      rateCards: {
-        create: {
-          pricePerDay: BigInt(150000),
-          // Rate Global (tanpa spesifik zone)
+  let property;
+  if (!propertyCheck) {
+    property = await prisma.property.create({
+      data: {
+        name: 'Hotel Tentrem Yogyakarta',
+        type: PropertyType.HOTEL,
+        classification: PropertyClass.LUXURY,
+        smartivId: 212,
+        smartivCode: '0Q1MHI',
+        address: 'Jl. P. Mangkubumi No.72A',
+        city: 'Yogyakarta',
+        // FIX: Update Enum AdSlot
+        enabledSlots: [
+          AdSlot.SCREENSAVER,
+          AdSlot.INFO_SLIDER,
+          AdSlot.WELCOME_GREETING,
+        ],
+        // Rate Cards
+        rateCards: {
+          create: [
+            {
+              pricePerDay: 150000,
+              targetSlot: AdSlot.SCREENSAVER, // FIX: targetSlot & AdSlot
+              isActive: true,
+            },
+            {
+              pricePerDay: 100000,
+              targetSlot: AdSlot.INFO_SLIDER, // FIX: targetSlot & AdSlot
+              isActive: true,
+            },
+          ],
         },
       },
+    });
+    console.log('✅ Property created:', property.name);
+  } else {
+    property = propertyCheck;
+    console.log('ℹ️ Property already exists:', property.name);
+  }
+
+  // 4. Create Screens
+  const screen1Code = 'AA:BB:CC:DD:EE:01';
+  const screen1 = await prisma.screen.upsert({
+    where: { code: screen1Code }, // FIX: Menggunakan code (pengganti macAddress)
+    update: {},
+    create: {
+      propertyId: property.id,
+      name: 'Lobby Utama TV',
+      code: screen1Code, // FIX: code
+      resolution: '1920x1080',
+      orientation: ScreenOrientation.LANDSCAPE,
+      status: ScreenStatus.ONLINE,
+      ipAddress: '192.168.1.101',
+      roomCategory: RoomCategory.LOBBY,
     },
   });
-  console.log('✅ Property 2 Created:', hospital.name);
 
-  // 5. Create Screens for Hotel
-  await prisma.screen.createMany({
-    data: [
-      {
-        propertyId: hotel.id,
-        name: 'Lobby Utama TV',
-        macAddress: 'AA:BB:CC:DD:EE:01',
-        zone: AdZone.INFORMATION, // TV Informasi
-      },
-      {
-        propertyId: hotel.id,
-        name: 'Kamar 101 TV',
-        macAddress: 'AA:BB:CC:DD:EE:02',
-        zone: AdZone.SCREENSAVER, // TV Kamar
-      },
-    ],
+  const screen2Code = 'AA:BB:CC:DD:EE:02';
+  const screen2 = await prisma.screen.upsert({
+    where: { code: screen2Code }, // FIX: Menggunakan code
+    update: {},
+    create: {
+      propertyId: property.id,
+      name: 'Restoran TV',
+      code: screen2Code, // FIX: code
+      resolution: '1920x1080',
+      orientation: ScreenOrientation.LANDSCAPE,
+      status: ScreenStatus.ONLINE,
+      ipAddress: '192.168.1.102',
+      roomCategory: RoomCategory.RESTAURANT,
+    },
   });
-  console.log('✅ Screens created for Hotel');
 
-  console.log('🏁 Seeding finished.');
+  console.log('✅ Screens created');
+  console.log('🚀 Seeding finished.');
 }
 
 main()
