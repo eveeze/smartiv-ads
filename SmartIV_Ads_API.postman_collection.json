@@ -1,14 +1,14 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-auto-v1",
-    "name": "SmartIV Ads Management (Auto Config)",
-    "description": "Production ready collection. Just Import & Run! No environment setup needed.",
+    "_postman_id": "smartiv-ads-complete-v4",
+    "name": "SmartIV Ads (Fixed Data Wrapper)",
+    "description": "Collection with fixed script to handle NestJS TransformInterceptor response structure (data.accessToken).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "base_url",
-      "value": "http://localhost:3000",
+      "value": "http://localhost:3000/api",
       "type": "string"
     },
     {
@@ -32,7 +32,12 @@
       "type": "string"
     },
     {
-      "key": "access_token",
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "advertiser_token",
       "value": "",
       "type": "string"
     },
@@ -54,7 +59,7 @@
   ],
   "item": [
     {
-      "name": "🔐 Auth Module",
+      "name": "1. 🔐 Auth Module",
       "item": [
         {
           "name": "Register Advertiser",
@@ -86,12 +91,14 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
-                  "pm.test(\"Status code is 200\", function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "if (jsonData.accessToken) {",
-                  "    pm.collectionVariables.set(\"access_token\", jsonData.accessToken);",
-                  "    console.log(\"✅ Admin Token Auto-Set!\");",
+                  "// Fix: Access token inside 'data' wrapper",
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    if (jsonData.data && jsonData.data.accessToken) {",
+                  "        pm.collectionVariables.set(\"admin_token\", jsonData.data.accessToken);",
+                  "        console.log(\"✅ ADMIN TOKEN SAVED: \" + jsonData.data.accessToken.substring(0, 10) + \"...\");",
+                  "    } else {",
+                  "        console.error(\"❌ TOKEN NOT FOUND IN RESPONSE DATA\");",
+                  "    }",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -126,12 +133,14 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
-                  "pm.test(\"Status code is 200\", function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "if (jsonData.accessToken) {",
-                  "    pm.collectionVariables.set(\"access_token\", jsonData.accessToken);",
-                  "    console.log(\"✅ Advertiser Token Auto-Set!\");",
+                  "// Fix: Access token inside 'data' wrapper",
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    if (jsonData.data && jsonData.data.accessToken) {",
+                  "        pm.collectionVariables.set(\"advertiser_token\", jsonData.data.accessToken);",
+                  "        console.log(\"✅ ADVERTISER TOKEN SAVED: \" + jsonData.data.accessToken.substring(0, 10) + \"...\");",
+                  "    } else {",
+                  "        console.error(\"❌ TOKEN NOT FOUND IN RESPONSE DATA\");",
+                  "    }",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -161,14 +170,18 @@
         {
           "name": "Get Profile (Me)",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/auth/me",
               "host": ["{{base_url}}"],
@@ -180,290 +193,355 @@
       ]
     },
     {
-      "name": "🏢 Inventory Module (Admin)",
+      "name": "2. 🏢 Inventory Module (Admin)",
       "item": [
         {
-          "name": "Create Property",
-          "event": [
+          "name": "Properties",
+          "item": [
             {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "pm.test(\"Status code is 201\", function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
-                  "if (jsonData.id) {",
-                  "    pm.collectionVariables.set(\"property_id\", jsonData.id);",
-                  "    console.log(\"✅ Property ID Saved: \" + jsonData.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"name\": \"Grand Hotel Postman\",\n    \"type\": \"HOTEL\",\n    \"classification\": \"PREMIUM\",\n    \"city\": \"Jakarta\",\n    \"smartivCode\": \"GHP-{{$timestamp}}\",\n    \"enabledSlots\": [\"SCREENSAVER\", \"INFO_SLIDER\"]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/inventory/properties",
-              "host": ["{{base_url}}"],
-              "path": ["inventory", "properties"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get All Properties",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/inventory/properties?page=1&take=10&order=ASC",
-              "host": ["{{base_url}}"],
-              "path": ["inventory", "properties"],
-              "query": [
+              "name": "Create Property",
+              "event": [
                 {
-                  "key": "page",
-                  "value": "1"
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "// Fix: Access ID inside 'data' wrapper",
+                      "if (pm.response.code === 201) {",
+                      "    if (jsonData.data && jsonData.data.id) {",
+                      "        pm.collectionVariables.set(\"property_id\", jsonData.data.id);",
+                      "        console.log(\"✅ Property ID Saved: \" + jsonData.data.id);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
                 },
-                {
-                  "key": "take",
-                  "value": "10"
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Grand Hotel Postman\",\n    \"type\": \"HOTEL\",\n    \"classification\": \"PREMIUM\",\n    \"city\": \"Jakarta\",\n    \"smartivCode\": \"GHP-{{$timestamp}}\",\n    \"enabledSlots\": [\"SCREENSAVER\", \"INFO_SLIDER\"]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
                 },
-                {
-                  "key": "order",
-                  "value": "ASC"
+                "url": {
+                  "raw": "{{base_url}}/inventory/properties",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "properties"]
                 }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Property Detail",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/inventory/properties/{{property_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["inventory", "properties", "{{property_id}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Property",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"name\": \"Grand Hotel Postman Updated\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              },
+              "response": []
             },
-            "url": {
-              "raw": "{{base_url}}/inventory/properties/{{property_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["inventory", "properties", "{{property_id}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Create Screen",
-          "event": [
             {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "pm.test(\"Status code is 201\", function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
-                  "if (jsonData.id) {",
-                  "    pm.collectionVariables.set(\"screen_id\", jsonData.id);",
-                  "    console.log(\"✅ Screen ID Saved: \" + jsonData.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"propertyId\": {{property_id}},\n    \"name\": \"Lobby Main TV\",\n    \"code\": \"MAC-ADDRESS-TEST-{{$timestamp}}\",\n    \"orientation\": \"LANDSCAPE\",\n    \"roomCategory\": \"LOBBY\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "name": "Get All Properties",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventory/properties?page=1&take=10",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "properties"],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "take",
+                      "value": "10"
+                    }
+                  ]
                 }
-              }
+              },
+              "response": []
             },
-            "url": {
-              "raw": "{{base_url}}/inventory/screens",
-              "host": ["{{base_url}}"],
-              "path": ["inventory", "screens"]
+            {
+              "name": "Get Property Detail",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventory/properties/{{property_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "properties", "{{property_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Property",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Grand Hotel Postman Updated\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/inventory/properties/{{property_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "properties", "{{property_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Property",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventory/properties/{{property_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "properties", "{{property_id}}"]
+                }
+              },
+              "response": []
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "Get All Screens",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/inventory/screens?propertyId={{property_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["inventory", "screens"],
-              "query": [
+          "name": "Screens",
+          "item": [
+            {
+              "name": "Create Screen",
+              "event": [
                 {
-                  "key": "propertyId",
-                  "value": "{{property_id}}"
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "// Fix: Access ID inside 'data' wrapper",
+                      "if (pm.response.code === 201) {",
+                      "    if (jsonData.data && jsonData.data.id) {",
+                      "        pm.collectionVariables.set(\"screen_id\", jsonData.data.id);",
+                      "        console.log(\"✅ Screen ID Saved: \" + jsonData.data.id);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
                 }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Screen",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"status\": \"MAINTENANCE\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"propertyId\": {{property_id}},\n    \"name\": \"Lobby TV Main\",\n    \"code\": \"MAC-{{$timestamp}}\",\n    \"orientation\": \"LANDSCAPE\",\n    \"roomCategory\": \"LOBBY\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/inventory/screens",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "screens"]
                 }
-              }
+              },
+              "response": []
             },
-            "url": {
-              "raw": "{{base_url}}/inventory/screens/{{screen_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["inventory", "screens", "{{screen_id}}"]
+            {
+              "name": "Get All Screens",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventory/screens?propertyId={{property_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "screens"],
+                  "query": [
+                    {
+                      "key": "propertyId",
+                      "value": "{{property_id}}"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Screen Detail",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventory/screens/{{screen_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "screens", "{{screen_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Screen",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"status\": \"MAINTENANCE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/inventory/screens/{{screen_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "screens", "{{screen_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Screen",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventory/screens/{{screen_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "screens", "{{screen_id}}"]
+                }
+              },
+              "response": []
             }
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Screen",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/inventory/screens/{{screen_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["inventory", "screens", "{{screen_id}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Property",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/inventory/properties/{{property_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["inventory", "properties", "{{property_id}}"]
-            }
-          },
-          "response": []
+          ]
         }
       ]
     },
     {
-      "name": "🎥 Media Module",
+      "name": "3. 🎥 Media Module",
       "item": [
         {
-          "name": "Upload Media (Image)",
+          "name": "Upload Media (Image/Video)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
-                  "pm.test(\"Status code is 201\", function () {",
-                  "    pm.response.to.have.status(201);",
-                  "});",
-                  "if (jsonData.id) {",
-                  "    pm.collectionVariables.set(\"media_id\", jsonData.id);",
-                  "    console.log(\"✅ Media ID Saved: \" + jsonData.id);",
+                  "// Fix: Access ID inside 'data' wrapper",
+                  "if (pm.response.code === 201) {",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.collectionVariables.set(\"media_id\", jsonData.data.id);",
+                  "        console.log(\"✅ Media ID Saved: \" + jsonData.data.id);",
+                  "    }",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -471,14 +549,18 @@
             }
           ],
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -500,14 +582,18 @@
         {
           "name": "Get All My Media",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/media",
               "host": ["{{base_url}}"],
@@ -519,14 +605,18 @@
         {
           "name": "Get Pending Media (Admin)",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/media/pending",
               "host": ["{{base_url}}"],
@@ -538,14 +628,18 @@
         {
           "name": "Approve Media (Admin)",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "body": {
               "mode": "raw",
               "raw": "{\n    \"status\": \"APPROVED\"\n}",
@@ -566,17 +660,21 @@
         {
           "name": "Reject Media (Admin)",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"status\": \"REJECTED\",\n    \"rejectionReason\": \"Kualitas gambar buram\"\n}",
+              "raw": "{\n    \"status\": \"REJECTED\",\n    \"rejectionReason\": \"Kualitas buruk / Melanggar aturan\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
