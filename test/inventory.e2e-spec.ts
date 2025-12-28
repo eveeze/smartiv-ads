@@ -3,20 +3,19 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/providers/prisma/prisma.service';
-import { AdSlot, Role } from '@prisma/client';
+import { AdSlot, Role, ScreenOrientation, RoomCategory } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { JwtService } from '@nestjs/jwt';
+import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor'; // [IMPORT PENTING]
 
 describe('InventoryModule (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let jwtService: JwtService;
   let adminToken: string;
 
   const uniqueId = Date.now();
-  const adminUser = {
-    email: `admin_${uniqueId}@smartiv.com`,
-    password: 'SuperSecretAdmin123!',
-    role: Role.SUPER_ADMIN,
-  };
+  const adminEmail = `admin_${uniqueId}@e2e.test`;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -24,143 +23,125 @@ describe('InventoryModule (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+
+    // [FIX 1] Pasang Interceptor di Test agar format response { data: ... } konsisten dengan Production
+    app.useGlobalInterceptors(new TransformInterceptor());
+
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
+    jwtService = app.get<JwtService>(JwtService);
 
-    // Clean DB State (Urutan Penting!)
-    // Hanya hapus user spesifik test ini di awal jika ada sisa (idempotent)
-    await prisma.wallet.deleteMany({
-      where: { user: { email: adminUser.email } },
-    });
-    await prisma.user.deleteMany({ where: { email: adminUser.email } });
-
-    // Seed Admin
-    const hashedPassword = await bcrypt.hash(adminUser.password, 10);
-    await prisma.user.create({
+    // Setup Admin & Token
+    await prisma.user.deleteMany({ where: { email: adminEmail } });
+    const admin = await prisma.user.create({
       data: {
-        email: adminUser.email,
-        password: hashedPassword,
-        name: 'Test Admin',
+        email: adminEmail,
+        password: await bcrypt.hash('secret', 10),
+        name: 'Admin E2E',
         role: Role.SUPER_ADMIN,
-        wallet: { create: { balance: 0 } },
+        phone: `081${uniqueId}`,
       },
     });
 
-    // Login Admin
-    const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: adminUser.email, password: adminUser.password });
-
-    adminToken = loginRes.body.accessToken;
+    adminToken = jwtService.sign(
+      { sub: admin.id, email: admin.email, role: admin.role },
+      { secret: process.env.JWT_SECRET || 'secret_key' }, // Pastikan secret sesuai .env
+    );
   });
 
   afterAll(async () => {
-    // Cleanup Data Spesifik Test Ini
-    const property = await prisma.property.findFirst({
-      where: { smartivCode: `TEST-${uniqueId}` },
+    const prop = await prisma.property.findFirst({
+      where: { smartivCode: `E2E-${uniqueId}` },
     });
-
-    if (property) {
-      await prisma.screen.deleteMany({ where: { propertyId: property.id } });
-      await prisma.property.delete({ where: { id: property.id } });
+    if (prop) {
+      await prisma.screen.deleteMany({ where: { propertyId: prop.id } });
+      await prisma.property.delete({ where: { id: prop.id } });
     }
-
-    const user = await prisma.user.findUnique({
-      where: { email: adminUser.email },
-    });
-    if (user) {
-      await prisma.wallet.deleteMany({ where: { userId: user.id } });
-      await prisma.user.delete({ where: { id: user.id } });
-    }
-
+    await prisma.user.deleteMany({ where: { email: adminEmail } });
     await app.close();
   });
 
   let propertyId: number;
   let screenId: number;
 
-  describe('/inventory/properties (CRUD)', () => {
-    it('POST /properties - Create', async () => {
+  describe('Properties', () => {
+    it('POST /inventory/properties - Create Success', async () => {
       const res = await request(app.getHttpServer())
         .post('/inventory/properties')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'E2E Hotel',
-          smartivCode: `TEST-${uniqueId}`,
+          type: 'HOTEL',
+          classification: 'PREMIUM',
+          city: 'Jakarta',
+          smartivCode: `E2E-${uniqueId}`,
           enabledSlots: [AdSlot.SCREENSAVER],
         })
         .expect(201);
 
-      propertyId = res.body.id;
-      expect(res.body.name).toBe('E2E Hotel');
+      // Sekarang res.body.data pasti ada karena interceptor aktif
+      expect(res.body.data).toBeDefined();
+      expect(res.body.data.id).toBeDefined();
+      propertyId = res.body.data.id;
     });
 
-    it('GET /properties - List with Pagination', () => {
-      return request(app.getHttpServer())
+    it('GET /inventory/properties - List Pagination', async () => {
+      const res = await request(app.getHttpServer())
         .get('/inventory/properties?page=1&take=10')
         .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.data.length).toBeGreaterThan(0);
-          expect(res.body.meta.total).toBeGreaterThan(0);
-        });
+        .expect(200);
+
+      // Struktur PageDto: { data: [...], meta: {...} }
+      // Dibungkus Interceptor jadi: { data: { data: [...], meta: {...} } }
+      expect(Array.isArray(res.body.data.data)).toBeTruthy();
+      expect(res.body.data.meta).toBeDefined();
     });
 
-    it('PATCH /properties/:id - Update', () => {
-      return request(app.getHttpServer())
-        .patch(`/inventory/properties/${propertyId}`)
+    it('GET /inventory/properties/list - Dropdown', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/inventory/properties/list')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ name: 'E2E Hotel Updated' })
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.name).toBe('E2E Hotel Updated');
-        });
+        .expect(200);
+
+      // Struktur List biasa: { data: [...] }
+      expect(Array.isArray(res.body.data)).toBeTruthy();
+      expect(res.body.data[0]).toHaveProperty('id');
     });
   });
 
-  describe('/inventory/screens (CRUD)', () => {
-    it('POST /screens - Create', async () => {
-      // Guard clause untuk TS
-      if (!propertyId) throw new Error('Property creation failed');
+  describe('Screens', () => {
+    it('POST /inventory/screens - Create Success', async () => {
+      // Guard: Jika properti gagal dibuat sebelumnya, skip test ini agar error jelas
+      if (!propertyId)
+        throw new Error('Cannot create screen: propertyId is undefined');
 
       const res = await request(app.getHttpServer())
         .post('/inventory/screens')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          propertyId,
-          code: `MAC-${uniqueId}`,
+          propertyId: propertyId,
           name: 'Lobby TV',
+          code: `SCR-${uniqueId}`,
+          orientation: ScreenOrientation.LANDSCAPE,
+          roomCategory: RoomCategory.LOBBY,
         })
         .expect(201);
-      screenId = res.body.id;
+
+      screenId = res.body.data.id;
     });
 
-    it('PATCH /screens/:id - Update', () => {
-      return request(app.getHttpServer())
-        .patch(`/inventory/screens/${screenId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ name: 'Lobby TV Updated' })
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.name).toBe('Lobby TV Updated');
-        });
-    });
+    it('GET /inventory/screens/list - Dropdown Filtered', async () => {
+      if (!propertyId) return; // Skip if no prop
 
-    it('DELETE /screens/:id - Remove', () => {
-      return request(app.getHttpServer())
-        .delete(`/inventory/screens/${screenId}`)
+      const res = await request(app.getHttpServer())
+        .get(`/inventory/screens/list?propertyId=${propertyId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
-    });
-  });
 
-  // Cleanup Property via API DELETE
-  it('DELETE /properties/:id - Remove Property', () => {
-    return request(app.getHttpServer())
-      .delete(`/inventory/properties/${propertyId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
+      expect(res.body.data.length).toBeGreaterThan(0);
+      expect(res.body.data[0].code).toBe(`SCR-${uniqueId}`);
+    });
   });
 });

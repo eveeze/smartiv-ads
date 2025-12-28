@@ -6,7 +6,7 @@ import { QueueService } from '../../providers/queue/queue.service';
 import { BadRequestException } from '@nestjs/common';
 import { MediaType, User, Role } from '@prisma/client';
 
-// Mock UUID untuk menghindari error ESM di Jest
+// Mock UUID
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'test-uuid-123'),
 }));
@@ -82,12 +82,13 @@ describe('MediaService', () => {
 
       expect(storage.uploadFile).toHaveBeenCalled();
 
-      // FIX: Tambahkan wrapper 'data' di dalam expect
+      // [FIX] Cek nested data object karena prisma.create({ data: ... })
       expect(prisma.media.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             type: MediaType.IMAGE,
             isTranscoded: true,
+            uploaderId: mockUser.id,
           }),
         }),
       );
@@ -112,7 +113,6 @@ describe('MediaService', () => {
 
       await service.uploadMedia(videoFile, mockUser);
 
-      // FIX: Tambahkan wrapper 'data' di dalam expect
       expect(prisma.media.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -138,11 +138,10 @@ describe('MediaService', () => {
     it('should return user media list', async () => {
       mockPrisma.media.findMany.mockResolvedValue([]);
 
-      // FIX: Kirim object mockUser, bukan angka 1
       await service.findAll(mockUser);
 
       expect(prisma.media.findMany).toHaveBeenCalledWith({
-        where: { uploaderId: mockUser.id }, // Pastikan ini mengambil ID dari user object
+        where: { uploaderId: mockUser.id },
         orderBy: { createdAt: 'desc' },
       });
     });

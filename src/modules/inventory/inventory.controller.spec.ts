@@ -5,6 +5,7 @@ import { CreatePropertyDto } from './dto/create-property.dto';
 import { CreateScreenDto } from './dto/create-screen.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { PageOptionsDto } from '../../common/dto/page-options.dto';
+import { ScreenPageOptionsDto } from './dto/screen-page-options.dto';
 import {
   AdSlot,
   Property,
@@ -19,26 +20,29 @@ describe('InventoryController', () => {
   let controller: InventoryController;
   let service: InventoryService;
 
-  // Mock Service Lengkap
+  // Mock Service
   const mockInventoryService = {
     createProperty: jest.fn(),
     findAllProperties: jest.fn(),
+    getPropertiesList: jest.fn(),
     findOneProperty: jest.fn(),
     updateProperty: jest.fn(),
     removeProperty: jest.fn(),
     createScreen: jest.fn(),
     findAllScreens: jest.fn(),
+    getScreensList: jest.fn(),
     findOneScreen: jest.fn(),
     updateScreen: jest.fn(),
     removeScreen: jest.fn(),
   };
 
+  // [FIX] Tambahkan field smartivId (sesuai schema Prisma terbaru)
   const mockProperty: Property = {
     id: 1,
     name: 'Test Hotel',
     type: PropertyType.HOTEL,
     classification: PropertyClass.STANDARD,
-    smartivId: null,
+    smartivId: null, // <-- FIELD INI YANG HILANG SEBELUMNYA
     smartivCode: 'TEST01',
     baseColor: null,
     activeColor: null,
@@ -93,6 +97,10 @@ describe('InventoryController', () => {
     it('should create property', async () => {
       const dto: CreatePropertyDto = {
         name: 'Test',
+        type: PropertyType.HOTEL,
+        classification: PropertyClass.STANDARD,
+        city: 'Jkt',
+        smartivCode: 'HTL-01',
         enabledSlots: [AdSlot.SCREENSAVER],
       };
       mockInventoryService.createProperty.mockResolvedValue(mockProperty);
@@ -111,6 +119,14 @@ describe('InventoryController', () => {
       });
       await controller.findAllProperties(pageOpts);
       expect(service.findAllProperties).toHaveBeenCalledWith(pageOpts);
+    });
+  });
+
+  describe('getPropertiesList', () => {
+    it('should return lightweight property list', async () => {
+      mockInventoryService.getPropertiesList.mockResolvedValue([mockProperty]);
+      await controller.getPropertiesList();
+      expect(service.getPropertiesList).toHaveBeenCalled();
     });
   });
 
@@ -152,6 +168,8 @@ describe('InventoryController', () => {
         propertyId: 1,
         code: 'CODE',
         name: 'Name',
+        orientation: ScreenOrientation.LANDSCAPE,
+        roomCategory: 'LOBBY' as any,
       };
       mockInventoryService.createScreen.mockResolvedValue(mockScreen);
       const result = await controller.createScreen(dto);
@@ -162,13 +180,23 @@ describe('InventoryController', () => {
 
   describe('findAllScreens', () => {
     it('should return screens list', async () => {
-      const pageOpts = new PageOptionsDto();
+      const pageOpts = new ScreenPageOptionsDto();
       mockInventoryService.findAllScreens.mockResolvedValue({
         data: [mockScreen],
         meta: {},
       });
       await controller.findAllScreens(pageOpts);
-      expect(service.findAllScreens).toHaveBeenCalledWith(pageOpts, undefined);
+
+      // FIX: Hanya expect 1 argument (tanpa undefined)
+      expect(service.findAllScreens).toHaveBeenCalledWith(pageOpts);
+    });
+  });
+
+  describe('getScreensList', () => {
+    it('should return lightweight screens list', async () => {
+      mockInventoryService.getScreensList.mockResolvedValue([mockScreen]);
+      await controller.getScreensList(1);
+      expect(service.getScreensList).toHaveBeenCalledWith(1);
     });
   });
 

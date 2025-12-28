@@ -21,9 +21,8 @@ export class TransformInterceptor<T> implements NestInterceptor<
       map((data) => ({
         statusCode: context.switchToHttp().getResponse().statusCode,
         success: true,
-        // Pastikan ini bahasa Inggris sesuai Test Spec
         message: data?.message || 'Operation successful',
-        data: data?.data || data,
+        data: data,
       })),
     );
   }

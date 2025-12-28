@@ -16,18 +16,25 @@ jest.mock('fs', () => ({
   statSync: jest.fn().mockReturnValue({ isDirectory: () => false }),
 }));
 
+// Mock MediaUtils agar tidak memanggil ffmpeg sungguhan
+jest.mock('../../../common/utils/media.utils', () => ({
+  MediaUtils: {
+    hasAudioStream: jest.fn().mockResolvedValue(true),
+  },
+}));
+
 // Mock fluent-ffmpeg
 jest.mock('fluent-ffmpeg', () => {
-  return () => ({
+  return jest.fn().mockImplementation(() => ({
     screenshots: jest.fn().mockReturnThis(),
     output: jest.fn().mockReturnThis(),
     addOptions: jest.fn().mockReturnThis(),
     on: jest.fn().mockImplementation((event, callback) => {
       if (event === 'end') callback();
-      return this;
+      return { run: jest.fn() }; // Chainable run()
     }),
     run: jest.fn(),
-  });
+  }));
 });
 
 describe('TranscodeProcessor', () => {
