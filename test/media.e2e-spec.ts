@@ -21,19 +21,19 @@ describe('MediaModule (e2e)', () => {
   };
 
   const testUser = {
-    email: `media_final_${Date.now()}@test.com`,
+    email: `media_secure_${Date.now()}@test.com`,
     password: 'password123',
   };
 
-  // 1. Valid 1x1 Pixel JPEG (Full Structure)
-  const validJpgBase64 =
-    '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
-  const jpgBuffer = Buffer.from(validJpgBase64, 'base64');
-
-  // 2. Valid Minimal MP4 Container (ISO Base Media)
-  const validMp4Base64 =
-    'AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAACVtZGF0';
-  const mp4Buffer = Buffer.from(validMp4Base64, 'base64');
+  // HEADER BINARY ASLI (PENTING UNTUK SECURITY CHECK)
+  // Ini adalah data hex minimal agar library 'file-type' mengenalinya sebagai JPG & MP4
+  const validJpgBuffer = Buffer.from([
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+  ]);
+  const validMp4Buffer = Buffer.from([
+    0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d,
+    0x00, 0x00, 0x02, 0x00,
+  ]);
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -86,20 +86,8 @@ describe('MediaModule (e2e)', () => {
         request(app.getHttpServer())
           .post('/media/upload')
           .set('Authorization', `Bearer ${token}`)
-          // Kirim Buffer Valid JPG + Nama File + MIME Type
-          .attach('file', jpgBuffer, {
-            filename: 'test.jpg',
-            contentType: 'image/jpeg',
-          })
-          .expect((res) => {
-            // Debugging log jika masih error (akan muncul di console)
-            if (res.status !== 201) {
-              console.error(
-                'Image Upload Error Response:',
-                JSON.stringify(res.body, null, 2),
-              );
-            }
-          })
+          // Kirim Buffer Valid
+          .attach('file', validJpgBuffer, { filename: 'test.jpg' })
           .expect(201)
           .expect((res) => {
             expect(res.body).toHaveProperty('id');
@@ -114,19 +102,8 @@ describe('MediaModule (e2e)', () => {
         request(app.getHttpServer())
           .post('/media/upload')
           .set('Authorization', `Bearer ${token}`)
-          // Kirim Buffer Valid MP4
-          .attach('file', mp4Buffer, {
-            filename: 'video.mp4',
-            contentType: 'video/mp4',
-          })
-          .expect((res) => {
-            if (res.status !== 201) {
-              console.error(
-                'Video Upload Error Response:',
-                JSON.stringify(res.body, null, 2),
-              );
-            }
-          })
+          // Kirim Buffer Valid
+          .attach('file', validMp4Buffer, { filename: 'video.mp4' })
           .expect(201)
           .expect((res) => {
             expect(res.body.mimeType).toBe('video/mp4');
@@ -142,17 +119,21 @@ describe('MediaModule (e2e)', () => {
         .expect(422);
     });
 
-    it('should fail for unsupported file type', async () => {
-      // Kirim buffer sembarang dengan ekstensi .pdf
-      const buffer = Buffer.from('fake-pdf-content');
-      return request(app.getHttpServer())
-        .post('/media/upload')
-        .set('Authorization', `Bearer ${token}`)
-        .attach('file', buffer, {
-          filename: 'doc.pdf',
-          contentType: 'application/pdf',
-        })
-        .expect(422);
+    // Test Security: Kirim file sampah tapi rename jadi .jpg
+    it('should fail for fake file content (Security Check)', async () => {
+      const fakeBuffer = Buffer.from('ini-bukan-gambar-beneran');
+      return (
+        request(app.getHttpServer())
+          .post('/media/upload')
+          .set('Authorization', `Bearer ${token}`)
+          // Kita coba tipu server dengan ekstensi jpg
+          .attach('file', fakeBuffer, { filename: 'hacker.jpg' })
+          .expect(422) // HARUS GAGAL (Unprocessable Entity) karena magic bytes salah
+          .expect((res) => {
+            // Pastikan pesan errornya dari validator kita
+            expect(res.body.message).toContain('Validation failed');
+          })
+      );
     });
   });
 
@@ -164,7 +145,6 @@ describe('MediaModule (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(Array.isArray(res.body)).toBe(true);
-          // Harapannya >= 2 karena image dan video di atas sukses
           expect(res.body.length).toBeGreaterThanOrEqual(2);
         });
     });

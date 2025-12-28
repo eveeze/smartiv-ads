@@ -5,9 +5,8 @@ import {
   UploadedFile,
   UseGuards,
   Get,
-  ParseFilePipeBuilder,
   HttpStatus,
-  FileValidator, // Import FileValidator
+  ParseFilePipeBuilder,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -21,24 +20,8 @@ import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
 import type { User } from '@prisma/client';
-
-// --- CUSTOM VALIDATOR ---
-// Kita buat validator sendiri agar kontrol logic regex-nya 100% di tangan kita
-export class CustomMimeTypeValidator extends FileValidator<{
-  fileType: RegExp;
-}> {
-  isValid(file: any): boolean {
-    // Pastikan mimetype ada
-    if (!file.mimetype) return false;
-    // Test regex manual
-    return this.validationOptions.fileType.test(file.mimetype);
-  }
-
-  buildErrorMessage(file: any): string {
-    return `Validation failed. Type '${file.mimetype}' is not supported.`;
-  }
-}
-// ------------------------
+// Import validator aman yang baru kita buat
+import { FileSignatureValidatorPipe } from '../../common/pipes/file-signature.pipe';
 
 @ApiTags('Media (Upload)')
 @ApiBearerAuth()
@@ -64,20 +47,16 @@ export class MediaController {
   @UseInterceptors(FileInterceptor('file'))
   uploadFile(
     @UploadedFile(
+      // 1. Validasi Ukuran (Cepat, cek header dulu)
       new ParseFilePipeBuilder()
-        // Ganti addFileTypeValidator bawaan dengan addValidator custom kita
-        .addValidator(
-          new CustomMimeTypeValidator({
-            // Regex: String diawali dengan "image/" atau "video/"
-            fileType: /^(image|video)\//,
-          }),
-        )
         .addMaxSizeValidator({
           maxSize: 200 * 1024 * 1024, // 200MB limit
         })
         .build({
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
         }),
+      // 2. Validasi Keamanan (Cek isi file / Magic Bytes)
+      new FileSignatureValidatorPipe(),
     )
     file: Express.Multer.File,
     @CurrentUser() user: User,
