@@ -44,7 +44,7 @@ _Definition of Done: User bisa Register/Login, API terdokumentasi di Scalar, dan
 
 ---
 
-## 🏢 Phase 3: Inventory Module (Production Grade)
+## 🏢 Phase 3: Inventory Module (Status: COMPLETED ✅)
 
 _Definition of Done: Admin bisa Full CRUD Property/Screen dengan Pagination, Filter, dan Validasi Ketat._
 
@@ -62,37 +62,71 @@ _Definition of Done: Admin bisa Full CRUD Property/Screen dengan Pagination, Fil
   - [x] **Unit Test:** Update test untuk cover Update, Delete, dan Pagination.
   - [x] **E2E Test:** Test flow lengkap CRUD.
 
-## 🎥 Phase 4: Media Pipeline (Hard Part) (Status: NEXT UP 🚀)
+---
 
-_Definition of Done: Upload file -> Masuk Queue -> Transcoding Sukses -> Update Status._
+## 🎥 Phase 4: Media Pipeline (Hard Part) (Status: COMPLETED ✅)
 
-- [ ] **Step 1: Infrastructure**
-  - [ ] Setup `BullModule` (Redis) di `app.module.ts`.
-  - [ ] Setup `StorageModule` (MinIO/S3) untuk handle upload.
-  - [ ] **Test:** Unit test `StorageService` (Mock S3 Client).
-- [ ] **Step 2: Upload Logic**
-  - [ ] DTO: `UploadMediaDto` (Validation: MimeType Image/Video only).
-  - [ ] **Doc:** Setup Scalar untuk File Upload (Multipart/Form-Data).
-  - [ ] Controller & Service: Handle upload raw file & save metadata to DB.
-- [ ] **Step 3: Transcoding Worker (Video Processing)**
-  - [ ] Processor: `TranscodeProcessor` (Menggunakan FFmpeg/Fluent-FFmpeg).
-  - [ ] Logic: Convert Video -> HLS (.m3u8) untuk streaming ringan di TV.
-  - [ ] **Integration Test:** Pastikan Job masuk ke Redis dan diproses.
+_Definition of Done: Upload file aman -> Masuk Queue -> Transcoding Sukses -> Update Status._
+
+- [x] **Step 1: Infrastructure**
+  - [x] Setup `BullModule` (Redis) di `app.module.ts`.
+  - [x] Setup `StorageModule` (MinIO/S3) untuk handle upload.
+  - [x] **Test:** Unit test `StorageService` (Mock S3 Client).
+- [x] **Step 2: Upload Logic**
+  - [x] DTO: `UploadMediaDto` (Validation: MimeType Image/Video only).
+  - [x] **Security:** Implementasi `FileSignatureValidatorPipe` (Magic Bytes Check).
+  - [x] Controller & Service: Handle upload raw file & save metadata to DB.
+- [x] **Step 3: Transcoding Worker (Video Processing)**
+  - [x] Processor: `TranscodeProcessor` (Menggunakan FFmpeg/Fluent-FFmpeg).
+  - [x] Logic: Convert Video -> HLS (.m3u8) untuk streaming ringan di TV.
+  - [x] **Integration Test:** Pastikan Job masuk ke Redis dan diproses.
+- [x] **Step 4: E2E Verification**
+  - [x] **E2E Test:** `test/media.e2e-spec.ts` (Upload Image, Upload Video, Security Check).
 
 ---
 
-## 💰 Phase 5: Campaign & Finance
+## 🛡️ Phase 4.5: Media Moderation (Status: NEXT UP 🚀)
 
-_Definition of Done: Saldo berkurang atomik saat campaign dibuat._
+_Definition of Done: SuperAdmin bisa Approve/Reject konten sebelum digunakan di Campaign._
 
-- [ ] **Step 1: Wallet Logic**
+- [ ] **Step 1: Schema Update**
+  - [ ] Update `Media` Model: Tambah Enum `ApprovalStatus { PENDING, APPROVED, REJECTED }`.
+  - [ ] Generate Migration Prisma.
+- [ ] **Step 2: Admin Logic (Review)**
+  - [ ] Endpoint `GET /media/pending`: Admin melihat antrian moderasi.
+  - [ ] Endpoint `PATCH /media/:id/review`: Admin Approve/Reject (wajib alasan jika reject).
+  - [ ] **Logic:** Filter `findAll` agar Advertiser hanya lihat media miliknya.
+- [ ] **Step 3: Testing**
+  - [ ] **E2E Test:** Update `test/media.e2e-spec.ts` untuk flow approval.
+
+---
+
+## 💰 Phase 5: Finance & Rate Card
+
+_Definition of Done: Kalkulasi harga dinamis dan manajemen saldo wallet._
+
+- [ ] **Step 1: Rate Card Logic**
+  - [ ] **Test:** `rate-card.service.spec.ts`.
+  - [ ] Service: Implementasi `calculateCost` (Base Rate + Override).
+- [ ] **Step 2: Wallet Service**
   - [ ] **Test:** `wallet.service.spec.ts`.
-  - [ ] Service: `topupBalance` (Simulasi), `deductBalance` (Atomic Transaction).
-- [ ] **Step 2: Campaign Logic**
-  - [ ] DTO: `CreateCampaignDto` (Pilih Property, Slot, Date Range).
-  - [ ] **Test:** `campaign.service.spec.ts` (Validasi Saldo & Ketersediaan Slot).
-  - [ ] Service: `submitCampaign` (Create Campaign + Deduct Wallet dalam 1 transaksi).
-- [ ] **Step 3: End-to-End Flow**
+  - [ ] Service: `topupBalance` (Simulasi), `freezeBalance` (Hold dana), `deductBalance`.
+
+---
+
+## 📢 Phase 5.5: Campaign Workflow & Approval
+
+_Definition of Done: Flow lengkap Submit -> Review -> Active._
+
+- [ ] **Step 1: Campaign Creation**
+  - [ ] DTO: `CreateCampaignDto` (Validasi tanggal & slot).
+  - [ ] **Constraint:** Hanya boleh pilih Media dengan status `APPROVED`.
+- [ ] **Step 2: Submission Flow**
+  - [ ] Advertiser Submit -> Status `PENDING_REVIEW` -> Saldo di-hold.
+- [ ] **Step 3: Admin Review**
+  - [ ] Admin Approve -> Status `ACTIVE` -> Saldo dipotong permanen.
+  - [ ] Admin Reject -> Status `REJECTED` -> Saldo dikembalikan (Unfreeze).
+- [ ] **Step 4: End-to-End Flow**
   - [ ] **E2E Test:** `test/campaign-flow.e2e-spec.ts`.
 
 ---
@@ -103,7 +137,7 @@ _Definition of Done: TV bisa request config dan dapat playlist iklan yang sesuai
 
 - [ ] **Step 1: Logic & Caching**
   - [ ] Setup `@nestjs/cache-manager` (Redis Cache) untuk performa tinggi.
-  - [ ] Service: `getPlaylist(screenCode)` -> Filter Campaign aktif berdasarkan Property & Slot.
+  - [ ] Service: `getPlaylist(screenCode)` -> Filter Campaign `ACTIVE` & `APPROVED`.
 - [ ] **Step 2: API & Load Test**
   - [ ] Controller: `/player/config` (Query param: `code`).
   - [ ] **Doc:** Dokumentasikan struktur JSON Playlist (Penting untuk Tim Mobile).
@@ -112,7 +146,10 @@ _Definition of Done: TV bisa request config dan dapat playlist iklan yang sesuai
 
 ## 📊 Phase 7: Reporting
 
+_Definition of Done: Laporan impresi dan performa campaign._
+
 - [ ] **Step 1: Aggregation**
+  - [ ] Endpoint `POST /impression`: Terima telemetri dari TV.
   - [ ] Service: `getPerformanceReport()` (Hitung Impression).
 - [ ] **Step 2: Export API**
   - [ ] Controller: Download CSV Laporan Campaign.
