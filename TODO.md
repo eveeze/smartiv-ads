@@ -39,8 +39,8 @@ _Definition of Done: User bisa Register/Login, API terdokumentasi di Scalar, dan
   - [x] Implementasi `RolesGuard` (RBAC).
 - [x] **Step 4: API & Verification**
   - [x] Implementasi `AuthController`.
-  - [x] **Doc:** Tambahkan `@ApiOperation`, `@ApiResponse` di Controller.
-  - [x] **E2E Test:** Buat `test/auth.e2e-spec.ts` & Setup Test Environment.
+  - [x] **Endpoint:** `POST /auth/register`, `POST /auth/login`.
+  - [x] **E2E Test:** Buat `test/auth.e2e-spec.ts`.
 
 ---
 
@@ -50,17 +50,16 @@ _Definition of Done: Admin bisa Full CRUD Property/Screen dengan Pagination, Fil
 
 - [x] **Step 1: Interface & Schema**
   - [x] Update Prisma Schema (AdSlot, Sync Fields).
-  - [x] DTO: `CreatePropertyDto`, `CreateScreenDto`.
-- [x] **Step 2: Advanced Features (DTO Update)**
-  - [x] **DTO:** Buat `UpdatePropertyDto` & `UpdateScreenDto` (`PartialType`).
-  - [x] **DTO:** Buat `PageOptionsDto` (untuk Pagination & Filter).
-- [x] **Step 3: Logic Implementation (Full CRUD)**
-  - [x] **Service:** Implementasi `findAll` (dengan Pagination & Search), `update`, `remove`.
-  - [x] **Controller:** Endpoint `PATCH` dan `DELETE`.
-  - [x] **Logic:** Soft Delete (jika perlu) atau validasi sebelum delete (Cek relasi).
-- [x] **Step 4: Testing & Verification**
-  - [x] **Unit Test:** Update test untuk cover Update, Delete, dan Pagination.
-  - [x] **E2E Test:** Test flow lengkap CRUD.
+  - [x] DTO: `CreatePropertyDto`, `CreateScreenDto`, `PageOptionsDto`.
+- [x] **Step 2: Logic Implementation (Full CRUD)**
+  - [x] **Service:** Implementasi `findAll` (Pagination), `update`, `remove`.
+  - [x] **Controller:** Endpoint CRUD.
+- [x] **Step 3: CMS Endpoints Verification**
+  - [x] `GET /inventory/properties` (List Hotel).
+  - [x] `GET /inventory/screens` (List Layar).
+  - [x] `POST`, `PATCH`, `DELETE` untuk manajemen data.
+- [x] **Step 4: Testing**
+  - [x] **E2E Test:** Test flow lengkap CRUD (`test/inventory.e2e-spec.ts`).
 
 ---
 
@@ -69,48 +68,50 @@ _Definition of Done: Admin bisa Full CRUD Property/Screen dengan Pagination, Fil
 _Definition of Done: Upload file aman -> Masuk Queue -> Transcoding Sukses -> Update Status._
 
 - [x] **Step 1: Infrastructure**
-  - [x] Setup `BullModule` (Redis) di `app.module.ts`.
-  - [x] Setup `StorageModule` (MinIO/S3) untuk handle upload.
-  - [x] **Test:** Unit test `StorageService` (Mock S3 Client).
+  - [x] Setup `BullModule` (Redis) & `StorageModule` (MinIO/S3).
+  - [x] **Test:** Unit test `StorageService`.
 - [x] **Step 2: Upload Logic**
-  - [x] DTO: `UploadMediaDto` (Validation: MimeType Image/Video only).
-  - [x] **Security:** Implementasi `FileSignatureValidatorPipe` (Magic Bytes Check).
-  - [x] Controller & Service: Handle upload raw file & save metadata to DB.
-- [x] **Step 3: Transcoding Worker (Video Processing)**
-  - [x] Processor: `TranscodeProcessor` (Menggunakan FFmpeg/Fluent-FFmpeg).
-  - [x] Logic: Convert Video -> HLS (.m3u8) untuk streaming ringan di TV.
-  - [x] **Integration Test:** Pastikan Job masuk ke Redis dan diproses.
-- [x] **Step 4: E2E Verification**
-  - [x] **E2E Test:** `test/media.e2e-spec.ts` (Upload Image, Upload Video, Security Check).
+  - [x] DTO: `UploadMediaDto` (Validation: MimeType).
+  - [x] **Security:** `FileSignatureValidatorPipe` (Magic Bytes Check).
+  - [x] Controller: Handle upload raw file.
+- [x] **Step 3: Transcoding Worker**
+  - [x] Processor: `TranscodeProcessor` (FFmpeg Video -> HLS).
+  - [x] **Integration Test:** Job masuk Redis & diproses.
+- [x] **Step 4: Verification**
+  - [x] **E2E Test:** `test/media.e2e-spec.ts`.
 
 ---
 
-## 🛡️ Phase 4.5: Media Moderation (Status: NEXT UP 🚀)
+## 🛡️ Phase 4.5: Media Moderation (Status: COMPLETED ✅)
 
 _Definition of Done: SuperAdmin bisa Approve/Reject konten sebelum digunakan di Campaign._
 
-- [ ] **Step 1: Schema Update**
-  - [ ] Update `Media` Model: Tambah Enum `ApprovalStatus { PENDING, APPROVED, REJECTED }`.
-  - [ ] Generate Migration Prisma.
-- [ ] **Step 2: Admin Logic (Review)**
-  - [ ] Endpoint `GET /media/pending`: Admin melihat antrian moderasi.
-  - [ ] Endpoint `PATCH /media/:id/review`: Admin Approve/Reject (wajib alasan jika reject).
-  - [ ] **Logic:** Filter `findAll` agar Advertiser hanya lihat media miliknya.
-- [ ] **Step 3: Testing**
-  - [ ] **E2E Test:** Update `test/media.e2e-spec.ts` untuk flow approval.
+- [x] **Step 1: Schema Update**
+  - [x] Update `Media` Model: Enum `ApprovalStatus`, field `rejectionReason`.
+- [x] **Step 2: Admin Logic (Review)**
+  - [x] **Endpoint Admin:** `GET /media/pending` (List antrian moderasi).
+  - [x] **Endpoint Admin:** `PATCH /media/:id/review` (Action Approve/Reject).
+- [x] **Step 3: Testing**
+  - [x] **E2E Test:** Update `test/media.e2e-spec.ts` (Flow Upload -> Pending -> Review).
 
 ---
 
-## 💰 Phase 5: Finance & Rate Card
+## 💰 Phase 5: Finance & Rate Card (Status: NEXT UP 🚀)
 
-_Definition of Done: Kalkulasi harga dinamis dan manajemen saldo wallet._
+_Definition of Done: Manajemen saldo wallet & Kalkulasi harga dinamis._
 
-- [ ] **Step 1: Rate Card Logic**
-  - [ ] **Test:** `rate-card.service.spec.ts`.
-  - [ ] Service: Implementasi `calculateCost` (Base Rate + Override).
-- [ ] **Step 2: Wallet Service**
-  - [ ] **Test:** `wallet.service.spec.ts`.
-  - [ ] Service: `topupBalance` (Simulasi), `freezeBalance` (Hold dana), `deductBalance`.
+- [ ] **Step 1: Rate Card Schema & Logic**
+  - [ ] Schema: `RateCard` (Base Price per Property Class / Override per Screen).
+  - [ ] **Service:** `calculateCampaignCost(screenIds, startDate, endDate)`.
+  - [ ] **Endpoint Helper:** `POST /finance/calculate-cost` (Untuk frontend menampilkan estimasi harga sebelum submit).
+- [ ] **Step 2: Wallet Management**
+  - [ ] **Service:** `topupBalance`, `freezeBalance`, `deductBalance`.
+  - [ ] **Endpoint User:** `GET /finance/wallet` (Cek saldo sendiri).
+  - [ ] **Endpoint User:** `GET /finance/transactions` (History mutasi saldo).
+  - [ ] **Endpoint User:** `POST /finance/topup` (Simulasi payment gateway).
+- [ ] **Step 3: Admin Finance Dashboard**
+  - [ ] **Endpoint Admin:** `GET /finance/admin/transactions` (Audit seluruh transaksi user).
+  - [ ] **Endpoint Admin:** `GET /finance/admin/wallets` (Cek saldo user).
 
 ---
 
@@ -120,12 +121,15 @@ _Definition of Done: Flow lengkap Submit -> Review -> Active._
 
 - [ ] **Step 1: Campaign Creation**
   - [ ] DTO: `CreateCampaignDto` (Validasi tanggal & slot).
-  - [ ] **Constraint:** Hanya boleh pilih Media dengan status `APPROVED`.
+  - [ ] **Constraint:** Validasi Media `status === APPROVED` & Saldo Cukup.
+  - [ ] **Endpoint User:** `POST /campaigns` (Draft/Submit).
+  - [ ] **Endpoint User:** `GET /campaigns` (List campaign sendiri & statusnya).
 - [ ] **Step 2: Submission Flow**
-  - [ ] Advertiser Submit -> Status `PENDING_REVIEW` -> Saldo di-hold.
-- [ ] **Step 3: Admin Review**
-  - [ ] Admin Approve -> Status `ACTIVE` -> Saldo dipotong permanen.
-  - [ ] Admin Reject -> Status `REJECTED` -> Saldo dikembalikan (Unfreeze).
+  - [ ] Logic: Submit -> Status `PENDING_REVIEW` -> Trigger `freezeBalance`.
+- [ ] **Step 3: Admin Campaign Review**
+  - [ ] **Endpoint Admin:** `GET /campaigns/pending` (Queue campaign masuk).
+  - [ ] **Endpoint Admin:** `GET /campaigns/:id/detail` (Lihat detail slot & media).
+  - [ ] **Endpoint Admin:** `PATCH /campaigns/:id/review` (Approve -> Deduct Saldo / Reject -> Unfreeze).
 - [ ] **Step 4: End-to-End Flow**
   - [ ] **E2E Test:** `test/campaign-flow.e2e-spec.ts`.
 
@@ -136,20 +140,35 @@ _Definition of Done: Flow lengkap Submit -> Review -> Active._
 _Definition of Done: TV bisa request config dan dapat playlist iklan yang sesuai._
 
 - [ ] **Step 1: Logic & Caching**
-  - [ ] Setup `@nestjs/cache-manager` (Redis Cache) untuk performa tinggi.
+  - [ ] Setup `@nestjs/cache-manager` (Redis Cache).
   - [ ] Service: `getPlaylist(screenCode)` -> Filter Campaign `ACTIVE` & `APPROVED`.
 - [ ] **Step 2: API & Load Test**
-  - [ ] Controller: `/player/config` (Query param: `code`).
-  - [ ] **Doc:** Dokumentasikan struktur JSON Playlist (Penting untuk Tim Mobile).
+  - [ ] **Endpoint TV:** `GET /player/config?code=MAC_ADDRESS`.
+  - [ ] **Response:** JSON Playlist Standard (HLS URL, Duration, Type).
 
 ---
 
-## 📊 Phase 7: Reporting
+## 📊 Phase 7: Reporting & Analytics Dashboard
 
-_Definition of Done: Laporan impresi dan performa campaign._
+_Definition of Done: Admin & Advertiser bisa melihat performa iklan._
 
-- [ ] **Step 1: Aggregation**
-  - [ ] Endpoint `POST /impression`: Terima telemetri dari TV.
-  - [ ] Service: `getPerformanceReport()` (Hitung Impression).
-- [ ] **Step 2: Export API**
-  - [ ] Controller: Download CSV Laporan Campaign.
+- [ ] **Step 1: Telemetry Ingest**
+  - [ ] **Endpoint Player:** `POST /telemetry/impression` (TV lapor iklan tayang).
+  - [ ] **Worker:** Proses log impression secara async (agar endpoint cepat).
+- [ ] **Step 2: Advertiser Dashboard Endpoints**
+  - [ ] **Endpoint:** `GET /reports/campaign/:id/stats` (Total Impression, Cost).
+  - [ ] **Endpoint:** `GET /reports/export/csv` (Download laporan).
+- [ ] **Step 3: Super Admin Dashboard Endpoints**
+  - [ ] **Endpoint:** `GET /dashboard/summary` (Total Revenue, Active Screens, Active Campaigns).
+  - [ ] **Endpoint:** `GET /dashboard/occupancy` (Persentase slot terisi).
+
+---
+
+## 👥 Phase 8: User Management (CMS Extras)
+
+_Definition of Done: Admin bisa mengelola user yang terdaftar._
+
+- [ ] **Step 1: User Administration**
+  - [ ] **Endpoint Admin:** `GET /users` (List semua advertiser, filter by name/email).
+  - [ ] **Endpoint Admin:** `GET /users/:id` (Detail user & history campaign).
+  - [ ] **Endpoint Admin:** `PATCH /users/:id/status` (Block/Unblock user).
