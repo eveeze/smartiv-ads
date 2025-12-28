@@ -11,6 +11,7 @@ import { PlayerModule } from './modules/player/player.module';
 import { PrismaModule } from './providers/prisma/prisma.module';
 import { StorageModule } from './providers/storage/storage.module';
 import { QueueModule } from './providers/queue/queue.module';
+import { UsersModule } from './modules/users/users.module';
 import configuration, {
   validationSchema,
 } from './config/configuration/configuration';
@@ -36,6 +37,7 @@ import configuration, {
     PrismaModule,
     StorageModule,
     QueueModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

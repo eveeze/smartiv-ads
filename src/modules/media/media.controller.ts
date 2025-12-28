@@ -19,7 +19,6 @@ import {
   ApiBody,
   ApiTags,
   ApiOperation,
-  ApiResponse,
 } from '@nestjs/swagger';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
@@ -28,7 +27,6 @@ import { Roles } from '../../common/decorators/roles/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
 import { FileSignatureValidatorPipe } from '../../common/pipes/file-signature.pipe';
 import { ReviewMediaDto } from './dto/review-media.dto';
-// FIX: Pisahkan import. 'User' pakai 'import type', 'Role' pakai 'import' biasa.
 import { Role } from '@prisma/client';
 import type { User } from '@prisma/client';
 
@@ -38,8 +36,6 @@ import type { User } from '@prisma/client';
 @Controller('media')
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
-
-  // --- ADVERTISER & ADMIN ---
 
   @Post('upload')
   @Roles(Role.ADVERTISER, Role.SUPER_ADMIN)
@@ -62,7 +58,7 @@ export class MediaController {
       new FileSignatureValidatorPipe(),
     )
     file: Express.Multer.File,
-    @CurrentUser() user: User, // User di sini sekarang aman karena import type
+    @CurrentUser() user: User,
   ) {
     return this.mediaService.uploadMedia(file, user);
   }
@@ -74,20 +70,24 @@ export class MediaController {
     return this.mediaService.findAll(user);
   }
 
-  // --- SUPER ADMIN ONLY ---
-
   @Get('pending')
   @Roles(Role.SUPER_ADMIN)
   @ApiOperation({ summary: '[Admin] Get Pending Media Queue' })
-  @ApiResponse({ status: 200, description: 'List of pending media' })
   getPendingMedia() {
     return this.mediaService.getPendingMedia();
+  }
+
+  // [NEW] Get Detail Media
+  @Get(':id')
+  @Roles(Role.ADVERTISER, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get Media Detail by ID' })
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.mediaService.findOne(id);
   }
 
   @Patch(':id/review')
   @Roles(Role.SUPER_ADMIN)
   @ApiOperation({ summary: '[Admin] Approve or Reject Media' })
-  @ApiResponse({ status: 200, description: 'Media status updated' })
   reviewMedia(
     @Param('id', ParseIntPipe) id: number,
     @Body() reviewDto: ReviewMediaDto,

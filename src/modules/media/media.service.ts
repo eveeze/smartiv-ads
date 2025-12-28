@@ -2,7 +2,6 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../providers/prisma/prisma.service';
 import { StorageService } from '../../providers/storage/storage.service';
@@ -10,7 +9,7 @@ import { QueueService } from '../../providers/queue/queue.service';
 import { ApprovalStatus, MediaType, User, Role } from '@prisma/client';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { ReviewMediaDto } from './dto/review-media.dto'; // Import DTO baru
+import { ReviewMediaDto } from './dto/review-media.dto';
 
 @Injectable()
 export class MediaService {
@@ -32,8 +31,10 @@ export class MediaService {
     const ext = path.extname(file.originalname);
     const key = `raw/${uuidv4()}${ext}`;
 
+    // Upload raw file
     const url = await this.storage.uploadFile(key, file.buffer, mime);
 
+    // Create DB Record
     const media = await this.prisma.media.create({
       data: {
         filename: key,
@@ -44,10 +45,11 @@ export class MediaService {
         url: url,
         uploaderId: user.id,
         isTranscoded: type === MediaType.IMAGE,
-        status: ApprovalStatus.PENDING, // Default status
+        status: ApprovalStatus.PENDING,
       },
     });
 
+    // Jika video, kirim job ke BullMQ
     if (type === MediaType.VIDEO) {
       await this.queue.addTranscodeJob(media.id);
     }
@@ -55,39 +57,57 @@ export class MediaService {
     return media;
   }
 
-  // Ambil list media berdasarkan role
   async findAll(user: User) {
-    // Jika Super Admin, bisa melihat semua (opsional bisa dikasih filter)
     if (user.role === Role.SUPER_ADMIN) {
       return this.prisma.media.findMany({
         orderBy: { createdAt: 'desc' },
-        include: { uploader: { select: { name: true, email: true } } },
+        include: {
+          uploader: {
+            select: { name: true, email: true },
+          },
+        },
       });
     }
 
-    // Jika Advertiser, hanya lihat miliknya sendiri
     return this.prisma.media.findMany({
       where: { uploaderId: user.id },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  // [NEW] Khusus Admin: Ambil antrian media yang statusnya PENDING
+  // [NEW] Get Detail Media (Untuk Halaman Detail/Preview)
+  async findOne(id: number) {
+    const media = await this.prisma.media.findUnique({
+      where: { id },
+      include: {
+        uploader: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!media) throw new NotFoundException(`Media with ID ${id} not found`);
+    return media;
+  }
+
   async getPendingMedia() {
     return this.prisma.media.findMany({
       where: { status: ApprovalStatus.PENDING },
-      orderBy: { createdAt: 'asc' }, // Yang lama di review duluan
+      orderBy: { createdAt: 'asc' },
       include: {
         uploader: {
-          select: { id: true, name: true, email: true }, // Tampilkan info uploader
+          select: { id: true, name: true, email: true },
         },
       },
     });
   }
 
-  // [NEW] Khusus Admin: Proses Review (Approve/Reject)
   async reviewMedia(id: number, dto: ReviewMediaDto, adminId: number) {
-    // 1. Cek existensi media
     const media = await this.prisma.media.findUnique({
       where: { id },
     });
@@ -96,7 +116,6 @@ export class MediaService {
       throw new NotFoundException(`Media with ID ${id} not found`);
     }
 
-    // 2. Update status
     return this.prisma.media.update({
       where: { id },
       data: {
