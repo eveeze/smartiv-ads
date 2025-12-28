@@ -7,6 +7,7 @@ import {
   Get,
   ParseFilePipeBuilder,
   HttpStatus,
+  FileValidator, // Import FileValidator
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -19,8 +20,25 @@ import {
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
-// FIX: Gunakan 'import type' karena User adalah Interface, bukan Class
 import type { User } from '@prisma/client';
+
+// --- CUSTOM VALIDATOR ---
+// Kita buat validator sendiri agar kontrol logic regex-nya 100% di tangan kita
+export class CustomMimeTypeValidator extends FileValidator<{
+  fileType: RegExp;
+}> {
+  isValid(file: any): boolean {
+    // Pastikan mimetype ada
+    if (!file.mimetype) return false;
+    // Test regex manual
+    return this.validationOptions.fileType.test(file.mimetype);
+  }
+
+  buildErrorMessage(file: any): string {
+    return `Validation failed. Type '${file.mimetype}' is not supported.`;
+  }
+}
+// ------------------------
 
 @ApiTags('Media (Upload)')
 @ApiBearerAuth()
@@ -47,9 +65,13 @@ export class MediaController {
   uploadFile(
     @UploadedFile(
       new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: /(jpg|jpeg|png|mp4|mov)$/,
-        })
+        // Ganti addFileTypeValidator bawaan dengan addValidator custom kita
+        .addValidator(
+          new CustomMimeTypeValidator({
+            // Regex: String diawali dengan "image/" atau "video/"
+            fileType: /^(image|video)\//,
+          }),
+        )
         .addMaxSizeValidator({
           maxSize: 200 * 1024 * 1024, // 200MB limit
         })
