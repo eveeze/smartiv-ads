@@ -28,6 +28,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
 import { Role } from '@prisma/client';
+import { ScreenPageOptionsDto } from './dto/screen-page-options.dto';
 
 @ApiTags('Inventory (Admin)')
 @ApiBearerAuth()
@@ -82,19 +83,11 @@ export class InventoryController {
   createScreen(@Body() dto: CreateScreenDto) {
     return this.inventoryService.createScreen(dto);
   }
-
   @Get('screens')
-  @ApiOperation({ summary: 'List screens with pagination' })
-  @ApiQuery({ name: 'propertyId', required: false, type: Number })
-  findAllScreens(
-    @Query(new ValidationPipe({ transform: true }))
-    pageOptionsDto: PageOptionsDto,
-    @Query('propertyId') propertyId?: string,
-  ) {
-    return this.inventoryService.findAllScreens(
-      pageOptionsDto,
-      propertyId ? +propertyId : undefined,
-    );
+  @Roles(Role.SUPER_ADMIN, Role.PROPERTY_OPERATOR)
+  @ApiOperation({ summary: 'List Screens (Filter by Property)' })
+  findAllScreens(@Query() pageOptionsDto: ScreenPageOptionsDto) {
+    return this.inventoryService.findAllScreens(pageOptionsDto);
   }
 
   @Get('screens/:id')

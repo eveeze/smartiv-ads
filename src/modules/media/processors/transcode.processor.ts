@@ -7,6 +7,7 @@ import {
   TRANSCODE_QUEUE,
   JOB_TRANSCODE_VIDEO,
 } from '../../../providers/queue/queue.service';
+import { MediaUtils } from '../../../common/utils/media.utils';
 import Ffmpeg from 'fluent-ffmpeg';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -29,13 +30,11 @@ export class TranscodeProcessor extends WorkerHost {
     const { mediaId } = job.data;
     this.logger.log(`🎬 Processing Media ID: ${mediaId}`);
 
-    // 1. Ambil Data Media
     const media = await this.prisma.media.findUnique({
       where: { id: mediaId },
     });
     if (!media || !media.url) throw new Error('Media not found or URL invalid');
 
-    // 2. Setup Temp Folder Unik
     const tempDir = fs.mkdtempSync(
       path.join(os.tmpdir(), `smartiv-${mediaId}-`),
     );
@@ -45,12 +44,8 @@ export class TranscodeProcessor extends WorkerHost {
     if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath);
 
     try {
-      // 3. Download Video Mentah dari MinIO
-      // Asumsi URL: http://minio:9000/bucket/raw/video.mp4 -> Key: raw/video.mp4
-      // Kita ambil Key relatifnya dari URL
+      // 1. Download Video
       const urlObj = new URL(media.url);
-      // Remove first slash from pathname usually "/bucket/key" -> "key"
-      // Sesuaikan logic ini dengan format URL MinIO kamu
       const key = decodeURIComponent(
         urlObj.pathname.split('/').slice(2).join('/'),
       );
@@ -58,7 +53,11 @@ export class TranscodeProcessor extends WorkerHost {
       this.logger.debug(`Downloading key: ${key}`);
       await this.storage.downloadToLocal(key, inputPath);
 
-      // 4. Generate Thumbnail (Screenshot detik ke-1)
+      // 2. Cek Audio Stream
+      const hasAudio = await MediaUtils.hasAudioStream(inputPath);
+      this.logger.debug(`Audio detected: ${hasAudio}`);
+
+      // 3. Generate Thumbnail
       const thumbFilename = 'thumbnail.jpg';
       await new Promise<void>((resolve, reject) => {
         Ffmpeg(inputPath)
@@ -67,57 +66,151 @@ export class TranscodeProcessor extends WorkerHost {
             timestamps: ['1'],
             filename: thumbFilename,
             folder: tempDir,
-            size: '480x?', // Lebar 480px, tinggi auto
+            size: '480x?',
           })
           .on('end', () => resolve())
-          .on('error', (err) => reject(err));
+          .on('error', reject);
       });
 
-      // 5. Transcoding HLS (Multi-bitrate)
-      this.logger.debug('Starting HLS Transcoding...');
+      // 4. Transcoding HLS (240p, 360p, 480p, 720p)
+      this.logger.debug('Starting HLS Transcoding (4 Qualities)...');
+
       await new Promise<void>((resolve, reject) => {
-        Ffmpeg(inputPath)
-          .output(`${outputPath}/master.m3u8`)
-          .addOptions([
-            '-preset veryfast',
-            '-g 48',
-            '-sc_threshold 0',
-            '-map 0:v:0',
-            '-map 0:v:0', // 2 varian saja utk MVP (360p, 720p)
-            '-map 0:a:0',
-            '-map 0:a:0',
+        // [FIX UTAMA] Output harus pakai pattern %v agar FFmpeg bisa generate banyak file
+        const command = Ffmpeg(inputPath).output(
+          `${outputPath}/stream_%v.m3u8`,
+        );
 
-            // 360p
-            '-s:v:0 640x360',
-            '-c:v:0 libx264',
-            '-b:v:0 800k',
-            '-c:a:0 aac',
-            '-b:a:0 96k',
+        const options = [
+          '-preset',
+          'veryfast',
+          '-g',
+          '48',
+          '-sc_threshold',
+          '0',
 
-            // 720p
-            '-s:v:1 1280x720',
-            '-c:v:1 libx264',
-            '-b:v:1 2800k',
-            '-c:a:1 aac',
-            '-b:a:1 128k',
+          // --- VIDEO MAPPING (4 Stream) ---
+          '-map',
+          '0:v:0', // Stream 0 (240p)
+          '-map',
+          '0:v:0', // Stream 1 (360p)
+          '-map',
+          '0:v:0', // Stream 2 (480p)
+          '-map',
+          '0:v:0', // Stream 3 (720p)
+        ];
 
-            // HLS Config
-            '-f hls',
-            '-var_stream_map v:0,a:0,name:360p v:1,a:1,name:720p',
-            '-master_pl_name master.m3u8',
-            '-hls_time 6',
-            '-hls_playlist_type vod',
-            `-hls_segment_filename ${outputPath}/%v/segment_%03d.ts`,
-          ])
+        // --- VIDEO SETTINGS ---
+        options.push(
+          // 240p (Ultra Low - Sinyal Jelek)
+          '-s:v:0',
+          '426x240',
+          '-c:v:0',
+          'libx264',
+          '-b:v:0',
+          '400k',
+
+          // 360p (Standard)
+          '-s:v:1',
+          '640x360',
+          '-c:v:1',
+          'libx264',
+          '-b:v:1',
+          '800k',
+
+          // 480p (High SD)
+          '-s:v:2',
+          '854x480',
+          '-c:v:2',
+          'libx264',
+          '-b:v:2',
+          '1400k',
+
+          // 720p (HD Ready)
+          '-s:v:3',
+          '1280x720',
+          '-c:v:3',
+          'libx264',
+          '-b:v:3',
+          '2800k',
+        );
+
+        // --- AUDIO SETTINGS (Conditional) ---
+        let varStreamMap = '';
+
+        if (hasAudio) {
+          // Map Audio 4 kali
+          options.push(
+            '-map',
+            '0:a:0',
+            '-map',
+            '0:a:0',
+            '-map',
+            '0:a:0',
+            '-map',
+            '0:a:0',
+          );
+
+          options.push(
+            '-c:a:0',
+            'aac',
+            '-b:a:0',
+            '64k', // Audio 240p
+            '-c:a:1',
+            'aac',
+            '-b:a:1',
+            '96k', // Audio 360p
+            '-c:a:2',
+            'aac',
+            '-b:a:2',
+            '128k', // Audio 480p
+            '-c:a:3',
+            'aac',
+            '-b:a:3',
+            '128k', // Audio 720p
+          );
+
+          // Mapping Video+Audio
+          varStreamMap =
+            'v:0,a:0,name:240p v:1,a:1,name:360p v:2,a:2,name:480p v:3,a:3,name:720p';
+        } else {
+          // Mapping Video Only
+          varStreamMap =
+            'v:0,name:240p v:1,name:360p v:2,name:480p v:3,name:720p';
+        }
+
+        // --- HLS CONFIG ---
+        options.push(
+          '-f',
+          'hls',
+          '-var_stream_map',
+          varStreamMap,
+          // Ini nama file playlist UTAMA yang menggabungkan semua kualitas
+          '-master_pl_name',
+          'master.m3u8',
+          '-hls_time',
+          '6',
+          '-hls_playlist_type',
+          'vod',
+          // [FIX] Nama segment juga dibuat pattern agar rapi & tidak butuh mkdir subdirectory
+          '-hls_segment_filename',
+          `${outputPath}/stream_%v_data%03d.ts`,
+        );
+
+        command
+          .addOptions(options)
           .on('end', () => resolve())
-          .on('error', (err) => reject(err))
+          .on('error', (err, stdout, stderr) => {
+            this.logger.error(`FFmpeg Stderr: ${stderr}`);
+            reject(err);
+          })
           .run();
       });
 
-      // 6. Upload Hasil ke MinIO (Recursive)
+      // 5. Upload Hasil (Recursive)
       const s3BaseKey = `hls/${mediaId}`;
 
-      // A. Upload Thumbnail
+      // Upload Thumbnail
       const thumbBuffer = fs.readFileSync(path.join(tempDir, thumbFilename));
       const thumbUrl = await this.storage.uploadFile(
         `${s3BaseKey}/thumbnail.jpg`,
@@ -125,7 +218,7 @@ export class TranscodeProcessor extends WorkerHost {
         'image/jpeg',
       );
 
-      // B. Upload HLS Files
+      // Upload HLS Files
       const uploadRecursive = async (dir: string, baseKey: string) => {
         const files = fs.readdirSync(dir);
         for (const file of files) {
@@ -143,7 +236,7 @@ export class TranscodeProcessor extends WorkerHost {
       };
       await uploadRecursive(outputPath, s3BaseKey);
 
-      // 7. Update Database
+      // 6. Update DB
       await this.prisma.media.update({
         where: { id: mediaId },
         data: {
@@ -156,11 +249,12 @@ export class TranscodeProcessor extends WorkerHost {
       this.logger.log(`✅ Media ${mediaId} Transcoded Successfully!`);
     } catch (err) {
       this.logger.error(`❌ Transcode Failed: ${err.message}`);
-      throw err; // Lempar error agar BullMQ tau ini gagal
+      throw err;
     } finally {
-      // 8. Cleanup Temp Files (Penting!)
       try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        }
       } catch (e) {
         this.logger.warn(`Failed to clean temp dir: ${tempDir}`);
       }

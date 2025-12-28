@@ -10,6 +10,7 @@ import { UpdatePropertyDto } from './dto/update-property.dto';
 import { UpdateScreenDto } from './dto/update-screen.dto';
 import { PageOptionsDto } from '../../common/dto/page-options.dto';
 import { Property, Screen, Prisma } from '@prisma/client';
+import { ScreenPageOptionsDto } from './dto/screen-page-options.dto';
 
 @Injectable()
 export class InventoryService {
@@ -120,45 +121,44 @@ export class InventoryService {
     });
   }
 
-  async findAllScreens(
-    pageOptionsDto: PageOptionsDto,
-    propertyId?: number,
-  ): Promise<{ data: Screen[]; meta: any }> {
-    // FIX: Pastikan 'take' memiliki nilai default
-    const take = pageOptionsDto.take || 10;
+  async findAllScreens(pageOptionsDto: ScreenPageOptionsDto) {
     const page = pageOptionsDto.page || 1;
-    const skip = pageOptionsDto.skip;
-    const { order, search } = pageOptionsDto;
+    const take = pageOptionsDto.take || 10;
+    const order = pageOptionsDto.order || 'ASC';
+    const propertyId = pageOptionsDto.propertyId;
 
-    const where: Prisma.ScreenWhereInput = {
-      ...(propertyId ? { propertyId } : {}),
-      ...(search
-        ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { code: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    };
+    const queryBuilder = this.prisma.screen.findMany({
+      skip: (page - 1) * take,
+      take: take,
+      where: {
+        // Filter conditional
+        ...(propertyId ? { propertyId } : {}),
+      },
+      orderBy: { createdAt: order.toLowerCase() as 'asc' | 'desc' },
+      include: {
+        property: {
+          select: { name: true },
+        },
+      },
+    });
 
-    const [data, count] = await this.prisma.$transaction([
-      this.prisma.screen.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: order },
-        include: { property: { select: { name: true } } },
-      }),
-      this.prisma.screen.count({ where }),
-    ]);
+    const total = await this.prisma.screen.count({
+      where: {
+        ...(propertyId ? { propertyId } : {}),
+      },
+    });
+
+    const data = await queryBuilder;
 
     return {
       data,
       meta: {
-        total: count,
-        page: page,
-        lastPage: Math.ceil(count / take), // take is guaranteed number now
+        page,
+        take,
+        total,
+        pageCount: Math.ceil(total / take),
+        hasPreviousPage: page > 1,
+        hasNextPage: page < Math.ceil(total / take),
       },
     };
   }

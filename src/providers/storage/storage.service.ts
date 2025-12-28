@@ -18,9 +18,14 @@ export class StorageService {
   constructor(private configService: ConfigService) {
     this.bucketName = this.configService.getOrThrow<string>('minio.bucket');
 
+    // FIX 1: Ambil host dan port terpisah, lalu gabungkan jadi URL lengkap
+    const minioHost = this.configService.getOrThrow<string>('minio.endpoint');
+    const minioPort = this.configService.getOrThrow<number>('minio.port');
+    const fullS3Endpoint = `http://${minioHost}:${minioPort}`; // Hasil: http://minio:9000
+
     this.s3Client = new S3Client({
       region: 'us-east-1',
-      endpoint: this.configService.getOrThrow<string>('minio.endpoint'),
+      endpoint: fullS3Endpoint, // Gunakan URL lengkap di sini
       forcePathStyle: true,
       credentials: {
         accessKeyId: this.configService.getOrThrow<string>('minio.accessKey'),
@@ -42,7 +47,6 @@ export class StorageService {
           Key: key,
           Body: fileBuffer,
           ContentType: mimeType,
-          // ACL: 'public-read', // Uncomment jika MinIO bucket policy belum public
         }),
       );
       return this.getFileUrl(key);
@@ -53,10 +57,10 @@ export class StorageService {
   }
 
   getFileUrl(key: string): string {
-    // Generate Public URL manual agar stateles
-    // Pastikan env MINIO_ENDPOINT bisa diakses dari luar (browser)
-    const endpoint = this.configService.get('minio.endpoint');
-    return `${endpoint}/${this.bucketName}/${key}`;
+    // FIX 2: Generate URL Publik
+    // 'minio' hanya bisa diakses internal docker. Untuk browser (client), gunakan localhost.
+    // Idealnya ini menggunakan ENV terpisah seperti PUBLIC_STORAGE_URL untuk production.
+    return `http://localhost:9000/${this.bucketName}/${key}`;
   }
 
   // Helper: Download file dari S3 ke folder lokal (untuk diproses FFmpeg)
