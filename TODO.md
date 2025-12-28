@@ -96,22 +96,22 @@ _Definition of Done: SuperAdmin bisa Approve/Reject konten sebelum digunakan di 
 
 ---
 
-## 🛠️ Phase 4.6: Frontend Enablers (Status: NEXT UP 🚀)
+## 🛠️ Phase 4.6: Frontend Enablers (Status: COMPLETED ✅)
 
 _Definition of Done: Endpoint pelengkap untuk kebutuhan UI/UX (Dropdowns & Details) tersedia._
 
-- [ ] **Step 1: Inventory Dropdowns (Lightweight)**
-  - [ ] **Endpoint:** `GET /inventory/properties/list` (Return: `{id, name}` only, no pagination).
-  - [ ] **Endpoint:** `GET /inventory/screens/list` (Filter by `propertyId`, Return: `{id, name}` only).
-- [ ] **Step 2: Media Detail & Preview**
-  - [ ] **Endpoint:** `GET /media/:id` (Full detail including HLS URL & Uploader Info).
-- [ ] **Step 3: Basic User Management (Admin)**
-  - [ ] **Endpoint:** `GET /users` (List all advertisers).
-  - [ ] **Endpoint:** `GET /users/:id` (User detail & stats).
+- [x] **Step 1: Inventory Dropdowns (Lightweight)**
+  - [x] **Endpoint:** `GET /inventory/properties/list` (Return: `{id, name}` only, no pagination).
+  - [x] **Endpoint:** `GET /inventory/screens/list` (Filter by `propertyId`, Return: `{id, name}` only).
+- [x] **Step 2: Media Detail & Preview**
+  - [x] **Endpoint:** `GET /media/:id` (Full detail including HLS URL & Uploader Info).
+- [x] **Step 3: Basic User Management (Admin)**
+  - [x] **Endpoint:** `GET /users` (List all advertisers).
+  - [x] **Endpoint:** `GET /users/:id` (User detail & stats).
 
 ---
 
-## 💰 Phase 5: Finance & Rate Card (Status: QUEUED ⏳)
+## 💰 Phase 5: Finance & Rate Card (Status: NEXT UP 🚀)
 
 _Definition of Done: Manajemen saldo wallet & Kalkulasi harga dinamis._
 
