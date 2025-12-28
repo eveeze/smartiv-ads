@@ -82,7 +82,11 @@ enum CampaignStatus {
   COMPLETED
   PAUSED
 }
-
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 // UPDATED: Hanya IMAGE dan VIDEO (HTML dihapus)
 enum MediaType {
   IMAGE
@@ -284,9 +288,9 @@ model CampaignItem {
 }
 
 model Media {
-  id         Int  @id @default(autoincrement())
-  uploaderId Int
-  uploader   User @relation(fields: [uploaderId], references: [id])
+  id           Int      @id @default(autoincrement())
+  uploaderId   Int
+  uploader     User     @relation(fields: [uploaderId], references: [id])
 
   filename     String
   originalName String
@@ -298,9 +302,16 @@ model Media {
   thumbnailUrl String?
 
   hlsUrl       String?
-  isTranscoded Boolean @default(false)
+  isTranscoded Boolean  @default(false)
 
-  createdAt DateTime @default(now())
+  // [NEW] Fields untuk Moderasi
+  status          ApprovalStatus @default(PENDING)
+  rejectionReason String?        // Diisi jika status == REJECTED
+  reviewedAt      DateTime?      // Tanggal review
+  reviewedBy      Int?           // ID Admin yang melakukan review
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt // [NEW] Tambahkan updated at standard
 
   campaignItems CampaignItem[]
 

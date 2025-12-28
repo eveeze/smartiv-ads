@@ -1,18 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
-import { User, Role } from '@prisma/client';
-
-// FIX: Mock UUID disini juga
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'test-uuid'),
-}));
-
-// Mock Service agar file aslinya tidak diload (Double Safety)
-const mockMediaService = {
-  uploadMedia: jest.fn(),
-  findAll: jest.fn(),
-};
+import { MediaType, User, Role } from '@prisma/client';
 
 describe('MediaController', () => {
   let controller: MediaController;
@@ -23,17 +12,29 @@ describe('MediaController', () => {
     email: 'test@example.com',
     password: 'hash',
     name: 'Test',
-    role: Role.ADVERTISER,
     phone: null,
+    role: Role.ADVERTISER,
     propertyId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
 
+  const mockMediaService = {
+    uploadMedia: jest.fn(),
+    findAll: jest.fn(),
+    getPendingMedia: jest.fn(), // [NEW] Mock method baru
+    reviewMedia: jest.fn(), // [NEW] Mock method baru
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MediaController],
-      providers: [{ provide: MediaService, useValue: mockMediaService }],
+      providers: [
+        {
+          provide: MediaService,
+          useValue: mockMediaService,
+        },
+      ],
     }).compile();
 
     controller = module.get<MediaController>(MediaController);
@@ -46,7 +47,7 @@ describe('MediaController', () => {
 
   describe('uploadFile', () => {
     it('should call service.uploadMedia', async () => {
-      const file = {} as Express.Multer.File;
+      const file = { originalname: 'test.jpg' } as any;
       await controller.uploadFile(file, mockUser);
       expect(service.uploadMedia).toHaveBeenCalledWith(file, mockUser);
     });
@@ -55,7 +56,8 @@ describe('MediaController', () => {
   describe('findAll', () => {
     it('should call service.findAll', async () => {
       await controller.findAll(mockUser);
-      expect(service.findAll).toHaveBeenCalledWith(mockUser.id);
+      // FIX: Expect User Object, bukan User ID
+      expect(service.findAll).toHaveBeenCalledWith(mockUser);
     });
   });
 });

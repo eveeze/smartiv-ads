@@ -29,6 +29,13 @@ describe('InventoryModule (e2e)', () => {
 
     prisma = app.get<PrismaService>(PrismaService);
 
+    // Clean DB State (Urutan Penting!)
+    // Hanya hapus user spesifik test ini di awal jika ada sisa (idempotent)
+    await prisma.wallet.deleteMany({
+      where: { user: { email: adminUser.email } },
+    });
+    await prisma.user.deleteMany({ where: { email: adminUser.email } });
+
     // Seed Admin
     const hashedPassword = await bcrypt.hash(adminUser.password, 10);
     await prisma.user.create({
@@ -50,7 +57,7 @@ describe('InventoryModule (e2e)', () => {
   });
 
   afterAll(async () => {
-    // Cleanup
+    // Cleanup Data Spesifik Test Ini
     const property = await prisma.property.findFirst({
       where: { smartivCode: `TEST-${uniqueId}` },
     });
@@ -60,10 +67,13 @@ describe('InventoryModule (e2e)', () => {
       await prisma.property.delete({ where: { id: property.id } });
     }
 
-    await prisma.wallet.deleteMany({
-      where: { user: { email: adminUser.email } },
+    const user = await prisma.user.findUnique({
+      where: { email: adminUser.email },
     });
-    await prisma.user.delete({ where: { email: adminUser.email } });
+    if (user) {
+      await prisma.wallet.deleteMany({ where: { userId: user.id } });
+      await prisma.user.delete({ where: { id: user.id } });
+    }
 
     await app.close();
   });

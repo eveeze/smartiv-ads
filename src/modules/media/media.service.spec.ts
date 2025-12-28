@@ -137,9 +137,12 @@ describe('MediaService', () => {
   describe('findAll', () => {
     it('should return user media list', async () => {
       mockPrisma.media.findMany.mockResolvedValue([]);
-      await service.findAll(1);
+
+      // FIX: Kirim object mockUser, bukan angka 1
+      await service.findAll(mockUser);
+
       expect(prisma.media.findMany).toHaveBeenCalledWith({
-        where: { uploaderId: 1 },
+        where: { uploaderId: mockUser.id }, // Pastikan ini mengambil ID dari user object
         orderBy: { createdAt: 'desc' },
       });
     });
