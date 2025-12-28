@@ -29,7 +29,9 @@ RUN pnpm build
 FROM node:20-alpine AS runner
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
-RUN apk add --no-cache openssl
+
+# [UPDATE PHASE 4] Install FFmpeg (Wajib untuk Transcoding) & OpenSSL
+RUN apk add --no-cache openssl ffmpeg
 
 WORKDIR /app
 
@@ -47,9 +49,8 @@ COPY --from=builder /app/prisma ./prisma
 
 # ---------------------------------------------------------------------
 # FIX UTAMA DI SINI:
-# Daripada copy folder node_modules/.prisma yang ribet path-nya di pnpm,
-# Kita jalankan ulang 'prisma generate' di stage runner.
-# Ini lebih aman dan menjamin binary yang cocok dengan OS Alpine.
+# Jalankan ulang 'prisma generate' di stage runner untuk menjamin
+# binary yang cocok dengan OS Alpine (production environment).
 # ---------------------------------------------------------------------
 RUN pnpm prisma generate
 
