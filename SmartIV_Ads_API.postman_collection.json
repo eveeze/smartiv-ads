@@ -1,0 +1,597 @@
+{
+  "info": {
+    "_postman_id": "smartiv-ads-auto-v1",
+    "name": "SmartIV Ads Management (Auto Config)",
+    "description": "Production ready collection. Just Import & Run! No environment setup needed.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@smartiv.com",
+      "type": "string"
+    },
+    {
+      "key": "admin_password",
+      "value": "password123",
+      "type": "string"
+    },
+    {
+      "key": "advertiser_email",
+      "value": "advertiser@test.com",
+      "type": "string"
+    },
+    {
+      "key": "advertiser_password",
+      "value": "password123",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "property_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "screen_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "media_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth Module",
+      "item": [
+        {
+          "name": "Register Advertiser",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{advertiser_email}}\",\n    \"password\": \"{{advertiser_password}}\",\n    \"name\": \"PT Maju Mundur\",\n    \"phone\": \"081234567890\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login (Super Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (jsonData.accessToken) {",
+                  "    pm.collectionVariables.set(\"access_token\", jsonData.accessToken);",
+                  "    console.log(\"✅ Admin Token Auto-Set!\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login (Advertiser)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (jsonData.accessToken) {",
+                  "    pm.collectionVariables.set(\"access_token\", jsonData.accessToken);",
+                  "    console.log(\"✅ Advertiser Token Auto-Set!\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{advertiser_email}}\",\n    \"password\": \"{{advertiser_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Profile (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏢 Inventory Module (Admin)",
+      "item": [
+        {
+          "name": "Create Property",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "if (jsonData.id) {",
+                  "    pm.collectionVariables.set(\"property_id\", jsonData.id);",
+                  "    console.log(\"✅ Property ID Saved: \" + jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Grand Hotel Postman\",\n    \"type\": \"HOTEL\",\n    \"classification\": \"PREMIUM\",\n    \"city\": \"Jakarta\",\n    \"smartivCode\": \"GHP-{{$timestamp}}\",\n    \"enabledSlots\": [\"SCREENSAVER\", \"INFO_SLIDER\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/inventory/properties",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "properties"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Properties",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inventory/properties?page=1&take=10&order=ASC",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "properties"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "take",
+                  "value": "10"
+                },
+                {
+                  "key": "order",
+                  "value": "ASC"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Property Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inventory/properties/{{property_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "properties", "{{property_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Property",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Grand Hotel Postman Updated\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/inventory/properties/{{property_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "properties", "{{property_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Screen",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "if (jsonData.id) {",
+                  "    pm.collectionVariables.set(\"screen_id\", jsonData.id);",
+                  "    console.log(\"✅ Screen ID Saved: \" + jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"propertyId\": {{property_id}},\n    \"name\": \"Lobby Main TV\",\n    \"code\": \"MAC-ADDRESS-TEST-{{$timestamp}}\",\n    \"orientation\": \"LANDSCAPE\",\n    \"roomCategory\": \"LOBBY\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/inventory/screens",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "screens"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Screens",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inventory/screens?propertyId={{property_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "screens"],
+              "query": [
+                {
+                  "key": "propertyId",
+                  "value": "{{property_id}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Screen",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"MAINTENANCE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/inventory/screens/{{screen_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "screens", "{{screen_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Screen",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inventory/screens/{{screen_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "screens", "{{screen_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Property",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inventory/properties/{{property_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "properties", "{{property_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🎥 Media Module",
+      "item": [
+        {
+          "name": "Upload Media (Image)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "if (jsonData.id) {",
+                  "    pm.collectionVariables.set(\"media_id\", jsonData.id);",
+                  "    console.log(\"✅ Media ID Saved: \" + jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/media/upload",
+              "host": ["{{base_url}}"],
+              "path": ["media", "upload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All My Media",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/media",
+              "host": ["{{base_url}}"],
+              "path": ["media"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pending Media (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/media/pending",
+              "host": ["{{base_url}}"],
+              "path": ["media", "pending"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Approve Media (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/media/{{media_id}}/review",
+              "host": ["{{base_url}}"],
+              "path": ["media", "{{media_id}}", "review"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Media (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"REJECTED\",\n    \"rejectionReason\": \"Kualitas gambar buram\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/media/{{media_id}}/review",
+              "host": ["{{base_url}}"],
+              "path": ["media", "{{media_id}}", "review"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

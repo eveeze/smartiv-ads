@@ -1,138 +1,67 @@
-import {
-  PrismaClient,
-  Role,
-  PropertyType,
-  PropertyClass,
-  ScreenOrientation,
-  AdSlot, // FIX: Menggunakan AdSlot bukan AdZone
-  RoomCategory,
-  ScreenStatus,
-} from '@prisma/client';
+import { PrismaClient, Role, AdSlot } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting seed...');
+  console.log('🌱 Starting Seeding...');
 
-  // 1. Create Super Admin
-  const hashedPassword = await bcrypt.hash('password123', 10);
-  const superAdmin = await prisma.user.upsert({
-    where: { email: 'admin@smartiv.com' },
-    update: {},
-    create: {
+  // 1. Clean All Data (Urutan Penting: Child -> Parent)
+  await prisma.transaction.deleteMany();
+  await prisma.impressionLog.deleteMany();
+  await prisma.campaignItem.deleteMany();
+  await prisma.campaign.deleteMany();
+  await prisma.media.deleteMany();
+  await prisma.rateCard.deleteMany();
+  await prisma.screen.deleteMany();
+  await prisma.property.deleteMany();
+  await prisma.wallet.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.user.deleteMany();
+
+  console.log('🧹 Database cleaned.');
+
+  // 2. Create Super Admin (Credentials cocok dengan Postman)
+  const adminPassword = await bcrypt.hash('password123', 10);
+  const admin = await prisma.user.create({
+    data: {
       email: 'admin@smartiv.com',
-      password: hashedPassword,
+      password: adminPassword,
       name: 'Super Admin',
       role: Role.SUPER_ADMIN,
-      wallet: {
-        create: {
-          balance: 1000000000, // 1 Miliar
-        },
-      },
+      wallet: { create: { balance: 0 } },
     },
   });
-  console.log('✅ Super Admin created:', superAdmin.email);
+  console.log(`✅ Admin Created: ${admin.email}`);
 
-  // 2. Create Advertiser
-  const advertiser = await prisma.user.upsert({
-    where: { email: 'ads@brand.com' },
-    update: {},
-    create: {
-      email: 'ads@brand.com',
-      password: hashedPassword,
-      name: 'Brand Manager',
+  // 3. Create Advertiser (Credentials cocok dengan Postman)
+  const advertiserPassword = await bcrypt.hash('password123', 10);
+  const advertiser = await prisma.user.create({
+    data: {
+      email: 'advertiser@test.com',
+      password: advertiserPassword,
+      name: 'PT Maju Mundur',
+      phone: '081234567890',
       role: Role.ADVERTISER,
-      wallet: {
-        create: {
-          balance: 50000000, // 50 Juta
-        },
-      },
+      wallet: { create: { balance: 10000000 } }, // Saldo awal 10 Juta
     },
   });
-  console.log('✅ Advertiser created:', advertiser.email);
+  console.log(`✅ Advertiser Created: ${advertiser.email}`);
 
-  // 3. Create Property (Hotel)
-  // Kita gunakan ID SmartIV (212) sebagai unique constraint di logic seed ini
-  const propertyCheck = await prisma.property.findUnique({
-    where: { smartivId: 212 },
-  });
-
-  let property;
-  if (!propertyCheck) {
-    property = await prisma.property.create({
-      data: {
-        name: 'Hotel Tentrem Yogyakarta',
-        type: PropertyType.HOTEL,
-        classification: PropertyClass.LUXURY,
-        smartivId: 212,
-        smartivCode: '0Q1MHI',
-        address: 'Jl. P. Mangkubumi No.72A',
-        city: 'Yogyakarta',
-        // FIX: Update Enum AdSlot
-        enabledSlots: [
-          AdSlot.SCREENSAVER,
-          AdSlot.INFO_SLIDER,
-          AdSlot.WELCOME_GREETING,
-        ],
-        // Rate Cards
-        rateCards: {
-          create: [
-            {
-              pricePerDay: 150000,
-              targetSlot: AdSlot.SCREENSAVER, // FIX: targetSlot & AdSlot
-              isActive: true,
-            },
-            {
-              pricePerDay: 100000,
-              targetSlot: AdSlot.INFO_SLIDER, // FIX: targetSlot & AdSlot
-              isActive: true,
-            },
-          ],
-        },
-      },
-    });
-    console.log('✅ Property created:', property.name);
-  } else {
-    property = propertyCheck;
-    console.log('ℹ️ Property already exists:', property.name);
-  }
-
-  // 4. Create Screens
-  const screen1Code = 'AA:BB:CC:DD:EE:01';
-  const screen1 = await prisma.screen.upsert({
-    where: { code: screen1Code }, // FIX: Menggunakan code (pengganti macAddress)
-    update: {},
-    create: {
-      propertyId: property.id,
-      name: 'Lobby Utama TV',
-      code: screen1Code, // FIX: code
-      resolution: '1920x1080',
-      orientation: ScreenOrientation.LANDSCAPE,
-      status: ScreenStatus.ONLINE,
-      ipAddress: '192.168.1.101',
-      roomCategory: RoomCategory.LOBBY,
+  // 4. (Optional) Create 1 Dummy Property
+  const property = await prisma.property.create({
+    data: {
+      name: 'Hotel Mulia Senayan',
+      type: 'HOTEL',
+      classification: 'LUXURY',
+      city: 'Jakarta',
+      smartivCode: 'HMS-001',
+      enabledSlots: [AdSlot.SCREENSAVER, AdSlot.INFO_SLIDER],
     },
   });
+  console.log(`✅ Property Created: ${property.name}`);
 
-  const screen2Code = 'AA:BB:CC:DD:EE:02';
-  const screen2 = await prisma.screen.upsert({
-    where: { code: screen2Code }, // FIX: Menggunakan code
-    update: {},
-    create: {
-      propertyId: property.id,
-      name: 'Restoran TV',
-      code: screen2Code, // FIX: code
-      resolution: '1920x1080',
-      orientation: ScreenOrientation.LANDSCAPE,
-      status: ScreenStatus.ONLINE,
-      ipAddress: '192.168.1.102',
-      roomCategory: RoomCategory.RESTAURANT,
-    },
-  });
-
-  console.log('✅ Screens created');
-  console.log('🚀 Seeding finished.');
+  console.log('🚀 Seeding Finished!');
 }
 
 main()

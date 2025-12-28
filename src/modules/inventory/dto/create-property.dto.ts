@@ -9,7 +9,8 @@ import {
   IsString,
 } from 'class-validator';
 
-import { AdSlot, PropertyType } from '@prisma/client';
+// FIX: Import PropertyClass dari prisma client
+import { AdSlot, PropertyType, PropertyClass } from '@prisma/client';
 
 export class CreatePropertyDto {
   @ApiProperty({ example: 'Hotel Ken Dedes Yogyakarta' })
@@ -38,6 +39,12 @@ export class CreatePropertyDto {
   @IsEnum(PropertyType)
   type?: PropertyType;
 
+  // FIX: Tambahkan Classification agar request tidak ditolak
+  @ApiPropertyOptional({ enum: PropertyClass, example: 'PREMIUM' })
+  @IsOptional()
+  @IsEnum(PropertyClass)
+  classification?: PropertyClass;
+
   @ApiPropertyOptional({ example: '#030303' })
   @IsOptional()
   @IsHexColor()
@@ -52,6 +59,12 @@ export class CreatePropertyDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  // FIX: Tambahkan City juga karena di Postman biasanya dikirim
+  @ApiPropertyOptional({ example: 'Yogyakarta' })
+  @IsOptional()
+  @IsString()
+  city?: string;
 
   @ApiProperty({
     enum: AdSlot,
