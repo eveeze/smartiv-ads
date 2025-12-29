@@ -82,21 +82,31 @@ enum CampaignStatus {
   COMPLETED
   PAUSED
 }
+
 enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
 }
-// UPDATED: Hanya IMAGE dan VIDEO (HTML dihapus)
+
 enum MediaType {
   IMAGE
   VIDEO
 }
 
+// [UPDATED] Tambahkan WITHDRAWAL
 enum TransactionType {
   DEPOSIT
   SPEND
   REFUND
+  WITHDRAWAL
+}
+
+// [NEW] Status Withdrawal Request
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum TransactionStatus {
@@ -131,13 +141,17 @@ model User {
 }
 
 model Wallet {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique
-  user      User     @relation(fields: [userId], references: [id])
-  balance   BigInt   @default(0)
-  updatedAt DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  userId        Int      @unique
+  user          User     @relation(fields: [userId], references: [id])
+  
+  balance       BigInt   @default(0)
+  frozenBalance BigInt   @default(0) // [NEW] Saldo yang sedang di-request withdrawal
+  
+  updatedAt     DateTime @updatedAt
 
-  transactions Transaction[]
+  transactions       Transaction[]
+  withdrawalRequests WithdrawalRequest[] // [NEW] Relation
 
   @@map("wallets")
 }
@@ -149,11 +163,40 @@ model Transaction {
   amount        BigInt
   type          TransactionType
   status        TransactionStatus @default(PENDING)
-  referenceCode String?           @unique
+  
+  // Reference Code (Midtrans Order ID atau Admin Reference)
+  referenceCode String?           @unique 
+  
+  // [NEW] Fields khusus Midtrans / Gateway
+  paymentToken  String?           // Snap Token
+  paymentUrl    String?           // Redirect URL Midtrans
+
   description   String?
   createdAt     DateTime          @default(now())
 
   @@map("transactions")
+}
+
+// [NEW] Model Khusus Withdrawal Request
+model WithdrawalRequest {
+  id          Int              @id @default(autoincrement())
+  walletId    Int
+  wallet      Wallet           @relation(fields: [walletId], references: [id])
+  
+  amount      BigInt
+  bankName    String
+  accountNo   String
+  accountName String
+  
+  status      WithdrawalStatus @default(PENDING)
+  
+  adminNote   String?          // Alasan reject atau info transfer
+  approvedBy  Int?             // ID Admin yang melakukan approval
+  
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("withdrawal_requests")
 }
 
 model Property {
@@ -186,20 +229,20 @@ model Property {
   screens   Screen[]
   operators User[]
   rateCards RateCard[]
-  campaigns Campaign[] // Relasi balik ke campaign (opsional, tapi bagus untuk query)
+  campaigns Campaign[]
 
   @@map("properties")
 }
 
 model Screen {
-  id         Int      @id @default(autoincrement())
+  id         Int               @id @default(autoincrement())
   propertyId Int
-  property   Property @relation(fields: [propertyId], references: [id])
+  property   Property          @relation(fields: [propertyId], references: [id])
 
-  name        String   // Misal: "TV Lobby", "TV Kamar 101"
+  name       String   // Misal: "TV Lobby", "TV Kamar 101"
   
   // KUNCI UTAMA: MAC Address atau Unique ID dari device
-  code        String   @unique 
+  code       String   @unique 
   
   // Metadata Teknis
   resolution  String?
@@ -207,9 +250,9 @@ model Screen {
   ipAddress   String?
   
   // Config Room
-  roomCategory RoomCategory @default(STANDARD)
+  roomCategory RoomCategory     @default(STANDARD)
 
-  status      ScreenStatus @default(ONLINE)
+  status      ScreenStatus      @default(ONLINE)
   lastPing    DateTime?
 
   priceOverride BigInt?
@@ -223,13 +266,12 @@ model Screen {
 }
 
 model RateCard {
-  id         Int       @id @default(autoincrement())
-  propertyId Int?
-  property   Property? @relation(fields: [propertyId], references: [id])
+  id             Int            @id @default(autoincrement())
+  propertyId     Int?
+  property       Property?      @relation(fields: [propertyId], references: [id])
 
   classification PropertyClass?
   
-  // UPDATED: Menggunakan AdSlot
   targetSlot     AdSlot? 
 
   pricePerDay BigInt
@@ -242,19 +284,19 @@ model RateCard {
 }
 
 model Campaign {
-  id           Int  @id @default(autoincrement())
+  id           Int            @id @default(autoincrement())
   advertiserId Int
-  advertiser   User @relation(fields: [advertiserId], references: [id])
+  advertiser   User           @relation(fields: [advertiserId], references: [id])
 
   // Optional: Relasi langsung ke Property jika campaign ini Exclusive untuk 1 properti
   propertyId   Int?
-  property     Property? @relation(fields: [propertyId], references: [id])
+  property     Property?      @relation(fields: [propertyId], references: [id])
 
-  name      String
-  startDate DateTime
-  endDate   DateTime
-  totalCost BigInt
-  status    CampaignStatus @default(DRAFT)
+  name         String
+  startDate    DateTime
+  endDate      DateTime
+  totalCost    BigInt
+  status       CampaignStatus @default(DRAFT)
 
   rejectionReason String?
 
@@ -268,16 +310,15 @@ model Campaign {
 }
 
 model CampaignItem {
-  id         Int      @id @default(autoincrement())
-  campaignId Int
-  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  id                 Int            @id @default(autoincrement())
+  campaignId         Int
+  campaign           Campaign       @relation(fields: [campaignId], references: [id])
 
-  mediaId Int
-  media   Media @relation(fields: [mediaId], references: [id])
+  mediaId            Int
+  media              Media          @relation(fields: [mediaId], references: [id])
 
   targetRoomCategory RoomCategory[]
   
-  // UPDATED: Menggunakan AdSlot
   targetSlot         AdSlot
 
   durationSec Int @default(15)
@@ -288,30 +329,30 @@ model CampaignItem {
 }
 
 model Media {
-  id           Int      @id @default(autoincrement())
-  uploaderId   Int
-  uploader     User     @relation(fields: [uploaderId], references: [id])
+  id             Int            @id @default(autoincrement())
+  uploaderId     Int
+  uploader       User           @relation(fields: [uploaderId], references: [id])
 
-  filename     String
-  originalName String
-  mimeType     String
-  size         Int
-  type         MediaType
+  filename       String
+  originalName   String
+  mimeType       String
+  size           Int
+  type           MediaType
 
-  url          String
-  thumbnailUrl String?
+  url            String
+  thumbnailUrl   String?
 
-  hlsUrl       String?
-  isTranscoded Boolean  @default(false)
+  hlsUrl         String?
+  isTranscoded   Boolean        @default(false)
 
-  // [NEW] Fields untuk Moderasi
+  // Fields untuk Moderasi
   status          ApprovalStatus @default(PENDING)
   rejectionReason String?        // Diisi jika status == REJECTED
   reviewedAt      DateTime?      // Tanggal review
   reviewedBy      Int?           // ID Admin yang melakukan review
 
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt // [NEW] Tambahkan updated at standard
+  updatedAt    DateTime @updatedAt
 
   campaignItems CampaignItem[]
 
@@ -319,15 +360,15 @@ model Media {
 }
 
 model ImpressionLog {
-  id       BigInt @id @default(autoincrement())
-  screenId Int
-  screen   Screen @relation(fields: [screenId], references: [id])
+  id         BigInt   @id @default(autoincrement())
+  screenId   Int
+  screen     Screen   @relation(fields: [screenId], references: [id])
 
   campaignId Int
   campaign   Campaign @relation(fields: [campaignId], references: [id])
 
-  timestamp DateTime @default(now())
-  duration  Int
+  timestamp  DateTime @default(now())
+  duration   Int
 
   @@map("impression_logs")
 }

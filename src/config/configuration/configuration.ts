@@ -43,4 +43,9 @@ export default () => ({
     host: process.env.REDIS_HOST,
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
   },
+  midtrans: {
+    serverKey: process.env.MIDTRANS_SERVER_KEY,
+    clientKey: process.env.MIDTRANS_CLIENT_KEY,
+    isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
+  },
 });
