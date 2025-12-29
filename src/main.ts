@@ -6,8 +6,9 @@ import { TransformInterceptor } from './common/interceptors/transform/transform.
 import { AllExceptionsFilter } from './common/filters/all-exceptions/all-exceptions.filter';
 import { ConfigService } from '@nestjs/config';
 import { apiReference } from '@scalar/nestjs-api-reference';
-
+import { applyBigIntSerializers } from './common/utils/bigint.util';
 async function bootstrap() {
+  applyBigIntSerializers();
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
   const configService = app.get(ConfigService);

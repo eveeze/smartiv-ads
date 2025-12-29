@@ -6,12 +6,14 @@ import { PrismaService } from '../src/providers/prisma/prisma.service';
 import { AdSlot, Role, ScreenOrientation, RoomCategory } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
-import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor'; // [IMPORT PENTING]
+import { ConfigService } from '@nestjs/config'; // [FIX] Import ConfigService
+import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
 
 describe('InventoryModule (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let jwtService: JwtService;
+  let configService: ConfigService; // [FIX] Variable configService
   let adminToken: string;
 
   const uniqueId = Date.now();
@@ -24,17 +26,23 @@ describe('InventoryModule (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
 
-    // [FIX 1] Pasang Interceptor di Test agar format response { data: ... } konsisten dengan Production
     app.useGlobalInterceptors(new TransformInterceptor());
-
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
     jwtService = app.get<JwtService>(JwtService);
+    configService = app.get<ConfigService>(ConfigService); // [FIX] Init ConfigService
 
-    // Setup Admin & Token
+    // [FIX] Ambil secret yang benar dari ConfigService
+    const jwtSecret =
+      configService.get<string>('jwt.secret') ||
+      process.env.JWT_SECRET ||
+      'secret_key';
+
+    // 1. Clean & Seed Admin
     await prisma.user.deleteMany({ where: { email: adminEmail } });
+
     const admin = await prisma.user.create({
       data: {
         email: adminEmail,
@@ -45,9 +53,10 @@ describe('InventoryModule (e2e)', () => {
       },
     });
 
+    // 2. Generate Token Manual dengan Secret yang Benar
     adminToken = jwtService.sign(
       { sub: admin.id, email: admin.email, role: admin.role },
-      { secret: process.env.JWT_SECRET || 'secret_key' }, // Pastikan secret sesuai .env
+      { secret: jwtSecret },
     );
   });
 
@@ -81,7 +90,6 @@ describe('InventoryModule (e2e)', () => {
         })
         .expect(201);
 
-      // Sekarang res.body.data pasti ada karena interceptor aktif
       expect(res.body.data).toBeDefined();
       expect(res.body.data.id).toBeDefined();
       propertyId = res.body.data.id;
@@ -93,8 +101,6 @@ describe('InventoryModule (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      // Struktur PageDto: { data: [...], meta: {...} }
-      // Dibungkus Interceptor jadi: { data: { data: [...], meta: {...} } }
       expect(Array.isArray(res.body.data.data)).toBeTruthy();
       expect(res.body.data.meta).toBeDefined();
     });
@@ -105,7 +111,6 @@ describe('InventoryModule (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      // Struktur List biasa: { data: [...] }
       expect(Array.isArray(res.body.data)).toBeTruthy();
       expect(res.body.data[0]).toHaveProperty('id');
     });
@@ -113,7 +118,6 @@ describe('InventoryModule (e2e)', () => {
 
   describe('Screens', () => {
     it('POST /inventory/screens - Create Success', async () => {
-      // Guard: Jika properti gagal dibuat sebelumnya, skip test ini agar error jelas
       if (!propertyId)
         throw new Error('Cannot create screen: propertyId is undefined');
 
@@ -133,7 +137,7 @@ describe('InventoryModule (e2e)', () => {
     });
 
     it('GET /inventory/screens/list - Dropdown Filtered', async () => {
-      if (!propertyId) return; // Skip if no prop
+      if (!propertyId) return;
 
       const res = await request(app.getHttpServer())
         .get(`/inventory/screens/list?propertyId=${propertyId}`)
