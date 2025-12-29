@@ -133,58 +133,72 @@ _Definition of Done: Manajemen saldo wallet, Topup, Withdrawal, & Engine Kalkula
 
 ## 📢 Phase 5.5: Campaign Workflow & Approval (Status: NEXT UP 🚀)
 
-_Definition of Done: Flow lengkap Submit -> Review -> Active._
+_Definition of Done: Flow lengkap Create (Targeting) -> Validate (Conflict/Balance) -> Freeze -> Review -> Active._
 
-- [ ] **Step 1: Campaign Creation**
-  - [ ] DTO: `CreateCampaignDto` (Validasi tanggal & slot).
-  - [ ] **Constraint:** Validasi Media `status === APPROVED` & Saldo Cukup.
-  - [ ] **Endpoint User:** `POST /campaigns` (Draft/Submit).
-  - [ ] **Endpoint User:** `GET /campaigns` (List campaign sendiri & statusnya).
-- [ ] **Step 2: Submission Flow**
-  - [ ] Logic: Submit -> Status `PENDING_REVIEW` -> Trigger `freezeBalance`.
-- [ ] **Step 3: Admin Campaign Review**
-  - [ ] **Endpoint Admin:** `GET /campaigns/pending` (Queue campaign masuk).
-  - [ ] **Endpoint Admin:** `GET /campaigns/:id/detail` (Lihat detail slot & media).
-  - [ ] **Endpoint Admin:** `PATCH /campaigns/:id/review` (Approve -> Deduct Saldo / Reject -> Unfreeze).
-- [ ] **Step 4: End-to-End Flow**
-  - [ ] **E2E Test:** `test/campaign-flow.e2e-spec.ts`.
+- [ ] **Step 1: Campaign Core Logic (Targeting & Availabilty)**
+  - [ ] **DTO:** `CreateCampaignDto` (Input: `name`, `startDate`, `endDate`, `mediaId`, `targetFilter` atau `screenIds`).
+  - [ ] **Service:** `checkAvailability(screenIds, startDate, endDate)` (Memastikan slot belum penuh/bentrok di tanggal tersebut).
+  - [ ] **Service:** `resolveTargeting(filter)` (Menerjemahkan filter Kota/Kelas Properti menjadi list `screenIds`).
+- [ ] **Step 2: Campaign Creation & Financial Lock**
+  - [ ] **Constraint:** Validasi Media `status === APPROVED` & Saldo `available` >= `totalCost`.
+  - [ ] **Service:** `createCampaign` (Transaction: Simpan DB -> Update `frozenBalance` -> Buat Audit Log).
+  - [ ] **Endpoint User:** `POST /campaigns` (Draft/Submit Campaign).
+  - [ ] **Endpoint User:** `GET /campaigns` (List campaign sendiri, filter by status).
+- [ ] **Step 3: Admin Campaign Moderation**
+  - [ ] **Endpoint Admin:** `GET /campaigns/pending` (Queue campaign masuk, sort by date).
+  - [ ] **Endpoint Admin:** `GET /campaigns/:id/detail` (Lihat detail: Media, Total Harga, Screen List).
+  - [ ] **Endpoint Admin:** `PATCH /campaigns/:id/review` (Approve/Reject).
+    - [ ] _Logic Approve:_ Status `ACTIVE`, `frozenBalance` -> Potong Saldo (Create Transaction `SPEND`), Generate Invoice.
+    - [ ] _Logic Reject:_ Status `REJECTED`, `frozenBalance` -> Kembalikan ke Saldo (Release Hold).
+- [ ] **Step 4: Verification**
+  - [ ] **E2E Test:** `test/campaign-flow.e2e-spec.ts` (Skenario: Saldo kurang, Conflict jadwal, Approval Admin).
 
 ---
 
 ## 📺 Phase 6: Player API (Integration Point)
 
-_Definition of Done: TV bisa request config dan dapat playlist iklan yang sesuai._
+_Definition of Done: TV/Player bisa komunikasi dengan server, tarik jadwal secara aman, dan lapor status._
 
-- [ ] **Step 1: Logic & Caching**
-  - [ ] Setup `@nestjs/cache-manager` (Redis Cache).
-  - [ ] Service: `getPlaylist(screenCode)` -> Filter Campaign `ACTIVE` & `APPROVED`.
-- [ ] **Step 2: API & Load Test**
-  - [ ] **Endpoint TV:** `GET /player/config?code=MAC_ADDRESS`.
-  - [ ] **Response:** JSON Playlist Standard (HLS URL, Duration, Type).
+- [ ] **Step 1: Player Authentication & Config**
+  - [ ] **Middleware:** `PlayerAuthMiddleware` (Validasi Header `X-Device-ID` atau Mac Address).
+  - [ ] **Endpoint:** `GET /player/config` (Return: Interval Sync, Orientation, Default Media).
+- [ ] **Step 2: Playlist Generation (The Brain)**
+  - [ ] **Service:** `generatePlaylist(screenId)`
+    - [ ] Query Campaign yang `ACTIVE` dan `in_date_range`.
+    - [ ] **Security:** Generate **Presigned URL** / **Signed URL** untuk file HLS (agar tidak bisa di-hotlink/dicuri).
+  - [ ] **Endpoint:** `GET /player/playlist` (Return JSON: Sequence iklan, URL HLS Aman, Duration).
+- [ ] **Step 3: Monitoring (Heartbeat)**
+  - [ ] **Endpoint:** `POST /player/heartbeat` (TV lapor status "Online").
+  - [ ] **Service:** Update field `lastPing` dan `status` di tabel `Screen`.
 
 ---
 
 ## 📊 Phase 7: Reporting & Analytics Dashboard
 
-_Definition of Done: Admin & Advertiser bisa melihat performa iklan._
+_Definition of Done: Pengolahan data telemetri menjadi laporan yang bisa dibaca Advertiser & Admin._
 
-- [ ] **Step 1: Telemetry Ingest**
-  - [ ] **Endpoint Player:** `POST /telemetry/impression` (TV lapor iklan tayang).
-  - [ ] **Worker:** Proses log impression secara async (agar endpoint cepat).
-- [ ] **Step 2: Advertiser Dashboard Endpoints**
-  - [ ] **Endpoint:** `GET /reports/campaign/:id/stats` (Total Impression, Cost).
-  - [ ] **Endpoint:** `GET /reports/export/csv` (Download laporan).
-- [ ] **Step 3: Super Admin Dashboard Endpoints**
-  - [ ] **Endpoint:** `GET /dashboard/summary` (Total Revenue, Active Screens, Active Campaigns).
-  - [ ] **Endpoint:** `GET /dashboard/occupancy` (Persentase slot terisi).
+- [ ] **Step 1: Telemetry Ingest (High Throughput)**
+  - [ ] **Schema:** `ImpressionLog` (screenId, campaignId, mediaId, duration, timestamp).
+  - [ ] **Endpoint:** `POST /telemetry/impression` (Menerima batch logs dari TV).
+  - [ ] **Queue:** Masukkan data ke Redis Queue (`telemetry-queue`) agar API tidak blocking.
+  - [ ] **Worker:** `TelemetryProcessor` untuk simpan bulk insert ke DB.
+- [ ] **Step 2: Advertiser Dashboard**
+  - [ ] **Endpoint:** `GET /reports/campaign/:id/summary` (Total Impression, Cost, CTR).
+  - [ ] **Endpoint:** `GET /reports/export` (Download CSV/PDF Laporan).
+- [ ] **Step 3: Super Admin Dashboard**
+  - [ ] **Endpoint:** `GET /dashboard/summary` (Revenue, Active Screens, Occupancy Rate).
+  - [ ] **Endpoint:** `GET /dashboard/screens/status` (List layar Online vs Offline berdasarkan Heartbeat).
 
 ---
 
-## 👥 Phase 8: User Management (CMS Extras)
+## 👥 Phase 8: User Management & Expansion (CMS Extras)
 
-_Definition of Done: Admin bisa mengelola user yang terdaftar._
+_Definition of Done: Fitur tambahan untuk manajemen aktor lain sesuai spesifikasi._
 
 - [ ] **Step 1: User Administration**
-  - [ ] **Endpoint Admin:** `GET /users` (List semua advertiser, filter by name/email).
-  - [ ] **Endpoint Admin:** `GET /users/:id` (Detail user & history campaign).
-  - [ ] **Endpoint Admin:** `PATCH /users/:id/status` (Block/Unblock user).
+  - [ ] **Endpoint Admin:** `GET /users` (Search & Filter).
+  - [ ] **Endpoint Admin:** `PATCH /users/:id/status` (Block/Unblock User).
+- [ ] **Step 2: Property Operator Role (Multi-tenant Support)**
+  - [ ] **Role:** Implementasi Role `PROPERTY_OPERATOR` (sebelumnya HOTEL_ADMIN).
+  - [ ] **Permissions:** View Schedule Properti Sendiri, View Screen Status.
+  - [ ] **Endpoint:** `GET /property/screens` (Khusus Operator melihat status layar di propertinya sendiri).

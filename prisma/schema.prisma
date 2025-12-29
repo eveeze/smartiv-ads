@@ -21,18 +21,28 @@ enum Role {
 
 enum PropertyType {
   HOTEL
-  HOSPITAL
+  HOSPITAL      // Rumah Sakit
   APARTMENT
   VILLA
+  RESORT
   MALL
+  OFFICE_TOWER
   OTHER
 }
 
+// Klasifikasi untuk menentukan "Base Rate" harga iklan
 enum PropertyClass {
-  BUDGET
-  STANDARD
-  PREMIUM
-  LUXURY
+  // Hotel: Bintang 1-2 | RS: Kelas C/D | Mall: Grade C
+  BUDGET 
+  
+  // Hotel: Bintang 3 | RS: Kelas B | Mall: Grade B
+  STANDARD 
+  
+  // Hotel: Bintang 4 | RS: Kelas A (Swasta Premium) | Mall: Grade A
+  PREMIUM 
+  
+  // Hotel: Bintang 5/Luxury | RS: International/VIP Only
+  LUXURY 
 }
 
 enum ScreenStatus {
@@ -46,31 +56,56 @@ enum ScreenOrientation {
   PORTRAIT
 }
 
-// Slot Iklan yang disesuaikan dengan Menu SmartIV Core
+// Slot Iklan (Sesuai Menu Aplikasi SmartIV di TV)
 enum AdSlot {
-  SCREENSAVER       // /main-menu/promotion/screen-saver
-  INFO_SLIDER       // /main-menu/promotion/information-slider
-  APP_PROMOTION     // /main-menu/promotion/app-promotion
+  SCREENSAVER       // Idle Mode
+  INFO_SLIDER       // Running Text / Banner Bawah
+  APP_PROMOTION     // Pop-up Apps
   
-  // Leisure Menu Sections
-  LEISURE_CULINARY  // /main-menu/leisure/culinary
-  LEISURE_TOURISM   // /main-menu/leisure/tourism
+  // Menu Sections (Bisa dipakai untuk Health Info di RS)
+  LEISURE_CULINARY  
+  LEISURE_TOURISM   
   LEISURE_GIFT
   
   // Other Placements
-  WELCOME_GREETING  // Greeting Pop-up
-  BACKGROUND        // Wallpaper/Theme
+  WELCOME_GREETING  // Saat Tamu/Pasien Check-in
+  BACKGROUND        // Wallpaper Menu Utama
 }
 
+// Kategori Ruangan (Diperluas untuk RS & Villa)
 enum RoomCategory {
+  // --- HOTEL / UMUM ---
   STANDARD
   DELUXE
   SUITE
+  
+  // --- VIP SECTOR (Hotel/RS) ---
   VIP
   VVIP
-  LOBBY
-  WAITING_ROOM
-  RESTAURANT
+  PRESIDENTIAL
+
+  // --- PUBLIC AREA ---
+  LOBBY           // Lobi Utama
+  WAITING_ROOM    // Ruang Tunggu (Poli/Keluarga)
+  RESTAURANT      // Kantin / Resto
+  HALLWAY         // Lorong / Koridor
+  ELEVATOR_HALL   // Depan Lift
+
+  // --- HOSPITAL SPECIFIC ---
+  WARD_CLASS_1    // Rawat Inap Kelas 1
+  WARD_CLASS_2    // Rawat Inap Kelas 2
+  WARD_CLASS_3    // Rawat Inap Kelas 3
+  ICU             // Intensive Care Unit (Biasanya untuk keluarga penunggu)
+  ER              // Emergency Room / IGD
+  POLYCLINIC      // Poli Rawat Jalan
+  NURSE_STATION   // Konter Perawat
+
+  // --- VILLA / APARTMENT SPECIFIC ---
+  LIVING_ROOM     // Ruang Tengah
+  MASTER_BEDROOM  // Kamar Utama
+  KITCHEN_AREA    // Area Dapur/Makan
+  PRIVATE_POOL    // Area Kolam Renang Privat
+
   OTHER
 }
 
@@ -94,7 +129,6 @@ enum MediaType {
   VIDEO
 }
 
-// [UPDATED] Tambahkan WITHDRAWAL
 enum TransactionType {
   DEPOSIT
   SPEND
@@ -102,7 +136,6 @@ enum TransactionType {
   WITHDRAWAL
 }
 
-// [NEW] Status Withdrawal Request
 enum WithdrawalStatus {
   PENDING
   APPROVED
@@ -134,6 +167,7 @@ model User {
   logs      AuditLog[]
   media     Media[]
 
+  // Jika user adalah Property Operator (RS Admin / Hotel Admin)
   propertyId Int?
   property   Property? @relation(fields: [propertyId], references: [id])
 
@@ -146,12 +180,12 @@ model Wallet {
   user          User     @relation(fields: [userId], references: [id])
   
   balance       BigInt   @default(0)
-  frozenBalance BigInt   @default(0) // [NEW] Saldo yang sedang di-request withdrawal
+  frozenBalance BigInt   @default(0)
   
   updatedAt     DateTime @updatedAt
 
   transactions       Transaction[]
-  withdrawalRequests WithdrawalRequest[] // [NEW] Relation
+  withdrawalRequests WithdrawalRequest[]
 
   @@map("wallets")
 }
@@ -164,12 +198,9 @@ model Transaction {
   type          TransactionType
   status        TransactionStatus @default(PENDING)
   
-  // Reference Code (Midtrans Order ID atau Admin Reference)
   referenceCode String?           @unique 
-  
-  // [NEW] Fields khusus Midtrans / Gateway
-  paymentToken  String?           // Snap Token
-  paymentUrl    String?           // Redirect URL Midtrans
+  paymentToken  String?
+  paymentUrl    String?
 
   description   String?
   createdAt     DateTime          @default(now())
@@ -177,7 +208,6 @@ model Transaction {
   @@map("transactions")
 }
 
-// [NEW] Model Khusus Withdrawal Request
 model WithdrawalRequest {
   id          Int              @id @default(autoincrement())
   walletId    Int
@@ -190,8 +220,8 @@ model WithdrawalRequest {
   
   status      WithdrawalStatus @default(PENDING)
   
-  adminNote   String?          // Alasan reject atau info transfer
-  approvedBy  Int?             // ID Admin yang melakukan approval
+  adminNote   String?
+  approvedBy  Int?
   
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -202,25 +232,23 @@ model WithdrawalRequest {
 model Property {
   id             Int           @id @default(autoincrement())
   
-  // Identitas Internal Ads
-  name           String
+  name           String        // e.g., "RS Sentra Medika", "Villa Kayu Manis"
   type           PropertyType  @default(HOTEL)
-  classification PropertyClass @default(STANDARD)
+  classification PropertyClass @default(STANDARD) // Grade A/B/C or Stars
 
   // --- Sinkronisasi SmartIV Core ---
-  smartivId      Int?          @unique // Mapping dari company.id (misal: 212)
-  smartivCode    String?       @unique // Mapping dari company.code (misal: "0Q1MHI")
+  smartivId      Int?          @unique 
+  smartivCode    String?       @unique 
   
-  // --- Branding (Untuk Preview Iklan) ---
-  baseColor      String?       // Mapping base_color
-  activeColor    String?       // Mapping active_color
-  logoUrl        String?       // Mapping logo_url
+  // --- Branding ---
+  baseColor      String?       
+  activeColor    String?       
+  logoUrl        String?       
 
   // --- Lokasi & Config ---
   address        String?
   city           String?
   
-  // Config: Slot apa saja yang aktif di properti ini
   enabledSlots   AdSlot[]      @default([SCREENSAVER])
 
   createdAt DateTime @default(now())
@@ -239,17 +267,14 @@ model Screen {
   propertyId Int
   property   Property          @relation(fields: [propertyId], references: [id])
 
-  name       String   // Misal: "TV Lobby", "TV Kamar 101"
+  name       String   // e.g., "TV R.Inap 305", "TV Lobby Poli Anak"
+  code       String   @unique // MAC Address
   
-  // KUNCI UTAMA: MAC Address atau Unique ID dari device
-  code       String   @unique 
-  
-  // Metadata Teknis
   resolution  String?
   orientation ScreenOrientation @default(LANDSCAPE)
   ipAddress   String?
   
-  // Config Room
+  // Penentuan lokasi layar lebih spesifik (Penting untuk RS/Villa)
   roomCategory RoomCategory     @default(STANDARD)
 
   status      ScreenStatus      @default(ONLINE)
@@ -270,6 +295,7 @@ model RateCard {
   propertyId     Int?
   property       Property?      @relation(fields: [propertyId], references: [id])
 
+  // Harga dasar bisa berdasarkan Kelas Properti (misal: RS Tipe A vs Tipe C)
   classification PropertyClass?
   
   targetSlot     AdSlot? 
@@ -288,7 +314,6 @@ model Campaign {
   advertiserId Int
   advertiser   User           @relation(fields: [advertiserId], references: [id])
 
-  // Optional: Relasi langsung ke Property jika campaign ini Exclusive untuk 1 properti
   propertyId   Int?
   property     Property?      @relation(fields: [propertyId], references: [id])
 
@@ -317,6 +342,7 @@ model CampaignItem {
   mediaId            Int
   media              Media          @relation(fields: [mediaId], references: [id])
 
+  // Target lebih fleksibel (bisa pilih WARD_CLASS_1, VIP, atau LOBBY)
   targetRoomCategory RoomCategory[]
   
   targetSlot         AdSlot
@@ -345,11 +371,10 @@ model Media {
   hlsUrl         String?
   isTranscoded   Boolean        @default(false)
 
-  // Fields untuk Moderasi
   status          ApprovalStatus @default(PENDING)
-  rejectionReason String?        // Diisi jika status == REJECTED
-  reviewedAt      DateTime?      // Tanggal review
-  reviewedBy      Int?           // ID Admin yang melakukan review
+  rejectionReason String?        
+  reviewedAt      DateTime?      
+  reviewedBy      Int?           
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
