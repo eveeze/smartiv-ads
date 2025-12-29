@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-complete-v4",
-    "name": "SmartIV Ads (Fixed Data Wrapper)",
-    "description": "Collection with fixed script to handle NestJS TransformInterceptor response structure (data.accessToken).",
+    "_postman_id": "smartiv-ads-complete-v5",
+    "name": "SmartIV Ads (Phase 4.6 - Frontend Enablers)",
+    "description": "Updated with Frontend Enablers: Dropdowns, Media Details, and User Management.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -55,6 +55,11 @@
       "key": "media_id",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -91,11 +96,10 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
-                  "// Fix: Access token inside 'data' wrapper",
                   "if (pm.response.code === 200 || pm.response.code === 201) {",
                   "    if (jsonData.data && jsonData.data.accessToken) {",
                   "        pm.collectionVariables.set(\"admin_token\", jsonData.data.accessToken);",
-                  "        console.log(\"✅ ADMIN TOKEN SAVED: \" + jsonData.data.accessToken.substring(0, 10) + \"...\");",
+                  "        console.log(\"✅ ADMIN TOKEN SAVED\");",
                   "    } else {",
                   "        console.error(\"❌ TOKEN NOT FOUND IN RESPONSE DATA\");",
                   "    }",
@@ -133,11 +137,10 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
-                  "// Fix: Access token inside 'data' wrapper",
                   "if (pm.response.code === 200 || pm.response.code === 201) {",
                   "    if (jsonData.data && jsonData.data.accessToken) {",
                   "        pm.collectionVariables.set(\"advertiser_token\", jsonData.data.accessToken);",
-                  "        console.log(\"✅ ADVERTISER TOKEN SAVED: \" + jsonData.data.accessToken.substring(0, 10) + \"...\");",
+                  "        console.log(\"✅ ADVERTISER TOKEN SAVED\");",
                   "    } else {",
                   "        console.error(\"❌ TOKEN NOT FOUND IN RESPONSE DATA\");",
                   "    }",
@@ -206,7 +209,6 @@
                   "script": {
                     "exec": [
                       "var jsonData = pm.response.json();",
-                      "// Fix: Access ID inside 'data' wrapper",
                       "if (pm.response.code === 201) {",
                       "    if (jsonData.data && jsonData.data.id) {",
                       "        pm.collectionVariables.set(\"property_id\", jsonData.data.id);",
@@ -249,7 +251,7 @@
               "response": []
             },
             {
-              "name": "Get All Properties",
+              "name": "Get All Properties (Pagination)",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -277,6 +279,29 @@
                       "value": "10"
                     }
                   ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Properties List (Dropdown) [NEW]",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventory/properties/list",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "properties", "list"]
                 }
               },
               "response": []
@@ -372,7 +397,6 @@
                   "script": {
                     "exec": [
                       "var jsonData = pm.response.json();",
-                      "// Fix: Access ID inside 'data' wrapper",
                       "if (pm.response.code === 201) {",
                       "    if (jsonData.data && jsonData.data.id) {",
                       "        pm.collectionVariables.set(\"screen_id\", jsonData.data.id);",
@@ -415,7 +439,7 @@
               "response": []
             },
             {
-              "name": "Get All Screens",
+              "name": "Get All Screens (Pagination)",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -433,6 +457,35 @@
                   "raw": "{{base_url}}/inventory/screens?propertyId={{property_id}}",
                   "host": ["{{base_url}}"],
                   "path": ["inventory", "screens"],
+                  "query": [
+                    {
+                      "key": "propertyId",
+                      "value": "{{property_id}}"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Screens List (Dropdown) [NEW]",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventory/screens/list?propertyId={{property_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "screens", "list"],
                   "query": [
                     {
                       "key": "propertyId",
@@ -536,7 +589,6 @@
               "script": {
                 "exec": [
                   "var jsonData = pm.response.json();",
-                  "// Fix: Access ID inside 'data' wrapper",
                   "if (pm.response.code === 201) {",
                   "    if (jsonData.data && jsonData.data.id) {",
                   "        pm.collectionVariables.set(\"media_id\", jsonData.data.id);",
@@ -598,6 +650,29 @@
               "raw": "{{base_url}}/media",
               "host": ["{{base_url}}"],
               "path": ["media"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Media Detail (Preview) [NEW]",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/media/{{media_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["media", "{{media_id}}"]
             }
           },
           "response": []
@@ -685,6 +760,74 @@
               "raw": "{{base_url}}/media/{{media_id}}/review",
               "host": ["{{base_url}}"],
               "path": ["media", "{{media_id}}", "review"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. 👥 User Management (Admin Only)",
+      "item": [
+        {
+          "name": "Get All Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 200 && jsonData.data && jsonData.data.data.length > 0) {",
+                  "    // Ambil ID user pertama untuk test endpoint detail",
+                  "    var firstUserId = jsonData.data.data[0].id;",
+                  "    pm.collectionVariables.set(\"user_id\", firstUserId);",
+                  "    console.log(\"✅ User ID Saved for Detail Test: \" + firstUserId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Detail",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
             }
           },
           "response": []
