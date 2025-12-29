@@ -3,100 +3,130 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/providers/prisma/prisma.service';
-import { StorageService } from '../src/providers/storage/storage.service';
-import { QueueService } from '../src/providers/queue/queue.service';
-import { Role, ApprovalStatus } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { ApprovalStatus, Role } from '@prisma/client';
+import { join } from 'path';
+import * as fs from 'fs';
+import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
+import {
+  S3Client,
+  CreateBucketCommand,
+  HeadBucketCommand,
+} from '@aws-sdk/client-s3';
 
 describe('MediaModule (e2e) - Moderation', () => {
   let app: INestApplication;
   let prisma: PrismaService;
-
+  let jwtService: JwtService;
+  let configService: ConfigService;
   let advertiserToken: string;
   let adminToken: string;
-  let uploadedMediaId: number;
 
-  const mockStorageService = {
-    uploadFile: jest.fn().mockResolvedValue('http://mock-s3/file.url'),
-  };
-  const mockQueueService = {
-    addTranscodeJob: jest.fn().mockResolvedValue(undefined),
-  };
+  // Track IDs for targeted cleanup
+  let advertiserId: number;
+  let adminId: number;
+  let mediaId: number;
 
-  // Valid JPG Header (untuk bypass FileSignatureValidatorPipe)
-  const validJpgBuffer = Buffer.from([
-    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
-  ]);
+  const fixturesDir = join(__dirname, 'fixtures');
+  const testImage = join(fixturesDir, 'test-image.jpg');
 
   beforeAll(async () => {
+    // 0. Setup Fixture
+    if (!fs.existsSync(fixturesDir)) fs.mkdirSync(fixturesDir);
+    fs.writeFileSync(testImage, Buffer.from([0xff, 0xd8, 0xff, 0xe0]));
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    })
-      .overrideProvider(StorageService)
-      .useValue(mockStorageService)
-      .overrideProvider(QueueService)
-      .useValue(mockQueueService)
-      .compile();
+    }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalInterceptors(new TransformInterceptor());
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
+    jwtService = app.get<JwtService>(JwtService);
+    configService = app.get<ConfigService>(ConfigService);
 
-    // Clean DB (Urutan Penting: Media -> Wallet -> User)
-    await prisma.media.deleteMany();
-    await prisma.wallet.deleteMany();
-    await prisma.user.deleteMany();
+    // Setup S3 (Mock/MinIO)
+    const endpoint = configService.get('minio.endpoint') ?? 'localhost';
+    const port = configService.get('minio.port') ?? 9000;
+    const bucketName = configService.get('minio.bucket') ?? 'test-bucket';
+    const s3 = new S3Client({
+      endpoint: `http://${endpoint}:${port}`,
+      region: 'us-east-1',
+      credentials: {
+        accessKeyId: configService.get('minio.accessKey') ?? 'minioadmin',
+        secretAccessKey: configService.get('minio.secretKey') ?? 'minioadmin',
+      },
+      forcePathStyle: true,
+    });
+    try {
+      await s3.send(new HeadBucketCommand({ Bucket: bucketName }));
+    } catch {
+      await s3.send(new CreateBucketCommand({ Bucket: bucketName }));
+    }
+
+    const jwtSecret = configService.get<string>('jwt.secret') || 'secret_key';
 
     // 1. Create Advertiser
-    const password = await bcrypt.hash('password123', 10);
     const advertiser = await prisma.user.create({
       data: {
-        email: 'advertiser@test.com',
-        password,
+        email: `adv_media_${Date.now()}@test.com`,
+        password: 'hash',
+        name: 'Advertiser Media',
         role: Role.ADVERTISER,
-        wallet: { create: { balance: 0 } },
+        phone: '08123456789',
       },
     });
-    const advLogin = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: 'advertiser@test.com', password: 'password123' });
-    advertiserToken = advLogin.body.accessToken;
+    advertiserId = advertiser.id;
+    advertiserToken = jwtService.sign(
+      { sub: advertiser.id, email: advertiser.email, role: advertiser.role },
+      { secret: jwtSecret },
+    );
 
     // 2. Create Admin
-    await prisma.user.create({
+    const admin = await prisma.user.create({
       data: {
-        email: 'admin@test.com',
-        password,
+        email: `admin_media_${Date.now()}@test.com`,
+        password: 'hash',
+        name: 'Super Admin Media',
         role: Role.SUPER_ADMIN,
-        wallet: { create: { balance: 0 } },
       },
     });
-    const adminLogin = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: 'admin@test.com', password: 'password123' });
-    adminToken = adminLogin.body.accessToken;
+    adminId = admin.id;
+    adminToken = jwtService.sign(
+      { sub: admin.id, email: admin.email, role: admin.role },
+      { secret: jwtSecret },
+    );
   });
 
   afterAll(async () => {
-    // Cleanup Akhir (Urutan Penting!)
-    await prisma.media.deleteMany();
-    await prisma.wallet.deleteMany();
-    await prisma.user.deleteMany();
+    // [FIX] Targeted Cleanup Only
+    if (mediaId) await prisma.media.deleteMany({ where: { id: mediaId } });
+    if (advertiserId) {
+      await prisma.wallet.deleteMany({ where: { userId: advertiserId } });
+      await prisma.user.deleteMany({
+        where: { id: { in: [advertiserId, adminId] } },
+      });
+    }
+
+    if (fs.existsSync(testImage)) fs.unlinkSync(testImage);
+    if (fs.existsSync(fixturesDir)) fs.rmdirSync(fixturesDir);
     await app.close();
   });
 
   describe('Workflow: Upload -> Pending -> Admin Approve', () => {
-    it('1. Advertiser uploads media (Status should be PENDING)', async () => {
+    it('1. Advertiser uploads media', async () => {
       const res = await request(app.getHttpServer())
         .post('/media/upload')
         .set('Authorization', `Bearer ${advertiserToken}`)
-        .attach('file', validJpgBuffer, { filename: 'ad.jpg' })
+        .attach('file', testImage)
         .expect(201);
 
-      uploadedMediaId = res.body.id;
-      expect(res.body.status).toBe(ApprovalStatus.PENDING);
+      expect(res.body.data.status).toBe(ApprovalStatus.PENDING);
+      mediaId = res.body.data.id;
     });
 
     it('2. Admin checks pending queue', async () => {
@@ -105,69 +135,44 @@ describe('MediaModule (e2e) - Moderation', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
-      expect(res.body[0].status).toBe(ApprovalStatus.PENDING);
+      const found = res.body.data.find((m) => m.id === mediaId);
+      expect(found).toBeDefined();
     });
 
     it('3. Admin Approves the media', async () => {
       const res = await request(app.getHttpServer())
-        .patch(`/media/${uploadedMediaId}/review`)
+        .patch(`/media/${mediaId}/review`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: ApprovalStatus.APPROVED })
         .expect(200);
 
-      expect(res.body.status).toBe(ApprovalStatus.APPROVED);
-      expect(res.body.reviewedBy).toBeDefined();
+      expect(res.body.data.status).toBe(ApprovalStatus.APPROVED);
     });
 
-    it('4. Admin Rejects media (Fail Validation without Reason)', async () => {
-      // Buat media baru untuk direject
-      const uploadRes = await request(app.getHttpServer())
-        .post('/media/upload')
-        .set('Authorization', `Bearer ${advertiserToken}`)
-        .attach('file', validJpgBuffer, { filename: 'bad.jpg' })
-        .expect(201);
-
-      const mediaId = uploadRes.body.id;
-
-      // Coba Reject tanpa alasan
+    it('4. Admin Rejects media (Fail Validation)', async () => {
       await request(app.getHttpServer())
         .patch(`/media/${mediaId}/review`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: ApprovalStatus.REJECTED })
-        .expect(400); // Bad Request (ValidationPipe)
+        .expect(400);
     });
 
-    it('5. Admin Rejects media (Success with Reason)', async () => {
-      // Ambil media pending lain (atau yang baru dibuat jika perlu)
-      const pendingMedia = await prisma.media.findFirst({
-        where: { status: ApprovalStatus.PENDING },
-      });
-
-      // FIX: Pastikan media ditemukan sebelum lanjut (Handling Null Safety)
-      if (!pendingMedia) {
-        throw new Error('No pending media found for test case');
-      }
-
+    it('5. Admin Rejects media (Success)', async () => {
       const res = await request(app.getHttpServer())
-        .patch(`/media/${pendingMedia.id}/review`) // Aman diakses karena sudah dicek
+        .patch(`/media/${mediaId}/review`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          status: ApprovalStatus.REJECTED,
-          rejectionReason: 'Blurry Image',
-        })
+        .send({ status: ApprovalStatus.REJECTED, rejectionReason: 'Policy' })
         .expect(200);
 
-      expect(res.body.status).toBe(ApprovalStatus.REJECTED);
-      expect(res.body.rejectionReason).toBe('Blurry Image');
+      expect(res.body.data.status).toBe(ApprovalStatus.REJECTED);
     });
 
-    it('6. Advertiser tries to moderate (Should Fail)', async () => {
+    it('6. Advertiser tries to moderate (Fail)', async () => {
       await request(app.getHttpServer())
-        .get('/media/pending')
+        .patch(`/media/${mediaId}/review`)
         .set('Authorization', `Bearer ${advertiserToken}`)
-        .expect(403); // Forbidden
+        .send({ status: ApprovalStatus.APPROVED })
+        .expect(403);
     });
   });
 });

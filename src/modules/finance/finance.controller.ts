@@ -7,18 +7,19 @@ import {
   Param,
   Patch,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { FinanceService } from './finance.service';
 import { CreateTopupDto } from './dto/create-topup.dto';
 import { WithdrawalRequestDto } from './dto/withdrawal-request.dto';
 import { ReviewWithdrawalDto } from './dto/review-withdrawal.dto';
+import { CalculateCostDto } from './dto/calculate-cost.dto';
+import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-
-// [FIX] Pisahkan import Role (Value) dan User (Type Only)
 import { Role } from '@prisma/client';
 import type { User } from '@prisma/client';
 
@@ -26,6 +27,16 @@ import type { User } from '@prisma/client';
 @Controller('finance')
 export class FinanceController {
   constructor(private readonly financeService: FinanceService) {}
+
+  // --- HELPER (CALCULATOR) ---
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('calculate-cost')
+  @ApiOperation({ summary: 'Hitung Estimasi Biaya Campaign (Rate Card)' })
+  calculateCost(@Body() dto: CalculateCostDto) {
+    return this.financeService.calculateCampaignCost(dto);
+  }
 
   // --- ADVERTISER ENDPOINTS ---
 
@@ -62,11 +73,20 @@ export class FinanceController {
 
   @Post('webhook/midtrans')
   @ApiOperation({ summary: 'Midtrans Notification Webhook' })
-  handleMidtransWebhook(@Body() notification: any) {
+  handleMidtransWebhook(@Body() notification: unknown) {
     return this.financeService.handleMidtransNotification(notification);
   }
 
   // --- ADMIN ENDPOINTS ---
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPER_ADMIN)
+  @Get('admin/transactions')
+  @ApiOperation({ summary: 'Get All System Transactions (Audit Log)' })
+  getAllTransactions(@Query() query: TransactionQueryDto) {
+    return this.financeService.getAllTransactions(query);
+  }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

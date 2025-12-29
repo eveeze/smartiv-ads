@@ -9,12 +9,17 @@ import { MidtransService } from '../../providers/payment/midtrans.service';
 import { CreateTopupDto } from './dto/create-topup.dto';
 import { WithdrawalRequestDto } from './dto/withdrawal-request.dto';
 import { ReviewWithdrawalDto } from './dto/review-withdrawal.dto';
+import { CalculateCostDto } from './dto/calculate-cost.dto';
+import { TransactionQueryDto } from './dto/transaction-query.dto';
+import { PageDto } from '../../common/dto/page.dto';
+import { PageMetaDto } from '../../common/dto/page-meta.dto';
 import {
   TransactionType,
   TransactionStatus,
   WithdrawalStatus,
+  Prisma,
+  User,
 } from '@prisma/client';
-import { User } from '@prisma/client';
 
 @Injectable()
 export class FinanceService {
@@ -38,24 +43,147 @@ export class FinanceService {
     });
 
     if (!wallet) {
-      // Auto create if not exists (fallback mechanism)
       return this.prisma.wallet.create({
         data: { userId },
+        include: { transactions: true },
       });
     }
 
     return {
       ...wallet,
-      balance: Number(wallet.balance), // Convert BigInt to Number for JSON
+      balance: Number(wallet.balance),
       frozenBalance: Number(wallet.frozenBalance),
+      transactions: wallet.transactions.map((t) => ({
+        ...t,
+        amount: Number(t.amount),
+      })),
     };
+  }
+
+  // --- RATE CARD ENGINE (NEW) ---
+  async calculateCampaignCost(dto: CalculateCostDto) {
+    const start = new Date(dto.startDate);
+    const end = new Date(dto.endDate);
+
+    // Hitung selisih waktu dalam milidetik
+    const diffTime = end.getTime() - start.getTime();
+    // Konversi ke hari (round up agar 1 jam pun dihitung 1 hari sewa)
+    const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (durationDays <= 0) {
+      throw new BadRequestException('Durasi campaign minimal 1 hari');
+    }
+
+    // Ambil data screen beserta Property & RateCard-nya (Eager Loading)
+    const screens = await this.prisma.screen.findMany({
+      where: { id: { in: dto.screenIds } },
+      include: {
+        property: {
+          include: {
+            rateCards: true,
+          },
+        },
+      },
+    });
+
+    if (screens.length !== dto.screenIds.length) {
+      throw new NotFoundException('Beberapa ID layar tidak ditemukan');
+    }
+
+    let totalCost = BigInt(0);
+    const breakdown: Array<{
+      screenId: number;
+      screenName: string;
+      dailyPrice: number;
+      days: number;
+      subtotal: number;
+    }> = [];
+
+    for (const screen of screens) {
+      let dailyPrice = BigInt(0);
+
+      // Hierarki Harga:
+      // 1. Cek Override Price di level Screen (Spesifik)
+      if (screen.priceOverride && screen.priceOverride > BigInt(0)) {
+        dailyPrice = screen.priceOverride;
+      }
+      // 2. Cek Rate Card di level Property (berdasarkan Kelas Hotel)
+      else {
+        // Cari RateCard yang aktif dan sesuai klasifikasi properti
+        const rateCard = screen.property.rateCards.find(
+          (rc) =>
+            rc.isActive && rc.classification === screen.property.classification,
+        );
+
+        if (rateCard) {
+          dailyPrice = rateCard.pricePerDay;
+        } else {
+          // 3. Fallback Default (Safety Net)
+          dailyPrice = BigInt(50000); // Default Rp 50.000
+        }
+      }
+
+      const screenCost = dailyPrice * BigInt(durationDays);
+      totalCost += screenCost;
+
+      breakdown.push({
+        screenId: screen.id,
+        screenName: screen.name,
+        dailyPrice: Number(dailyPrice),
+        days: durationDays,
+        subtotal: Number(screenCost),
+      });
+    }
+
+    return {
+      totalCost: Number(totalCost),
+      durationDays,
+      screenCount: screens.length,
+      breakdown,
+    };
+  }
+
+  // --- ADMIN DASHBOARD (NEW) ---
+  async getAllTransactions(query: TransactionQueryDto) {
+    // [FIX] Tambahkan default value (= 1, = 10) saat destructuring
+    // Ini menjamin variabel page dan take selalu number (tidak undefined)
+    const { type, page = 1, take = 10, order } = query;
+
+    const where: Prisma.TransactionWhereInput = {};
+    if (type) where.type = type;
+
+    // Execute Query & Count in Parallel (Performance Optimization)
+    const [transactions, itemCount] = await Promise.all([
+      this.prisma.transaction.findMany({
+        where,
+        include: {
+          wallet: {
+            include: {
+              user: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
+        skip: (page - 1) * take, // Aman karena page dan take pasti number
+        take: take,
+        orderBy: { createdAt: order },
+      }),
+      this.prisma.transaction.count({ where }),
+    ]);
+
+    const pageMetaDto = new PageMetaDto({ itemCount, pageOptionsDto: query });
+
+    const data = transactions.map((t) => ({
+      ...t,
+      amount: Number(t.amount), // Safe conversion for JSON
+    }));
+
+    return new PageDto(data, pageMetaDto);
   }
 
   // --- TOPUP FLOW ---
   async requestTopup(user: User, dto: CreateTopupDto) {
     const orderId = `TOPUP-${user.id}-${Date.now()}`;
 
-    // 1. Pastikan Wallet Ada
     let wallet = await this.prisma.wallet.findUnique({
       where: { userId: user.id },
     });
@@ -63,7 +191,6 @@ export class FinanceService {
       wallet = await this.prisma.wallet.create({ data: { userId: user.id } });
     }
 
-    // 2. Buat Record Transaction PENDING
     const transaction = await this.prisma.transaction.create({
       data: {
         walletId: wallet.id,
@@ -75,7 +202,6 @@ export class FinanceService {
       },
     });
 
-    // 3. Request Token ke Midtrans
     const midtransRes = await this.midtrans.createSnapTransaction({
       orderId: orderId,
       amount: dto.amount,
@@ -86,7 +212,6 @@ export class FinanceService {
       },
     });
 
-    // 4. Update Transaction dengan Token
     await this.prisma.transaction.update({
       where: { id: transaction.id },
       data: {
@@ -104,7 +229,7 @@ export class FinanceService {
   }
 
   // --- WEBHOOK HANDLER ---
-  async handleMidtransNotification(notification: any) {
+  async handleMidtransNotification(notification: unknown) {
     const statusResponse = await this.midtrans.verifyNotification(notification);
     const orderId = statusResponse.order_id;
     const transactionStatus = statusResponse.transaction_status;
@@ -126,25 +251,22 @@ export class FinanceService {
 
     let newStatus: TransactionStatus | null = null;
 
-    // Logic Status Midtrans
-    if (transactionStatus == 'capture') {
-      if (fraudStatus == 'challenge') {
-        // Challenge -> Manual Review needed (Ignore for now)
-      } else if (fraudStatus == 'accept') {
+    if (transactionStatus === 'capture') {
+      if (fraudStatus === 'accept') {
         newStatus = TransactionStatus.SUCCESS;
       }
-    } else if (transactionStatus == 'settlement') {
+    } else if (transactionStatus === 'settlement') {
       newStatus = TransactionStatus.SUCCESS;
     } else if (
-      transactionStatus == 'cancel' ||
-      transactionStatus == 'deny' ||
-      transactionStatus == 'expire'
+      transactionStatus === 'cancel' ||
+      transactionStatus === 'deny' ||
+      transactionStatus === 'expire'
     ) {
       newStatus = TransactionStatus.FAILED;
     }
 
     if (newStatus === TransactionStatus.SUCCESS) {
-      // ATOMIC: Update Status & Tambah Saldo
+      // Atomic Transaction: Update Status & Increment Balance
       await this.prisma.$transaction([
         this.prisma.transaction.update({
           where: { id: transaction.id },
@@ -181,11 +303,11 @@ export class FinanceService {
     const available = wallet.balance - wallet.frozenBalance;
 
     if (available < amountBig) {
-      throw new BadRequestException('Insufficient available balance');
+      throw new BadRequestException('Saldo tidak mencukupi');
     }
 
-    // ATOMIC: Freeze Balance & Create Request
-    return this.prisma.$transaction(async (tx) => {
+    // Atomic: Freeze Balance & Create Request
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.wallet.update({
         where: { id: wallet.id },
         data: { frozenBalance: { increment: amountBig } },
@@ -202,6 +324,8 @@ export class FinanceService {
         },
       });
     });
+
+    return { ...result, amount: Number(result.amount) };
   }
 
   // Admin Only
@@ -214,7 +338,6 @@ export class FinanceService {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Convert BigInt for JSON safety
     return requests.map((req) => ({
       ...req,
       amount: Number(req.amount),
@@ -235,9 +358,9 @@ export class FinanceService {
       throw new BadRequestException('Invalid request ID or status');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       if (dto.approved) {
-        // APPROVED: Deduct balance permanen, Release frozen, Create Transaction Log
+        // APPROVED: Potong Saldo Permanen & Catat Transaksi Keluar
         await tx.wallet.update({
           where: { id: request.walletId },
           data: {
@@ -266,7 +389,7 @@ export class FinanceService {
           },
         });
       } else {
-        // REJECTED: Release frozen back to balance
+        // REJECTED: Kembalikan Saldo Frozen ke Available
         await tx.wallet.update({
           where: { id: request.walletId },
           data: {
@@ -284,5 +407,7 @@ export class FinanceService {
         });
       }
     });
+
+    return { ...result, amount: Number(result.amount) };
   }
 }

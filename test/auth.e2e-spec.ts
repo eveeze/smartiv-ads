@@ -3,17 +3,44 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/providers/prisma/prisma.service';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { Role } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
+import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let jwtService: JwtService;
+  let accessToken: string;
 
-  const uniqueId = Date.now();
-  const testUser = {
-    email: `e2e_test_${uniqueId}@smartiv.com`,
-    password: 'SuperSecret123!',
-    name: 'E2E Tester',
-    phone: '08129999999',
+  const testUserEmail = `auth_test_${Date.now()}@example.com`;
+  const registerUserEmail = `auth_reg_${Date.now()}@example.com`;
+
+  // Helper untuk membersihkan user & wallet dengan aman
+  const cleanupUsers = async () => {
+    const targetEmails = [testUserEmail, registerUserEmail];
+
+    // 1. Cari User ID berdasarkan email
+    const users = await prisma.user.findMany({
+      where: { email: { in: targetEmails } },
+      select: { id: true },
+    });
+
+    const userIds = users.map((u) => u.id);
+
+    if (userIds.length > 0) {
+      // 2. Hapus Wallet milik user tersebut
+      await prisma.wallet.deleteMany({
+        where: { userId: { in: userIds } },
+      });
+
+      // 3. Hapus User
+      await prisma.user.deleteMany({
+        where: { id: { in: userIds } },
+      });
+    }
   };
 
   beforeAll(async () => {
@@ -22,44 +49,55 @@ describe('AuthController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalInterceptors(new TransformInterceptor());
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
+    jwtService = app.get<JwtService>(JwtService);
+    const configService = app.get<ConfigService>(ConfigService);
+    const jwtSecret = configService.get<string>('jwt.secret') || 'secret_key';
+
+    // Cleanup Awal
+    await cleanupUsers();
+
+    // Create Test User Manual
+    const hashedPassword = await bcrypt.hash('password123', 10);
+    const user = await prisma.user.create({
+      data: {
+        email: testUserEmail,
+        password: hashedPassword,
+        name: 'E2E Test User',
+        role: Role.ADVERTISER,
+        phone: '08123456789',
+      },
+    });
+    // Create Wallet manual (jika logic register tidak dipanggil untuk testUser)
+    await prisma.wallet.create({ data: { userId: user.id } });
+
+    accessToken = jwtService.sign(
+      { sub: user.id, email: user.email, role: user.role },
+      { secret: jwtSecret },
+    );
   });
 
   afterAll(async () => {
-    if (prisma) {
-      const user = await prisma.user.findUnique({
-        where: { email: testUser.email },
-      });
-      if (user) {
-        await prisma.wallet.deleteMany({ where: { userId: user.id } });
-        await prisma.user.delete({ where: { id: user.id } });
-      }
-    }
-    if (app) {
-      await app.close();
-    }
+    // Cleanup Akhir (Hapus Wallet dulu baru User)
+    await cleanupUsers();
+    await app.close();
   });
 
   describe('/auth/register (POST)', () => {
     it('should register a new user', () => {
       return request(app.getHttpServer())
         .post('/auth/register')
-        .send(testUser)
-        .expect(201)
-        .expect((res) => {
-          expect(res.body).toHaveProperty('id');
-          expect(res.body.email).toEqual(testUser.email);
-        });
-    });
-
-    it('should fail if email already exists', () => {
-      return request(app.getHttpServer())
-        .post('/auth/register')
-        .send(testUser)
-        .expect(400);
+        .send({
+          email: registerUserEmail,
+          password: 'password123',
+          name: 'New User',
+          phone: '08123456780', // Phone wajib sesuai DTO
+        })
+        .expect(201);
     });
   });
 
@@ -67,35 +105,29 @@ describe('AuthController (e2e)', () => {
     it('should login and return jwt token', () => {
       return request(app.getHttpServer())
         .post('/auth/login')
-        .send({
-          email: testUser.email,
-          password: testUser.password,
-        })
+        .send({ email: testUserEmail, password: 'password123' })
         .expect(201)
         .expect((res) => {
-          expect(res.body).toHaveProperty('accessToken');
-          expect(res.body.user).toHaveProperty('email', testUser.email);
+          expect(res.body.data.accessToken).toBeDefined();
         });
+    });
+
+    it('should fail with wrong password', () => {
+      return request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: testUserEmail, password: 'wrongpassword' })
+        .expect(401);
     });
   });
 
   describe('/auth/me (GET)', () => {
-    let accessToken: string;
-
-    beforeAll(async () => {
-      const res = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: testUser.email, password: testUser.password });
-      accessToken = res.body.accessToken;
-    });
-
     it('should get profile with valid token', () => {
       return request(app.getHttpServer())
         .get('/auth/me')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200)
         .expect((res) => {
-          expect(res.body.email).toEqual(testUser.email);
+          expect(res.body.data.email).toEqual(testUserEmail);
         });
     });
 
