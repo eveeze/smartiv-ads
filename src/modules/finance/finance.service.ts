@@ -13,6 +13,7 @@ import { CalculateCostDto } from './dto/calculate-cost.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { PageDto } from '../../common/dto/page.dto';
 import { PageMetaDto } from '../../common/dto/page-meta.dto';
+import { FinanceUtils } from '../../common/utils/finance.utils'; // [NEW] Import Utils
 import {
   TransactionType,
   TransactionStatus,
@@ -43,12 +44,17 @@ export class FinanceService {
     });
 
     if (!wallet) {
-      return this.prisma.wallet.create({
+      const newWallet = await this.prisma.wallet.create({
         data: { userId },
         include: { transactions: true },
       });
+      return this.formatWallet(newWallet);
     }
 
+    return this.formatWallet(wallet);
+  }
+
+  private formatWallet(wallet: any) {
     return {
       ...wallet,
       balance: Number(wallet.balance),
@@ -60,21 +66,18 @@ export class FinanceService {
     };
   }
 
-  // --- RATE CARD ENGINE (NEW) ---
+  // --- RATE CARD ENGINE ---
   async calculateCampaignCost(dto: CalculateCostDto) {
     const start = new Date(dto.startDate);
     const end = new Date(dto.endDate);
 
-    // Hitung selisih waktu dalam milidetik
     const diffTime = end.getTime() - start.getTime();
-    // Konversi ke hari (round up agar 1 jam pun dihitung 1 hari sewa)
     const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (durationDays <= 0) {
       throw new BadRequestException('Durasi campaign minimal 1 hari');
     }
 
-    // Ambil data screen beserta Property & RateCard-nya (Eager Loading)
     const screens = await this.prisma.screen.findMany({
       where: { id: { in: dto.screenIds } },
       include: {
@@ -102,14 +105,12 @@ export class FinanceService {
     for (const screen of screens) {
       let dailyPrice = BigInt(0);
 
-      // Hierarki Harga:
-      // 1. Cek Override Price di level Screen (Spesifik)
+      // 1. Override Price
       if (screen.priceOverride && screen.priceOverride > BigInt(0)) {
         dailyPrice = screen.priceOverride;
       }
-      // 2. Cek Rate Card di level Property (berdasarkan Kelas Hotel)
+      // 2. Property Rate Card
       else {
-        // Cari RateCard yang aktif dan sesuai klasifikasi properti
         const rateCard = screen.property.rateCards.find(
           (rc) =>
             rc.isActive && rc.classification === screen.property.classification,
@@ -118,8 +119,8 @@ export class FinanceService {
         if (rateCard) {
           dailyPrice = rateCard.pricePerDay;
         } else {
-          // 3. Fallback Default (Safety Net)
-          dailyPrice = BigInt(50000); // Default Rp 50.000
+          // 3. Fallback
+          dailyPrice = BigInt(50000);
         }
       }
 
@@ -143,16 +144,13 @@ export class FinanceService {
     };
   }
 
-  // --- ADMIN DASHBOARD (NEW) ---
+  // --- ADMIN DASHBOARD ---
   async getAllTransactions(query: TransactionQueryDto) {
-    // [FIX] Tambahkan default value (= 1, = 10) saat destructuring
-    // Ini menjamin variabel page dan take selalu number (tidak undefined)
-    const { type, page = 1, take = 10, order } = query;
+    const { type, page = 1, take = 10, order = 'desc' } = query;
 
     const where: Prisma.TransactionWhereInput = {};
     if (type) where.type = type;
 
-    // Execute Query & Count in Parallel (Performance Optimization)
     const [transactions, itemCount] = await Promise.all([
       this.prisma.transaction.findMany({
         where,
@@ -163,7 +161,7 @@ export class FinanceService {
             },
           },
         },
-        skip: (page - 1) * take, // Aman karena page dan take pasti number
+        skip: (page - 1) * take,
         take: take,
         orderBy: { createdAt: order },
       }),
@@ -174,7 +172,7 @@ export class FinanceService {
 
     const data = transactions.map((t) => ({
       ...t,
-      amount: Number(t.amount), // Safe conversion for JSON
+      amount: Number(t.amount),
     }));
 
     return new PageDto(data, pageMetaDto);
@@ -266,7 +264,6 @@ export class FinanceService {
     }
 
     if (newStatus === TransactionStatus.SUCCESS) {
-      // Atomic Transaction: Update Status & Increment Balance
       await this.prisma.$transaction([
         this.prisma.transaction.update({
           where: { id: transaction.id },
@@ -306,7 +303,6 @@ export class FinanceService {
       throw new BadRequestException('Saldo tidak mencukupi');
     }
 
-    // Atomic: Freeze Balance & Create Request
     const result = await this.prisma.$transaction(async (tx) => {
       await tx.wallet.update({
         where: { id: wallet.id },
@@ -328,7 +324,7 @@ export class FinanceService {
     return { ...result, amount: Number(result.amount) };
   }
 
-  // Admin Only
+  // --- ADMIN WITHDRAWAL ---
   async getPendingWithdrawals() {
     const requests = await this.prisma.withdrawalRequest.findMany({
       where: { status: WithdrawalStatus.PENDING },
@@ -344,7 +340,6 @@ export class FinanceService {
     }));
   }
 
-  // Admin Only
   async reviewWithdrawal(
     requestId: number,
     dto: ReviewWithdrawalDto,
@@ -360,7 +355,7 @@ export class FinanceService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       if (dto.approved) {
-        // APPROVED: Potong Saldo Permanen & Catat Transaksi Keluar
+        // APPROVED: Potong Saldo Permanen & Catat Transaksi
         await tx.wallet.update({
           where: { id: request.walletId },
           data: {
@@ -389,7 +384,7 @@ export class FinanceService {
           },
         });
       } else {
-        // REJECTED: Kembalikan Saldo Frozen ke Available
+        // REJECTED: Kembalikan Saldo Frozen
         await tx.wallet.update({
           where: { id: request.walletId },
           data: {
@@ -409,5 +404,32 @@ export class FinanceService {
     });
 
     return { ...result, amount: Number(result.amount) };
+  }
+
+  // --- CAMPAIGN FINANCIAL HELPERS (Delegated to Utils) ---
+
+  async freezeBalanceForCampaign(
+    userId: number,
+    amount: bigint,
+    tx: Prisma.TransactionClient,
+  ) {
+    return FinanceUtils.freezeBalanceForCampaign(tx, userId, amount);
+  }
+
+  async commitFrozenBalance(
+    userId: number,
+    amount: bigint,
+    campaignId: number,
+    tx: Prisma.TransactionClient,
+  ) {
+    return FinanceUtils.commitFrozenBalance(tx, userId, amount, campaignId);
+  }
+
+  async releaseFrozenBalance(
+    userId: number,
+    amount: bigint,
+    tx: Prisma.TransactionClient,
+  ) {
+    return FinanceUtils.releaseFrozenBalance(tx, userId, amount);
   }
 }

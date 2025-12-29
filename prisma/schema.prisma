@@ -285,6 +285,7 @@ model Screen {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  campaigns   Campaign[]
   impressions ImpressionLog[]
 
   @@map("screens")
@@ -327,7 +328,7 @@ model Campaign {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  screens     Screen[]
   items       CampaignItem[]
   impressions ImpressionLog[]
 
