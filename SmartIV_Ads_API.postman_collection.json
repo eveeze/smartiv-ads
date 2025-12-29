@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-complete-v7",
-    "name": "SmartIV Ads (Final - Full Features)",
-    "description": "Complete collection including Finance (Wallet, Payment, Withdrawal, Rate Card), Inventory, Media, and Users.",
+    "_postman_id": "smartiv-ads-complete-v8",
+    "name": "SmartIV Ads (Final - Full Features + Campaigns)",
+    "description": "Complete collection including Auth, Inventory, Media, Users, Finance, and Campaign Workflow.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -68,6 +68,11 @@
     },
     {
       "key": "withdrawal_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "campaign_id",
       "value": "",
       "type": "string"
     }
@@ -851,7 +856,7 @@
           "name": "Advertiser",
           "item": [
             {
-              "name": "Calculate Campaign Cost [NEW]",
+              "name": "Calculate Campaign Cost",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -867,7 +872,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"screenIds\": [{{screen_id}}],\n    \"startDate\": \"2025-01-01\",\n    \"endDate\": \"2025-01-07\"\n}",
+                  "raw": "{\n    \"screenIds\": [{{screen_id}}],\n    \"startDate\": \"2025-05-01\",\n    \"endDate\": \"2025-05-07\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -937,7 +942,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"amount\": 150000\n}",
+                  "raw": "{\n    \"amount\": 500000\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1017,7 +1022,7 @@
           "name": "Admin",
           "item": [
             {
-              "name": "Get All Transactions (Audit) [NEW]",
+              "name": "Get All Transactions (Audit)",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -1126,6 +1131,201 @@
               "response": []
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "6. 📢 Campaign Module",
+      "item": [
+        {
+          "name": "Create Campaign",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"campaign_id\", jsonData.data.id);",
+                  "    console.log(\"✅ Campaign Created: \" + jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Ramadhan Promo 2025\",\n    \"startDate\": \"2025-05-01\",\n    \"endDate\": \"2025-05-07\",\n    \"mediaId\": {{media_id}},\n    \"screenIds\": [{{screen_id}}]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/campaigns",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Campaigns",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns?page=1&take=10",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "take",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pending Campaigns (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns/pending",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "pending"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Campaign Detail",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Review Campaign (Approve)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"approved\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id}}/review",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id}}", "review"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Review Campaign (Reject)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"approved\": false,\n    \"rejectionReason\": \"Konten tidak sesuai standar\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id}}/review",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id}}", "review"]
+            }
+          },
+          "response": []
         }
       ]
     }

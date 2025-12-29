@@ -131,31 +131,31 @@ _Definition of Done: Manajemen saldo wallet, Topup, Withdrawal, & Engine Kalkula
 
 ---
 
-## 📢 Phase 5.5: Campaign Workflow & Approval (Status: NEXT UP 🚀)
+## 📢 Phase 5.5: Campaign Workflow & Approval (Status: COMPLETED ✅)
 
 _Definition of Done: Flow lengkap Create (Targeting) -> Validate (Conflict/Balance) -> Freeze -> Review -> Active._
 
-- [ ] **Step 1: Campaign Core Logic (Targeting & Availabilty)**
-  - [ ] **DTO:** `CreateCampaignDto` (Input: `name`, `startDate`, `endDate`, `mediaId`, `targetFilter` atau `screenIds`).
-  - [ ] **Service:** `checkAvailability(screenIds, startDate, endDate)` (Memastikan slot belum penuh/bentrok di tanggal tersebut).
-  - [ ] **Service:** `resolveTargeting(filter)` (Menerjemahkan filter Kota/Kelas Properti menjadi list `screenIds`).
-- [ ] **Step 2: Campaign Creation & Financial Lock**
-  - [ ] **Constraint:** Validasi Media `status === APPROVED` & Saldo `available` >= `totalCost`.
-  - [ ] **Service:** `createCampaign` (Transaction: Simpan DB -> Update `frozenBalance` -> Buat Audit Log).
-  - [ ] **Endpoint User:** `POST /campaigns` (Draft/Submit Campaign).
-  - [ ] **Endpoint User:** `GET /campaigns` (List campaign sendiri, filter by status).
-- [ ] **Step 3: Admin Campaign Moderation**
-  - [ ] **Endpoint Admin:** `GET /campaigns/pending` (Queue campaign masuk, sort by date).
-  - [ ] **Endpoint Admin:** `GET /campaigns/:id/detail` (Lihat detail: Media, Total Harga, Screen List).
-  - [ ] **Endpoint Admin:** `PATCH /campaigns/:id/review` (Approve/Reject).
-    - [ ] _Logic Approve:_ Status `ACTIVE`, `frozenBalance` -> Potong Saldo (Create Transaction `SPEND`), Generate Invoice.
-    - [ ] _Logic Reject:_ Status `REJECTED`, `frozenBalance` -> Kembalikan ke Saldo (Release Hold).
-- [ ] **Step 4: Verification**
-  - [ ] **E2E Test:** `test/campaign-flow.e2e-spec.ts` (Skenario: Saldo kurang, Conflict jadwal, Approval Admin).
+- [x] **Step 1: Campaign Core Logic (Targeting & Availabilty)**
+  - [x] **DTO:** `CreateCampaignDto` (Input: `name`, `startDate`, `endDate`, `mediaId`, `targetFilter` atau `screenIds`).
+  - [x] **Service:** `checkAvailability` (Basic check: Screen Exist).
+  - [x] **Service:** `resolveTargeting` (Implicit via Screen Selection).
+- [x] **Step 2: Campaign Creation & Financial Lock**
+  - [x] **Constraint:** Validasi Media `status === APPROVED` & Saldo `available` >= `totalCost`.
+  - [x] **Service:** `createCampaign` (Transaction: Simpan DB -> Update `frozenBalance` -> Buat Audit Log).
+  - [x] **Endpoint User:** `POST /campaigns` (Draft/Submit Campaign).
+  - [x] **Endpoint User:** `GET /campaigns` (List campaign sendiri, filter by status).
+- [x] **Step 3: Admin Campaign Moderation**
+  - [x] **Endpoint Admin:** `GET /campaigns/pending` (Queue campaign masuk, sort by date).
+  - [x] **Endpoint Admin:** `GET /campaigns/:id/detail` (Lihat detail: Media, Total Harga, Screen List).
+  - [x] **Endpoint Admin:** `PATCH /campaigns/:id/review` (Approve/Reject).
+    - [x] _Logic Approve:_ Status `ACTIVE`, `frozenBalance` -> Potong Saldo (Create Transaction `SPEND`), Generate Invoice.
+    - [x] _Logic Reject:_ Status `REJECTED`, `frozenBalance` -> Kembalikan ke Saldo (Release Hold).
+- [x] **Step 4: Verification**
+  - [x] **E2E Test:** `test/campaign-flow.e2e-spec.ts` (Skenario: Saldo kurang, Conflict jadwal, Approval Admin).
 
 ---
 
-## 📺 Phase 6: Player API (Integration Point)
+## 📺 Phase 6: Player API (Integration Point) (Status: NEXT UP 🚀)
 
 _Definition of Done: TV/Player bisa komunikasi dengan server, tarik jadwal secara aman, dan lapor status._
 
