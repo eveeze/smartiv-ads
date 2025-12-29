@@ -111,26 +111,27 @@ _Definition of Done: Endpoint pelengkap untuk kebutuhan UI/UX (Dropdowns & Detai
 
 ---
 
-## 💰 Phase 5: Finance & Rate Card (Status: NEXT UP 🚀)
+## 💰 Phase 5: Finance & Rate Card (Status: COMPLETED ✅)
 
-_Definition of Done: Manajemen saldo wallet & Kalkulasi harga dinamis._
+_Definition of Done: Manajemen saldo wallet, Topup, Withdrawal, & Engine Kalkulasi Harga._
 
-- [ ] **Step 1: Rate Card Schema & Logic**
-  - [ ] Schema: `RateCard` (Base Price per Property Class / Override per Screen).
-  - [ ] **Service:** `calculateCampaignCost(screenIds, startDate, endDate)`.
-  - [ ] **Endpoint Helper:** `POST /finance/calculate-cost` (Untuk frontend menampilkan estimasi harga sebelum submit).
-- [ ] **Step 2: Wallet Management**
-  - [ ] **Service:** `topupBalance`, `freezeBalance`, `deductBalance`.
-  - [ ] **Endpoint User:** `GET /finance/wallet` (Cek saldo sendiri).
-  - [ ] **Endpoint User:** `GET /finance/transactions` (History mutasi saldo).
-  - [ ] **Endpoint User:** `POST /finance/topup` (Simulasi payment gateway).
-- [ ] **Step 3: Admin Finance Dashboard**
-  - [ ] **Endpoint Admin:** `GET /finance/admin/transactions` (Audit seluruh transaksi user).
-  - [ ] **Endpoint Admin:** `GET /finance/admin/wallets` (Cek saldo user).
+- [x] **Step 1: Rate Card Schema & Logic**
+  - [x] Schema: `RateCard` (Base Price per Property Class / Override per Screen).
+  - [x] **Service:** `calculateCampaignCost(screenIds, startDate, endDate)`.
+  - [x] **Endpoint Helper:** `POST /finance/calculate-cost` (Untuk frontend menampilkan estimasi harga).
+- [x] **Step 2: Wallet Management**
+  - [x] **Service:** `topupBalance`, `freezeBalance`, `deductBalance`.
+  - [x] **Endpoint User:** `GET /finance/wallet` (Cek saldo & history transaksi).
+  - [x] **Endpoint User:** `POST /finance/topup` (Simulasi payment gateway Midtrans).
+  - [x] **Endpoint User:** `POST /finance/withdrawal` (Request pencairan dana).
+- [x] **Step 3: Admin Finance Dashboard**
+  - [x] **Endpoint Admin:** `GET /finance/admin/transactions` (Audit seluruh transaksi user).
+  - [x] **Endpoint Admin:** `GET /finance/admin/withdrawals` (List request withdrawal).
+  - [x] **Endpoint Admin:** `PATCH /finance/admin/withdrawals/:id/review` (Approve/Reject).
 
 ---
 
-## 📢 Phase 5.5: Campaign Workflow & Approval
+## 📢 Phase 5.5: Campaign Workflow & Approval (Status: NEXT UP 🚀)
 
 _Definition of Done: Flow lengkap Submit -> Review -> Active._
 
