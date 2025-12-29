@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-complete-v5",
-    "name": "SmartIV Ads (Phase 4.6 - Frontend Enablers)",
-    "description": "Updated with Frontend Enablers: Dropdowns, Media Details, and User Management.",
+    "_postman_id": "smartiv-ads-complete-v7",
+    "name": "SmartIV Ads (Final - Full Features)",
+    "description": "Complete collection including Finance (Wallet, Payment, Withdrawal, Rate Card), Inventory, Media, and Users.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -60,6 +60,16 @@
       "key": "user_id",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "topup_order_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "withdrawal_id",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -101,7 +111,7 @@
                   "        pm.collectionVariables.set(\"admin_token\", jsonData.data.accessToken);",
                   "        console.log(\"✅ ADMIN TOKEN SAVED\");",
                   "    } else {",
-                  "        console.error(\"❌ TOKEN NOT FOUND IN RESPONSE DATA\");",
+                  "        console.error(\"❌ TOKEN NOT FOUND\");",
                   "    }",
                   "}"
                 ],
@@ -142,7 +152,7 @@
                   "        pm.collectionVariables.set(\"advertiser_token\", jsonData.data.accessToken);",
                   "        console.log(\"✅ ADVERTISER TOKEN SAVED\");",
                   "    } else {",
-                  "        console.error(\"❌ TOKEN NOT FOUND IN RESPONSE DATA\");",
+                  "        console.error(\"❌ TOKEN NOT FOUND\");",
                   "    }",
                   "}"
                 ],
@@ -284,7 +294,7 @@
               "response": []
             },
             {
-              "name": "Get Properties List (Dropdown) [NEW]",
+              "name": "Get Properties List (Dropdown)",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -468,7 +478,7 @@
               "response": []
             },
             {
-              "name": "Get Screens List (Dropdown) [NEW]",
+              "name": "Get Screens List (Dropdown)",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -655,7 +665,7 @@
           "response": []
         },
         {
-          "name": "Get Media Detail (Preview) [NEW]",
+          "name": "Get Media Detail (Preview)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -831,6 +841,291 @@
             }
           },
           "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. 💰 Finance Module",
+      "item": [
+        {
+          "name": "Advertiser",
+          "item": [
+            {
+              "name": "Calculate Campaign Cost [NEW]",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{advertiser_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"screenIds\": [{{screen_id}}],\n    \"startDate\": \"2025-01-01\",\n    \"endDate\": \"2025-01-07\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/finance/calculate-cost",
+                  "host": ["{{base_url}}"],
+                  "path": ["finance", "calculate-cost"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get My Wallet",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{advertiser_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/finance/wallet",
+                  "host": ["{{base_url}}"],
+                  "path": ["finance", "wallet"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Topup Balance",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "if (pm.response.code === 201) {",
+                      "    pm.collectionVariables.set(\"topup_order_id\", jsonData.data.orderId);",
+                      "    console.log(\"✅ Order ID Saved for Webhook: \" + jsonData.data.orderId);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{advertiser_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"amount\": 150000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/finance/topup",
+                  "host": ["{{base_url}}"],
+                  "path": ["finance", "topup"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Request Withdrawal",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{advertiser_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"amount\": 50000,\n    \"bankName\": \"BCA\",\n    \"accountNo\": \"123000999\",\n    \"accountName\": \"PT Maju Mundur\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/finance/withdrawal",
+                  "host": ["{{base_url}}"],
+                  "path": ["finance", "withdrawal"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "System (Webhook)",
+          "item": [
+            {
+              "name": "Simulate Midtrans Webhook",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"transaction_time\": \"2025-12-29 10:00:00\",\n    \"transaction_status\": \"settlement\",\n    \"transaction_id\": \"midtrans-{{$timestamp}}\",\n    \"status_message\": \"midtrans payment notification\",\n    \"status_code\": \"200\",\n    \"signature_key\": \"dummy-signature\",\n    \"payment_type\": \"bank_transfer\",\n    \"order_id\": \"{{topup_order_id}}\",\n    \"merchant_id\": \"G123456789\",\n    \"gross_amount\": \"150000.00\",\n    \"fraud_status\": \"accept\",\n    \"currency\": \"IDR\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/finance/webhook/midtrans",
+                  "host": ["{{base_url}}"],
+                  "path": ["finance", "webhook", "midtrans"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "name": "Get All Transactions (Audit) [NEW]",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/finance/admin/transactions?page=1&take=10",
+                  "host": ["{{base_url}}"],
+                  "path": ["finance", "admin", "transactions"],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "take",
+                      "value": "10"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Pending Withdrawals",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "if (pm.response.code === 200 && jsonData.data.length > 0) {",
+                      "    pm.collectionVariables.set(\"withdrawal_id\", jsonData.data[0].id);",
+                      "    console.log(\"✅ Withdrawal ID Saved: \" + jsonData.data[0].id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/finance/admin/withdrawals",
+                  "host": ["{{base_url}}"],
+                  "path": ["finance", "admin", "withdrawals"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Approve Withdrawal",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"approved\": true,\n    \"adminNote\": \"Transferred via KlikBCA\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/finance/admin/withdrawals/{{withdrawal_id}}/review",
+                  "host": ["{{base_url}}"],
+                  "path": [
+                    "finance",
+                    "admin",
+                    "withdrawals",
+                    "{{withdrawal_id}}",
+                    "review"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
         }
       ]
     }
