@@ -155,43 +155,136 @@ _Definition of Done: Flow lengkap Create (Targeting) -> Validate (Conflict/Balan
 
 ---
 
-## 📺 Phase 6: Player API (Integration Point) (Status: NEXT UP 🚀)
+## 🛡️ Phase 5.6: Operational & Safety (Status: NEXT UP - Prioritas 1)
+
+_Definition of Done: Fitur keamanan untuk User agar bisa membatalkan/menghapus resource._
+
+- [ ] **Step 1: Cancel Campaign**
+  - [ ] **Endpoint User:** `PATCH /campaigns/:id/cancel`.
+  - [ ] **Logic & Conditions:**
+    - **Cek Kepemilikan:** User hanya bisa cancel campaign miliknya sendiri.
+    - **Kondisi 1 (Status = PENDING_REVIEW):**
+      - Sistem **WAJIB** mengembalikan saldo (`frozenBalance` dikembalikan ke `balance`).
+      - Buat `AuditLog` tipe `REFUND`.
+      - Set status menjadi `CANCELLED`.
+    - **Kondisi 2 (Status = ACTIVE):**
+      - Set status menjadi `CANCELLED` (agar iklan berhenti tayang di TV).
+      - **Tidak ada refund otomatis** (sisa uang dianggap hangus/sudah terpakai).
+    - **Kondisi 3 (Status Lain):** Jika status `REJECTED`, `DRAFT`, atau `COMPLETED`, tolak request (Throw `BadRequest`).
+
+- [ ] **Step 2: Delete Media**
+  - [ ] **Endpoint User:** `DELETE /media/:id`.
+  - [ ] **Logic & Conditions:**
+    - **Cek Kepemilikan:** User hanya bisa hapus file miliknya.
+    - **Dependency Check (Krusial):** Cek apakah media ini sedang digunakan di tabel `CampaignItem`.
+      - Jika Campaign terkait statusnya `ACTIVE` atau `PENDING_REVIEW` -> **TOLAK** (`BadRequest: Media is currently in use`).
+      - Jika Campaign terkait statusnya `DRAFT`, `CANCELLED`, `REJECTED`, atau `COMPLETED` -> **IZINKAN**.
+    - **Action:** Hapus file fisik di MinIO/S3 **DAN** hapus record di Database.
+
+---
+
+## 🏷️ Phase 5.7: Rate Card Management (Status: PENDING - Prioritas 2)
+
+_Definition of Done: Admin bisa mengatur harga dinamis tanpa akses database manual._
+
+- [ ] **Step 1: Rate Card CRUD**
+  - [ ] **Endpoint Admin:** `GET /inventory/rate-cards` (List harga).
+  - [ ] **Endpoint Admin:** `POST /inventory/rate-cards` (Create harga baru).
+  - [ ] **Endpoint Admin:** `PATCH /inventory/rate-cards/:id` (Update harga).
+  - [ ] **Endpoint Admin:** `DELETE /inventory/rate-cards/:id` (Soft delete).
+  - [ ] **Logic & Conditions:**
+    - **Role Check:** Hanya `SUPER_ADMIN` yang boleh akses.
+    - **Validasi Input:** Harga tidak boleh negatif (`pricePerDay > 0`).
+    - **Uniqueness:** Tidak boleh ada duplikat konfigurasi (misal: 2 Rate Card aktif untuk `PropertyClass: PREMIUM` yang sama).
+
+---
+
+## 📝 Phase 5.8: Quality of Life Improvements (Status: PENDING - Prioritas 3)
+
+_Definition of Done: Fitur untuk meningkatkan kenyamanan pengguna (Draft & Profile)._
+
+- [ ] **Step 1: Edit & Delete Draft Campaign**
+  - [ ] **Endpoint:** `PATCH /campaigns/:id` & `DELETE /campaigns/:id`.
+  - [ ] **Logic & Conditions:**
+    - **Status Check (Strict):** Hanya boleh dilakukan jika status campaign === `DRAFT`.
+    - Jika status sudah `PENDING` (sedang direview admin) atau `ACTIVE`, user **TIDAK BOLEH** mengedit data (harus cancel dan buat baru).
+    - Jika delete `DRAFT`, tidak perlu ada pengembalian dana (karena draft belum memotong saldo).
+
+- [ ] **Step 2: User Self-Service (Update Profile)**
+  - [ ] **Endpoint:** `PATCH /users/profile`.
+  - [ ] **Logic & Conditions:**
+    - Input: `name`, `phone`.
+    - **Restricted Fields:** User **TIDAK BOLEH** mengubah `email` (identitas unik) atau `role` (keamanan) lewat endpoint ini.
+    - **Validation:** Pastikan format nomor HP valid.
+
+---
+
+## 🔐 Phase 5.9: Account Security (Status: PENDING - Prioritas 4)
+
+_Definition of Done: User bisa mengamankan akun dan melakukan pemulihan._
+
+- [ ] **Step 1: Change Password**
+  - [ ] **Endpoint:** `PATCH /auth/change-password`.
+  - [ ] **Input:** `oldPassword`, `newPassword`.
+  - [ ] **Logic & Conditions:**
+    - Verifikasi `oldPassword` dengan hash di database. Jika salah -> **TOLAK**.
+    - Hash `newPassword` sebelum disimpan.
+    - Logout semua sesi lain (opsional, best practice).
+
+- [ ] **Step 2: Forgot Password Flow**
+  - [ ] **Endpoint:** `POST /auth/forgot-password` (Input: Email).
+    - **Logic:** Generate token acak, simpan di DB dengan expiry time (misal 15 menit), kirim email.
+  - [ ] **Endpoint:** `POST /auth/reset-password` (Input: Token, New Password).
+    - **Logic:** Cek apakah token valid dan belum expired. Jika ya, update password dan hapus token.
+
+---
+
+## 📺 Phase 6: Player API (Integration Point) (Status: PENDING)
 
 _Definition of Done: TV/Player bisa komunikasi dengan server, tarik jadwal secara aman, dan lapor status._
 
 - [ ] **Step 1: Player Authentication & Config**
-  - [ ] **Middleware:** `PlayerAuthMiddleware` (Validasi Header `X-Device-ID` atau Mac Address).
+  - [ ] **Middleware:** `PlayerAuthMiddleware`.
+    - **Logic:** Validasi Header `X-Device-ID` (Mac Address/Unique ID) dengan data `code` di tabel `Screen`.
   - [ ] **Endpoint:** `GET /player/config` (Return: Interval Sync, Orientation, Default Media).
+
 - [ ] **Step 2: Playlist Generation (The Brain)**
-  - [ ] **Service:** `generatePlaylist(screenId)`
-    - [ ] Query Campaign yang `ACTIVE` dan `in_date_range`.
-    - [ ] **Security:** Generate **Presigned URL** / **Signed URL** untuk file HLS (agar tidak bisa di-hotlink/dicuri).
-  - [ ] **Endpoint:** `GET /player/playlist` (Return JSON: Sequence iklan, URL HLS Aman, Duration).
+  - [ ] **Service:** `generatePlaylist(screenId)`.
+  - [ ] **Logic & Conditions:**
+    - Cari Campaign yang statusnya **HANYA** `ACTIVE`.
+    - Cek tanggal: `startDate` <= TODAY <= `endDate`.
+    - Cek targeting: Apakah `Screen` ini termasuk dalam list `campaign.screens`? (Handle logic Buyout vs Selective secara otomatis via relasi Prisma).
+    - **Security:** Generate URL file yang aman (Presigned URL) jika private, atau direct URL jika public.
+
 - [ ] **Step 3: Monitoring (Heartbeat)**
   - [ ] **Endpoint:** `POST /player/heartbeat` (TV lapor status "Online").
-  - [ ] **Service:** Update field `lastPing` dan `status` di tabel `Screen`.
+  - [ ] **Logic:** Update field `lastPing` di tabel `Screen` dengan waktu sekarang. Jika `lastPing` > 5 menit lalu, Admin dashboard menganggap layar "Offline".
 
 ---
 
-## 📊 Phase 7: Reporting & Analytics Dashboard
+## 📊 Phase 7: Reporting & Analytics Dashboard (Status: PENDING)
 
 _Definition of Done: Pengolahan data telemetri menjadi laporan yang bisa dibaca Advertiser & Admin._
 
 - [ ] **Step 1: Telemetry Ingest (High Throughput)**
-  - [ ] **Schema:** `ImpressionLog` (screenId, campaignId, mediaId, duration, timestamp).
-  - [ ] **Endpoint:** `POST /telemetry/impression` (Menerima batch logs dari TV).
-  - [ ] **Queue:** Masukkan data ke Redis Queue (`telemetry-queue`) agar API tidak blocking.
-  - [ ] **Worker:** `TelemetryProcessor` untuk simpan bulk insert ke DB.
+  - [ ] **Endpoint:** `POST /telemetry/impression`.
+  - [ ] **Logic:** Terima array logs dari TV. Validasi `screenId` dan `campaignId`. Push ke Redis Queue (`telemetry-queue`). Jangan tulis langsung ke DB SQL agar API cepat.
+
 - [ ] **Step 2: Advertiser Dashboard**
-  - [ ] **Endpoint:** `GET /reports/campaign/:id/summary` (Total Impression, Cost, CTR).
-  - [ ] **Endpoint:** `GET /reports/export` (Download CSV/PDF Laporan).
+  - [ ] **Endpoint:** `GET /campaigns/summary`.
+  - [ ] **Logic:**
+    - `activeCampaigns`: Count where status = ACTIVE.
+    - `pendingCampaigns`: Count where status = PENDING.
+    - `totalSpent`: Sum `totalCost` from campaigns (or transactions).
+    - `remainingBalance`: Ambil dari tabel `Wallet`.
+
 - [ ] **Step 3: Super Admin Dashboard**
-  - [ ] **Endpoint:** `GET /dashboard/summary` (Revenue, Active Screens, Occupancy Rate).
-  - [ ] **Endpoint:** `GET /dashboard/screens/status` (List layar Online vs Offline berdasarkan Heartbeat).
+  - [ ] **Endpoint:** `GET /dashboard/summary`.
+  - [ ] **Logic:** Aggregation seluruh revenue, total layar aktif vs total layar mati.
 
 ---
 
-## 👥 Phase 8: User Management & Expansion (CMS Extras)
+## 👥 Phase 8: User Management & Expansion (CMS Extras) (Status: PENDING)
 
 _Definition of Done: Fitur tambahan untuk manajemen aktor lain sesuai spesifikasi._
 
