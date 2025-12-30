@@ -155,13 +155,13 @@ _Definition of Done: Flow lengkap Create (Targeting) -> Validate (Conflict/Balan
 
 ---
 
-## 🛡️ Phase 5.6: Operational & Safety (Status: NEXT UP - Prioritas 1)
+## 🛡️ Phase 5.6: Operational & Safety (Status: COMPLETED ✅)
 
 _Definition of Done: Fitur keamanan untuk User agar bisa membatalkan/menghapus resource._
 
-- [ ] **Step 1: Cancel Campaign**
-  - [ ] **Endpoint User:** `PATCH /campaigns/:id/cancel`.
-  - [ ] **Logic & Conditions:**
+- [x] **Step 1: Cancel Campaign**
+  - [x] **Endpoint User:** `PATCH /campaigns/:id/cancel`.
+  - [x] **Logic & Conditions:**
     - **Cek Kepemilikan:** User hanya bisa cancel campaign miliknya sendiri.
     - **Kondisi 1 (Status = PENDING_REVIEW):**
       - Sistem **WAJIB** mengembalikan saldo (`frozenBalance` dikembalikan ke `balance`).
@@ -172,9 +172,9 @@ _Definition of Done: Fitur keamanan untuk User agar bisa membatalkan/menghapus r
       - **Tidak ada refund otomatis** (sisa uang dianggap hangus/sudah terpakai).
     - **Kondisi 3 (Status Lain):** Jika status `REJECTED`, `DRAFT`, atau `COMPLETED`, tolak request (Throw `BadRequest`).
 
-- [ ] **Step 2: Delete Media**
-  - [ ] **Endpoint User:** `DELETE /media/:id`.
-  - [ ] **Logic & Conditions:**
+- [x] **Step 2: Delete Media**
+  - [x] **Endpoint User:** `DELETE /media/:id`.
+  - [x] **Logic & Conditions:**
     - **Cek Kepemilikan:** User hanya bisa hapus file miliknya.
     - **Dependency Check (Krusial):** Cek apakah media ini sedang digunakan di tabel `CampaignItem`.
       - Jika Campaign terkait statusnya `ACTIVE` atau `PENDING_REVIEW` -> **TOLAK** (`BadRequest: Media is currently in use`).
@@ -183,19 +183,34 @@ _Definition of Done: Fitur keamanan untuk User agar bisa membatalkan/menghapus r
 
 ---
 
-## 🏷️ Phase 5.7: Rate Card Management (Status: PENDING - Prioritas 2)
+## 🏷️ Phase 5.7: Rate Card Management (Status: NEXT UP - Prioritas 2)
 
 _Definition of Done: Admin bisa mengatur harga dinamis tanpa akses database manual._
 
-- [ ] **Step 1: Rate Card CRUD**
+- [ ] **Step 1: Interface & DTO**
+  - [ ] **DTO:** `CreateRateCardDto` (Input: `classification`, `pricePerDay`, `propertyId?`, `screenId?`).
+  - [ ] **DTO:** `UpdateRateCardDto` (Input: `pricePerDay`).
+  - [ ] **Validation:** Pastikan `pricePerDay > 0`.
+
+- [ ] **Step 2: Business Logic (CRUD)**
+  - [ ] **Service:** `create` (dengan validasi duplikat konfigurasi).
+  - [ ] **Service:** `findAll` (List semua konfigurasi harga aktif).
+  - [ ] **Service:** `update` (Ubah harga).
+  - [ ] **Service:** `remove` (Soft delete rate card).
+  - [ ] **Logic & Conditions:**
+    - **Uniqueness Check:** Tidak boleh ada 2 Rate Card aktif untuk konfigurasi yang sama (misal: 2 entri untuk `PropertyClass: PREMIUM`).
+    - **Hierarchy Priority:** Pastikan logika perhitungan tetap mengutamakan _Screen Override_ > _Property Override_ > _Global Class Price_.
+
+- [ ] **Step 3: API Endpoints (Admin Only)**
   - [ ] **Endpoint Admin:** `GET /inventory/rate-cards` (List harga).
   - [ ] **Endpoint Admin:** `POST /inventory/rate-cards` (Create harga baru).
   - [ ] **Endpoint Admin:** `PATCH /inventory/rate-cards/:id` (Update harga).
-  - [ ] **Endpoint Admin:** `DELETE /inventory/rate-cards/:id` (Soft delete).
-  - [ ] **Logic & Conditions:**
+  - [ ] **Endpoint Admin:** `DELETE /inventory/rate-cards/:id` (Delete harga).
+  - [ ] **Conditions:**
     - **Role Check:** Hanya `SUPER_ADMIN` yang boleh akses.
-    - **Validasi Input:** Harga tidak boleh negatif (`pricePerDay > 0`).
-    - **Uniqueness:** Tidak boleh ada duplikat konfigurasi (misal: 2 Rate Card aktif untuk `PropertyClass: PREMIUM` yang sama).
+
+- [ ] **Step 4: Testing**
+  - [ ] **E2E Test:** `test/rate-card.e2e-spec.ts` (Skenario: Admin CRUD Rate Card, lalu User create campaign dan cek apakah harga berubah sesuai Rate Card baru).
 
 ---
 
