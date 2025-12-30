@@ -116,6 +116,7 @@ enum CampaignStatus {
   REJECTED
   COMPLETED
   PAUSED
+  CANCELLED
 }
 
 enum ApprovalStatus {

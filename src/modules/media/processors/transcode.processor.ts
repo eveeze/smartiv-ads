@@ -7,7 +7,12 @@ import {
   TRANSCODE_QUEUE,
   JOB_TRANSCODE_VIDEO,
 } from '../../../providers/queue/queue.service';
-import { MediaUtils } from '../../../common/utils/media.utils';
+// [FIX] Import Helper URL dan Helper Class Logic
+import {
+  MediaUtils,
+  getHlsUrl,
+  getThumbnailUrl,
+} from '../../../common/utils/media.utils';
 import Ffmpeg from 'fluent-ffmpeg';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -53,7 +58,7 @@ export class TranscodeProcessor extends WorkerHost {
       this.logger.debug(`Downloading key: ${key}`);
       await this.storage.downloadToLocal(key, inputPath);
 
-      // 2. Cek Audio Stream
+      // 2. Cek Audio Stream (Menggunakan MediaUtils Class)
       const hasAudio = await MediaUtils.hasAudioStream(inputPath);
       this.logger.debug(`Audio detected: ${hasAudio}`);
 
@@ -76,7 +81,6 @@ export class TranscodeProcessor extends WorkerHost {
       this.logger.debug('Starting HLS Transcoding (4 Qualities)...');
 
       await new Promise<void>((resolve, reject) => {
-        // [FIX UTAMA] Output harus pakai pattern %v agar FFmpeg bisa generate banyak file
         const command = Ffmpeg(inputPath).output(
           `${outputPath}/stream_%v.m3u8`,
         );
@@ -88,45 +92,36 @@ export class TranscodeProcessor extends WorkerHost {
           '48',
           '-sc_threshold',
           '0',
-
-          // --- VIDEO MAPPING (4 Stream) ---
           '-map',
-          '0:v:0', // Stream 0 (240p)
+          '0:v:0', // 240p
           '-map',
-          '0:v:0', // Stream 1 (360p)
+          '0:v:0', // 360p
           '-map',
-          '0:v:0', // Stream 2 (480p)
+          '0:v:0', // 480p
           '-map',
-          '0:v:0', // Stream 3 (720p)
+          '0:v:0', // 720p
         ];
 
         // --- VIDEO SETTINGS ---
         options.push(
-          // 240p (Ultra Low - Sinyal Jelek)
           '-s:v:0',
           '426x240',
           '-c:v:0',
           'libx264',
           '-b:v:0',
           '400k',
-
-          // 360p (Standard)
           '-s:v:1',
           '640x360',
           '-c:v:1',
           'libx264',
           '-b:v:1',
           '800k',
-
-          // 480p (High SD)
           '-s:v:2',
           '854x480',
           '-c:v:2',
           'libx264',
           '-b:v:2',
           '1400k',
-
-          // 720p (HD Ready)
           '-s:v:3',
           '1280x720',
           '-c:v:3',
@@ -135,11 +130,10 @@ export class TranscodeProcessor extends WorkerHost {
           '2800k',
         );
 
-        // --- AUDIO SETTINGS (Conditional) ---
+        // --- AUDIO SETTINGS ---
         let varStreamMap = '';
 
         if (hasAudio) {
-          // Map Audio 4 kali
           options.push(
             '-map',
             '0:a:0',
@@ -150,49 +144,42 @@ export class TranscodeProcessor extends WorkerHost {
             '-map',
             '0:a:0',
           );
-
           options.push(
             '-c:a:0',
             'aac',
             '-b:a:0',
-            '64k', // Audio 240p
+            '64k',
             '-c:a:1',
             'aac',
             '-b:a:1',
-            '96k', // Audio 360p
+            '96k',
             '-c:a:2',
             'aac',
             '-b:a:2',
-            '128k', // Audio 480p
+            '128k',
             '-c:a:3',
             'aac',
             '-b:a:3',
-            '128k', // Audio 720p
+            '128k',
           );
-
-          // Mapping Video+Audio
           varStreamMap =
             'v:0,a:0,name:240p v:1,a:1,name:360p v:2,a:2,name:480p v:3,a:3,name:720p';
         } else {
-          // Mapping Video Only
           varStreamMap =
             'v:0,name:240p v:1,name:360p v:2,name:480p v:3,name:720p';
         }
 
-        // --- HLS CONFIG ---
         options.push(
           '-f',
           'hls',
           '-var_stream_map',
           varStreamMap,
-          // Ini nama file playlist UTAMA yang menggabungkan semua kualitas
           '-master_pl_name',
           'master.m3u8',
           '-hls_time',
           '6',
           '-hls_playlist_type',
           'vod',
-          // [FIX] Nama segment juga dibuat pattern agar rapi & tidak butuh mkdir subdirectory
           '-hls_segment_filename',
           `${outputPath}/stream_%v_data%03d.ts`,
         );
@@ -207,12 +194,13 @@ export class TranscodeProcessor extends WorkerHost {
           .run();
       });
 
-      // 5. Upload Hasil (Recursive)
+      // 5. Upload Hasil
       const s3BaseKey = `hls/${mediaId}`;
 
       // Upload Thumbnail
       const thumbBuffer = fs.readFileSync(path.join(tempDir, thumbFilename));
-      const thumbUrl = await this.storage.uploadFile(
+      // Kita tidak perlu simpan URL return dari sini, karena kita pakai helper getThumbnailUrl nanti
+      await this.storage.uploadFile(
         `${s3BaseKey}/thumbnail.jpg`,
         thumbBuffer,
         'image/jpeg',
@@ -236,13 +224,14 @@ export class TranscodeProcessor extends WorkerHost {
       };
       await uploadRecursive(outputPath, s3BaseKey);
 
-      // 6. Update DB
+      // 6. Update DB [FIXED]
+      // Menggunakan helper function agar konsisten dengan MediaService
       await this.prisma.media.update({
         where: { id: mediaId },
         data: {
           isTranscoded: true,
-          hlsUrl: this.storage.getFileUrl(`${s3BaseKey}/master.m3u8`),
-          thumbnailUrl: thumbUrl,
+          hlsUrl: getHlsUrl(mediaId), // Menggunakan Helper
+          thumbnailUrl: getThumbnailUrl(mediaId), // Menggunakan Helper
         },
       });
 

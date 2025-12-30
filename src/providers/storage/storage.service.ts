@@ -4,6 +4,7 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand, // [FIX] Import ini wajib ada
 } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
 import * as fs from 'fs';
@@ -52,6 +53,23 @@ export class StorageService {
       return this.getFileUrl(key);
     } catch (error) {
       this.logger.error(`Upload failed for ${key}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // [NEW] Method Delete yang sebelumnya hilang
+  async delete(key: string): Promise<void> {
+    try {
+      await this.s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+        }),
+      );
+      this.logger.log(`File deleted successfully from storage: ${key}`);
+    } catch (error) {
+      this.logger.error(`Delete failed for ${key}: ${error.message}`);
+      // Kita throw error agar service pemanggil tahu kalau gagal hapus fisik
       throw error;
     }
   }

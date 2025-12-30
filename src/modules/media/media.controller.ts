@@ -3,34 +3,33 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
-  UseGuards,
   Get,
-  HttpStatus,
-  ParseFilePipeBuilder,
-  Patch,
   Param,
-  Body,
   ParseIntPipe,
+  Patch,
+  Body,
+  UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { MediaService } from './media.service';
 import {
   ApiBearerAuth,
   ApiConsumes,
-  ApiBody,
-  ApiTags,
   ApiOperation,
+  ApiTags,
 } from '@nestjs/swagger';
-import { MediaService } from './media.service';
+import { UploadMediaDto } from './dto/upload-media.dto';
+import { FileSignatureValidatorPipe } from '../../common/pipes/file-signature.pipe';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
-import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
-import { FileSignatureValidatorPipe } from '../../common/pipes/file-signature.pipe';
-import { ReviewMediaDto } from './dto/review-media.dto';
 import { Role } from '@prisma/client';
 import type { User } from '@prisma/client';
+import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
+import { ReviewMediaDto } from './dto/review-media.dto';
 
-@ApiTags('Media (Upload & Moderation)')
+@ApiTags('Media')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('media')
@@ -38,61 +37,55 @@ export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
 
   @Post('upload')
-  @Roles(Role.ADVERTISER, Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Upload Image or Video (Max 200MB)' })
+  @Roles(Role.ADVERTISER)
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: { type: 'string', format: 'binary' },
-      },
-    },
-  })
+  @ApiOperation({ summary: 'Upload Media (Image/Video)' })
   @UseInterceptors(FileInterceptor('file'))
   uploadFile(
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addMaxSizeValidator({ maxSize: 200 * 1024 * 1024 })
-        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
-      new FileSignatureValidatorPipe(),
-    )
-    file: Express.Multer.File,
+    @UploadedFile(FileSignatureValidatorPipe) file: Express.Multer.File,
+    @Body() dto: UploadMediaDto,
     @CurrentUser() user: User,
   ) {
-    return this.mediaService.uploadMedia(file, user);
+    return this.mediaService.upload(file, user);
   }
 
   @Get()
   @Roles(Role.ADVERTISER, Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'List My Media (Advertiser) or All (Admin)' })
+  @ApiOperation({ summary: 'Get all media uploaded by me' })
   findAll(@CurrentUser() user: User) {
     return this.mediaService.findAll(user);
   }
 
   @Get('pending')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: '[Admin] Get Pending Media Queue' })
-  getPendingMedia() {
-    return this.mediaService.getPendingMedia();
+  @ApiOperation({ summary: 'Get all pending media (Admin)' })
+  findPending() {
+    return this.mediaService.findPending();
   }
 
-  // [NEW] Get Detail Media
   @Get(':id')
   @Roles(Role.ADVERTISER, Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get Media Detail by ID' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.mediaService.findOne(id);
+  @ApiOperation({ summary: 'Get media detail' })
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+    return this.mediaService.findOne(id, user);
   }
 
   @Patch(':id/review')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: '[Admin] Approve or Reject Media' })
-  reviewMedia(
+  @ApiOperation({ summary: 'Approve or Reject media (Admin)' })
+  review(
     @Param('id', ParseIntPipe) id: number,
-    @Body() reviewDto: ReviewMediaDto,
+    @Body() dto: ReviewMediaDto,
     @CurrentUser() admin: User,
   ) {
-    return this.mediaService.reviewMedia(id, reviewDto, admin.id);
+    return this.mediaService.review(id, dto, admin.id);
+  }
+
+  // [NEW ENDPOINT]
+  @Delete(':id')
+  @Roles(Role.ADVERTISER)
+  @ApiOperation({ summary: 'Delete media (Only if not in active campaign)' })
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+    return this.mediaService.remove(id, user);
   }
 }

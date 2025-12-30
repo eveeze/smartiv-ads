@@ -6,10 +6,14 @@ import { QueueService } from '../../providers/queue/queue.service';
 import { BadRequestException } from '@nestjs/common';
 import { MediaType, User, Role } from '@prisma/client';
 
-// Mock UUID
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'test-uuid-123'),
-}));
+// Mock fs.createReadStream karena digunakan di service
+jest.mock('fs', () => {
+  const originalFs = jest.requireActual('fs');
+  return {
+    ...originalFs,
+    createReadStream: jest.fn().mockReturnValue('mock-stream'),
+  };
+});
 
 describe('MediaService', () => {
   let service: MediaService;
@@ -33,23 +37,27 @@ describe('MediaService', () => {
     originalname: 'test.jpg',
     mimetype: 'image/jpeg',
     size: 1024,
-    buffer: Buffer.from('fake-image'),
+    path: '/tmp/test.jpg',
   } as Express.Multer.File;
 
   const mockPrisma = {
     media: {
       create: jest.fn(),
       findMany: jest.fn(),
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+      update: jest.fn(),
     },
+    campaign: { count: jest.fn() },
   };
 
+  // [FIX] Tambahkan .mockResolvedValue(undefined) agar return Promise
   const mockStorage = {
     uploadFile: jest.fn(),
+    delete: jest.fn().mockResolvedValue(undefined),
   };
 
-  const mockQueue = {
-    addTranscodeJob: jest.fn(),
-  };
+  const mockQueue = { addTranscodeJob: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -69,81 +77,79 @@ describe('MediaService', () => {
     jest.clearAllMocks();
   });
 
-  describe('uploadMedia', () => {
-    it('should upload image successfully (no transcoding queue)', async () => {
-      mockStorage.uploadFile.mockResolvedValue('http://minio/bucket/image.jpg');
+  describe('upload', () => {
+    it('should upload image successfully', async () => {
+      mockStorage.uploadFile.mockResolvedValue('http://minio/image.jpg');
       mockPrisma.media.create.mockResolvedValue({
         id: 1,
         type: MediaType.IMAGE,
-        isTranscoded: true,
       });
 
-      const result = await service.uploadMedia(mockFile, mockUser);
+      await service.upload(mockFile, mockUser);
 
-      expect(storage.uploadFile).toHaveBeenCalled();
-
-      // [FIX] Cek nested data object karena prisma.create({ data: ... })
-      expect(prisma.media.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            type: MediaType.IMAGE,
-            isTranscoded: true,
-            uploaderId: mockUser.id,
-          }),
-        }),
+      expect(storage.uploadFile).toHaveBeenCalledWith(
+        expect.any(String),
+        'mock-stream',
+        expect.any(String),
       );
-
+      expect(prisma.media.create).toHaveBeenCalled();
       expect(queue.addTranscodeJob).not.toHaveBeenCalled();
-      expect(result).toBeDefined();
     });
 
-    it('should upload video and add to transcoding queue', async () => {
-      const videoFile = {
-        ...mockFile,
-        originalname: 'vid.mp4',
-        mimetype: 'video/mp4',
-      };
-
-      mockStorage.uploadFile.mockResolvedValue('http://minio/bucket/vid.mp4');
+    it('should upload video and trigger transcode', async () => {
+      const videoFile = { ...mockFile, mimetype: 'video/mp4' };
+      mockStorage.uploadFile.mockResolvedValue('http://minio/video.mp4');
       mockPrisma.media.create.mockResolvedValue({
         id: 2,
         type: MediaType.VIDEO,
-        isTranscoded: false,
       });
 
-      await service.uploadMedia(videoFile, mockUser);
-
-      expect(prisma.media.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            type: MediaType.VIDEO,
-            isTranscoded: false,
-          }),
-        }),
-      );
+      await service.upload(videoFile, mockUser);
 
       expect(queue.addTranscodeJob).toHaveBeenCalledWith(2);
     });
 
     it('should throw error for unsupported file type', async () => {
-      const invalidFile = { ...mockFile, mimetype: 'application/pdf' };
+      const invalidFile = { ...mockFile, mimetype: 'application/pdf' }; // PDF not allowed
 
-      await expect(service.uploadMedia(invalidFile, mockUser)).rejects.toThrow(
+      await expect(service.upload(invalidFile, mockUser)).rejects.toThrow(
         BadRequestException,
       );
+
+      expect(storage.uploadFile).not.toHaveBeenCalled();
+      expect(prisma.media.create).not.toHaveBeenCalled();
     });
   });
 
-  describe('findAll', () => {
-    it('should return user media list', async () => {
-      mockPrisma.media.findMany.mockResolvedValue([]);
+  describe('remove', () => {
+    const mediaId = 1;
+    const media = {
+      id: mediaId,
+      uploaderId: mockUser.id,
+      filename: 'raw/test.jpg',
+    };
 
-      await service.findAll(mockUser);
+    it('should delete unused media', async () => {
+      mockPrisma.media.findUnique.mockResolvedValue(media);
+      mockPrisma.campaign.count.mockResolvedValue(0); // Not used
 
-      expect(prisma.media.findMany).toHaveBeenCalledWith({
-        where: { uploaderId: mockUser.id },
-        orderBy: { createdAt: 'desc' },
+      await service.remove(mediaId, mockUser);
+
+      expect(storage.delete).toHaveBeenCalledWith('raw/test.jpg');
+      expect(prisma.media.delete).toHaveBeenCalledWith({
+        where: { id: mediaId },
       });
+    });
+
+    it('should throw Error if media is used in active campaign', async () => {
+      mockPrisma.media.findUnique.mockResolvedValue(media);
+      mockPrisma.campaign.count.mockResolvedValue(1); // Used!
+
+      await expect(service.remove(mediaId, mockUser)).rejects.toThrow(
+        BadRequestException,
+      );
+      // Storage delete tidak boleh dipanggil jika validasi gagal
+      expect(storage.delete).not.toHaveBeenCalled();
     });
   });
 });

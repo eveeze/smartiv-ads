@@ -26,11 +26,7 @@ export class CampaignsService {
     private readonly financeService: FinanceService,
   ) {}
 
-  /**
-   * Step 1 & 2: Create Campaign (Draft -> Freeze Balance)
-   */
   async create(user: User, dto: CreateCampaignDto) {
-    // 1. Validasi Media
     const media = await this.prisma.media.findUnique({
       where: { id: dto.mediaId },
     });
@@ -40,7 +36,6 @@ export class CampaignsService {
     if (media.status !== ApprovalStatus.APPROVED)
       throw new BadRequestException('Media is not APPROVED yet');
 
-    // 2. Validasi Tanggal
     const start = new Date(dto.startDate);
     const end = new Date(dto.endDate);
     if (start >= end)
@@ -48,16 +43,10 @@ export class CampaignsService {
     if (start < new Date())
       throw new BadRequestException('Start date must be in the future');
 
-    // ---------------------------------------------------------
-    // [LOGIC BARU] Menentukan Target Screens
-    // ---------------------------------------------------------
     let targetScreenIds: number[] = [];
 
     if (dto.propertyId) {
-      // SCENARIO A: PROPERTY BUYOUT
-      // Cari semua screen yang ONLINE di properti tersebut
-
-      // Cek properti exist
+      // BUYOUT LOGIC
       const propertyExists = await this.prisma.property.count({
         where: { id: dto.propertyId },
       });
@@ -65,11 +54,10 @@ export class CampaignsService {
         throw new NotFoundException('Property not found');
       }
 
-      // Fetch semua screen aktif
       const propertyScreens = await this.prisma.screen.findMany({
         where: {
           propertyId: dto.propertyId,
-          status: ScreenStatus.ONLINE, // Hanya ambil layar yang aktif
+          status: ScreenStatus.ONLINE,
         },
         select: { id: true },
       });
@@ -82,14 +70,13 @@ export class CampaignsService {
 
       targetScreenIds = propertyScreens.map((s) => s.id);
     } else {
-      // SCENARIO B: SPECIFIC SCREENS
+      // SELECTIVE LOGIC
       if (!dto.screenIds || dto.screenIds.length === 0) {
         throw new BadRequestException(
           'Either propertyId or screenIds must be provided',
         );
       }
 
-      // Validasi apakah screen IDs valid dan aktif
       const validScreens = await this.prisma.screen.findMany({
         where: {
           id: { in: dto.screenIds },
@@ -105,7 +92,6 @@ export class CampaignsService {
       targetScreenIds = dto.screenIds;
     }
 
-    // 4. Hitung Biaya (Gunakan list screen ID yang sudah didapat tadi)
     const costEstimate = await this.financeService.calculateCampaignCost({
       screenIds: targetScreenIds,
       startDate: dto.startDate,
@@ -113,16 +99,13 @@ export class CampaignsService {
     });
     const totalCost = BigInt(costEstimate.totalCost);
 
-    // 5. Transaction: Create DB & Freeze Balance
     return await this.prisma.$transaction(async (tx) => {
-      // a. Freeze Saldo
       await this.financeService.freezeBalanceForCampaign(
         user.id,
         totalCost,
         tx,
       );
 
-      // b. Buat Campaign Header
       const campaign = await tx.campaign.create({
         data: {
           advertiserId: user.id,
@@ -131,30 +114,22 @@ export class CampaignsService {
           endDate: end,
           totalCost: totalCost,
           status: CampaignStatus.PENDING_REVIEW,
-
-          // Simpan Property ID jika Buyout (opsional, untuk reporting/tracking)
-          // Jika selective screen, propertyId akan null
           propertyId: dto.propertyId ?? null,
-
-          // Relasi Many-to-Many ke Screens (Ini inti dari targetingnya)
           screens: {
             connect: targetScreenIds.map((id) => ({ id })),
           },
         },
       });
 
-      // c. Buat Campaign Item (Detail Media per Screen)
-      // MVP: 1 Campaign = 1 Media untuk semua target screen
       await tx.campaignItem.create({
         data: {
           campaignId: campaign.id,
           mediaId: media.id,
-          targetSlot: AdSlot.SCREENSAVER, // Default logic, nanti bisa dinamis
-          targetRoomCategory: [], // All rooms
+          targetSlot: AdSlot.SCREENSAVER,
+          targetRoomCategory: [],
         },
       });
 
-      // d. Create Audit Log
       await tx.auditLog.create({
         data: {
           userId: user.id,
@@ -174,7 +149,6 @@ export class CampaignsService {
   async findAll(user: User, query: CampaignQueryDto) {
     const where: any = {};
 
-    // Advertiser cuma bisa lihat punya sendiri
     if (user.role === Role.ADVERTISER) {
       where.advertiserId = user.id;
     }
@@ -189,7 +163,7 @@ export class CampaignsService {
         include: {
           items: { include: { media: true } },
           _count: { select: { screens: true } },
-          property: { select: { name: true } }, // Include nama properti jika buyout
+          property: { select: { name: true } },
         },
         skip: query.skip,
         take: query.take,
@@ -206,7 +180,7 @@ export class CampaignsService {
     const campaign = await this.prisma.campaign.findUnique({
       where: { id },
       include: {
-        screens: true, // Show target screens
+        screens: true,
         items: { include: { media: true } },
         advertiser: { select: { name: true, email: true } },
         property: { select: { name: true, city: true } },
@@ -215,7 +189,6 @@ export class CampaignsService {
 
     if (!campaign) throw new NotFoundException('Campaign not found');
 
-    // Security Check: Advertiser cannot see others' campaign
     if (user.role === Role.ADVERTISER && campaign.advertiserId !== user.id) {
       throw new NotFoundException('Campaign not found');
     }
@@ -223,9 +196,61 @@ export class CampaignsService {
     return campaign;
   }
 
-  /**
-   * Step 3: Admin Review
-   */
+  // [NEW FEATURE] Cancel Campaign
+  async cancel(id: number, user: User) {
+    const campaign = await this.prisma.campaign.findUnique({ where: { id } });
+    if (!campaign) throw new NotFoundException('Campaign not found');
+
+    if (campaign.advertiserId !== user.id) {
+      throw new BadRequestException('You do not own this campaign');
+    }
+
+    // Tipe eksplisit agar TypeScript tidak error saat komparasi Enum
+    const allowedStatuses: CampaignStatus[] = [
+      CampaignStatus.PENDING_REVIEW,
+      CampaignStatus.ACTIVE,
+    ];
+
+    if (!allowedStatuses.includes(campaign.status)) {
+      throw new BadRequestException(
+        `Cannot cancel campaign with status ${campaign.status}`,
+      );
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      // SKENARIO 1: Refund jika masih PENDING
+      if (campaign.status === CampaignStatus.PENDING_REVIEW) {
+        await this.financeService.releaseFrozenBalance(
+          user.id,
+          campaign.totalCost,
+          tx,
+        );
+
+        await tx.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'CAMPAIGN_CANCELLED_REFUND',
+            details: `Campaign #${id} cancelled by user. Full refund: ${campaign.totalCost}`,
+          },
+        });
+      } else {
+        // SKENARIO 2: ACTIVE (Stop Tayang, No Refund Otomatis)
+        await tx.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'CAMPAIGN_STOPPED',
+            details: `Active Campaign #${id} stopped by user. No automatic refund.`,
+          },
+        });
+      }
+
+      return await tx.campaign.update({
+        where: { id },
+        data: { status: CampaignStatus.CANCELLED },
+      });
+    });
+  }
+
   async review(id: number, dto: ReviewCampaignDto, adminId: number) {
     const campaign = await this.prisma.campaign.findUnique({ where: { id } });
     if (!campaign) throw new NotFoundException('Campaign not found');
@@ -236,8 +261,6 @@ export class CampaignsService {
 
     return await this.prisma.$transaction(async (tx) => {
       if (dto.approved) {
-        // APPROVE
-        // 1. Potong Frozen Balance (Finalize Payment)
         await this.financeService.commitFrozenBalance(
           campaign.advertiserId,
           campaign.totalCost,
@@ -245,21 +268,17 @@ export class CampaignsService {
           tx,
         );
 
-        // 2. Update Status -> ACTIVE
         return await tx.campaign.update({
           where: { id },
           data: { status: CampaignStatus.ACTIVE },
         });
       } else {
-        // REJECT
-        // 1. Kembalikan Frozen Balance (Refund)
         await this.financeService.releaseFrozenBalance(
           campaign.advertiserId,
           campaign.totalCost,
           tx,
         );
 
-        // 2. Update Status -> REJECTED
         return await tx.campaign.update({
           where: { id },
           data: {

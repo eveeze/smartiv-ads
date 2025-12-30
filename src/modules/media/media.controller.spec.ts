@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
-import { MediaType, User, Role } from '@prisma/client';
+import { User, Role } from '@prisma/client';
+import { UploadMediaDto } from './dto/upload-media.dto';
 
 describe('MediaController', () => {
   let controller: MediaController;
@@ -9,32 +10,22 @@ describe('MediaController', () => {
 
   const mockUser: User = {
     id: 1,
-    email: 'test@example.com',
-    password: 'hash',
-    name: 'Test',
-    phone: null,
     role: Role.ADVERTISER,
-    propertyId: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  } as unknown as User;
 
   const mockMediaService = {
-    uploadMedia: jest.fn(),
+    upload: jest.fn(), // [FIX] Nama method harus 'upload', bukan 'uploadMedia'
     findAll: jest.fn(),
-    getPendingMedia: jest.fn(), // [NEW] Mock method baru
-    reviewMedia: jest.fn(), // [NEW] Mock method baru
+    findPending: jest.fn(),
+    findOne: jest.fn(),
+    review: jest.fn(),
+    remove: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MediaController],
-      providers: [
-        {
-          provide: MediaService,
-          useValue: mockMediaService,
-        },
-      ],
+      providers: [{ provide: MediaService, useValue: mockMediaService }],
     }).compile();
 
     controller = module.get<MediaController>(MediaController);
@@ -46,18 +37,14 @@ describe('MediaController', () => {
   });
 
   describe('uploadFile', () => {
-    it('should call service.uploadMedia', async () => {
+    it('should call service.upload', async () => {
       const file = { originalname: 'test.jpg' } as any;
-      await controller.uploadFile(file, mockUser);
-      expect(service.uploadMedia).toHaveBeenCalledWith(file, mockUser);
-    });
-  });
+      const dto = {} as UploadMediaDto; // [FIX] Tambahkan mock DTO
 
-  describe('findAll', () => {
-    it('should call service.findAll', async () => {
-      await controller.findAll(mockUser);
-      // FIX: Expect User Object, bukan User ID
-      expect(service.findAll).toHaveBeenCalledWith(mockUser);
+      // [FIX] Panggil dengan 3 argumen: file, dto, user
+      await controller.uploadFile(file, dto, mockUser);
+
+      expect(service.upload).toHaveBeenCalledWith(file, mockUser);
     });
   });
 });

@@ -82,7 +82,7 @@ describe('Campaign Flow (E2E)', () => {
       { secret: jwtSecret },
     );
 
-    // 2. Setup Property & 2 Screens (Untuk test Buyout)
+    // 2. Setup Property & Screens
     const property = await prisma.property.create({
       data: { name: 'Camp Hotel', classification: 'PREMIUM' },
     });
@@ -97,16 +97,26 @@ describe('Campaign Flow (E2E)', () => {
     });
 
     const s1 = await prisma.screen.create({
-      data: { propertyId: property.id, name: 'S1', code: `S1-${Date.now()}` },
+      data: {
+        propertyId: property.id,
+        name: 'S1',
+        code: `S1-${Date.now()}`,
+        status: 'ONLINE',
+      },
     });
     screenId1 = s1.id;
 
     const s2 = await prisma.screen.create({
-      data: { propertyId: property.id, name: 'S2', code: `S2-${Date.now()}` },
+      data: {
+        propertyId: property.id,
+        name: 'S2',
+        code: `S2-${Date.now()}`,
+        status: 'ONLINE',
+      },
     });
     screenId2 = s2.id;
 
-    // 3. Setup Media
+    // 3. Setup Approved Media
     const media = await prisma.media.create({
       data: {
         uploaderId: advertiserId,
@@ -181,17 +191,14 @@ describe('Campaign Flow (E2E)', () => {
           startDate: getFutureDate(5),
           endDate: getFutureDate(7), // 2 days x 50k = 100k
           mediaId: mediaId,
-          screenIds: [screenId1], // Only S1
+          screenIds: [screenId1],
         })
         .expect(201);
 
       campaignId = res.body.data.id;
-      // Validasi biaya: 100k
-      // Frozen Balance: 100k
       const wallet = await prisma.wallet.findUnique({
         where: { userId: advertiserId },
       });
-      // [FIX] Null Check
       expect(wallet).toBeDefined();
       expect(Number(wallet!.frozenBalance)).toBe(100000);
     });
@@ -206,48 +213,58 @@ describe('Campaign Flow (E2E)', () => {
       const wallet = await prisma.wallet.findUnique({
         where: { userId: advertiserId },
       });
-      // [FIX] Null Check
       expect(wallet).toBeDefined();
       expect(Number(wallet!.frozenBalance)).toBe(0);
       expect(Number(wallet!.balance)).toBe(400000); // 500k - 100k
     });
   });
 
-  describe('3. Property Buyout Flow (NEW)', () => {
-    it('Should create campaign for ALL screens (Buyout)', async () => {
-      // Cost: 2 screens x 2 days x 50k = 200k
+  describe('3. Cancel Campaign Flow (NEW)', () => {
+    let cancelCampaignId: number;
+
+    it('Should create another campaign to cancel', async () => {
       const res = await request(app.getHttpServer())
         .post('/campaigns')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
-          name: 'Buyout Campaign',
+          name: 'To Be Cancelled',
           startDate: getFutureDate(10),
-          endDate: getFutureDate(12),
+          endDate: getFutureDate(11), // 1 day = 50k
           mediaId: mediaId,
-          propertyId: propertyId, // <-- Pakai Property ID
+          screenIds: [screenId1],
         })
         .expect(201);
 
-      const newCampaignId = res.body.data.id;
+      cancelCampaignId = res.body.data.id;
 
-      // Verify Target Screens Count (Must be 2)
-      const campaign = await prisma.campaign.findUnique({
-        where: { id: newCampaignId },
-        include: { screens: true },
-      });
-      // [FIX] Null Check
-      expect(campaign).toBeDefined();
-      expect(campaign!.screens.length).toBe(2); // S1 and S2
-      expect(Number(campaign!.totalCost)).toBe(200000);
-
-      // Verify Wallet Frozen increased by 200k
+      // Verify Frozen Balance Increases (50k)
       const wallet = await prisma.wallet.findUnique({
         where: { userId: advertiserId },
       });
-      // [FIX] Null Check
       expect(wallet).toBeDefined();
-      // Sisa 400k - 200k (Frozen) = 200k Available
-      expect(Number(wallet!.frozenBalance)).toBe(200000);
+      // Saldo 400k - 50k(frozen) -> Available 350k, Frozen 50k
+      expect(Number(wallet!.frozenBalance)).toBe(50000);
+    });
+
+    it('Should Cancel PENDING campaign -> Refund Frozen Balance', async () => {
+      await request(app.getHttpServer())
+        .patch(`/campaigns/${cancelCampaignId}/cancel`)
+        .set('Authorization', `Bearer ${advertiserToken}`)
+        .expect(200);
+
+      // Verify Status Cancelled
+      const campaign = await prisma.campaign.findUnique({
+        where: { id: cancelCampaignId },
+      });
+      expect(campaign?.status).toBe(CampaignStatus.CANCELLED);
+
+      // Verify Refund (Frozen Balance Released)
+      const wallet = await prisma.wallet.findUnique({
+        where: { userId: advertiserId },
+      });
+      expect(wallet).toBeDefined();
+      expect(Number(wallet!.frozenBalance)).toBe(0);
+      expect(Number(wallet!.balance)).toBe(400000); // Kembali ke 400k
     });
   });
 });

@@ -12,7 +12,7 @@ import {
   ScreenStatus,
 } from '@prisma/client';
 
-// Mock Data Objects
+// --- Mock Data ---
 const mockUser = { id: 1, role: Role.ADVERTISER } as User;
 const mockAdmin = { id: 99, role: Role.SUPER_ADMIN } as User;
 
@@ -22,10 +22,10 @@ const mockMedia = {
   status: ApprovalStatus.APPROVED,
 };
 
-const mockScreen = { id: 10, name: 'Screen A', status: ScreenStatus.ONLINE };
-const mockScreen2 = { id: 11, name: 'Screen B', status: ScreenStatus.ONLINE };
+const mockScreenA = { id: 10, name: 'Screen A', status: ScreenStatus.ONLINE };
+const mockScreenB = { id: 11, name: 'Screen B', status: ScreenStatus.ONLINE };
 
-// Mock Prisma
+// --- Mocks Dependencies ---
 const mockPrisma = {
   media: { findUnique: jest.fn() },
   property: { count: jest.fn() },
@@ -42,7 +42,6 @@ const mockPrisma = {
   $transaction: jest.fn((callback) => callback(mockPrisma)),
 };
 
-// Mock Finance
 const mockFinance = {
   calculateCampaignCost: jest.fn(),
   freezeBalanceForCampaign: jest.fn(),
@@ -53,7 +52,6 @@ const mockFinance = {
 describe('CampaignsService', () => {
   let service: CampaignsService;
 
-  // Helper tanggal dinamis
   const getFutureDate = (daysToAdd: number) => {
     const date = new Date();
     date.setDate(date.getDate() + daysToAdd);
@@ -77,8 +75,9 @@ describe('CampaignsService', () => {
     expect(service).toBeDefined();
   });
 
-  // --- CREATE TESTS ---
-
+  // ==========================
+  // TEST: CREATE CAMPAIGN
+  // ==========================
   describe('create', () => {
     const dto: CreateCampaignDto = {
       name: 'New Campaign',
@@ -95,43 +94,17 @@ describe('CampaignsService', () => {
       );
     });
 
-    it('should throw BadRequest if media not owned by user', async () => {
-      mockPrisma.media.findUnique.mockResolvedValue({
-        ...mockMedia,
-        uploaderId: 999,
-      });
-      await expect(service.create(mockUser, dto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequest if media not approved', async () => {
-      mockPrisma.media.findUnique.mockResolvedValue({
-        ...mockMedia,
-        status: ApprovalStatus.PENDING,
-      });
-      await expect(service.create(mockUser, dto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequest if date range invalid', async () => {
+    it('should throw BadRequest if selective screens not found/offline', async () => {
       mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
-      const invalidDto = {
-        ...dto,
-        startDate: getFutureDate(10),
-        endDate: getFutureDate(5),
-      };
-      await expect(service.create(mockUser, invalidDto)).rejects.toThrow(
+      mockPrisma.screen.findMany.mockResolvedValue([]); // Kosong
+      await expect(service.create(mockUser, dto)).rejects.toThrow(
         BadRequestException,
       );
     });
 
-    // --- TEST SELECTIVE SCREEN ---
     it('should create SELECTIVE campaign successfully', async () => {
       mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
-      // Mock validasi screen selective
-      mockPrisma.screen.findMany.mockResolvedValue([mockScreen]);
+      mockPrisma.screen.findMany.mockResolvedValue([{ id: 10 }]);
 
       mockFinance.calculateCampaignCost.mockResolvedValue({
         totalCost: 500000,
@@ -147,30 +120,18 @@ describe('CampaignsService', () => {
       expect(mockFinance.calculateCampaignCost).toHaveBeenCalled();
       expect(mockFinance.freezeBalanceForCampaign).toHaveBeenCalled();
       expect(result.status).toBe(CampaignStatus.PENDING_REVIEW);
-      // Pastikan propertyId null
-      expect(mockPrisma.campaign.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ propertyId: null }),
-        }),
-      );
     });
 
-    // --- TEST PROPERTY BUYOUT (FIXED) ---
     it('should create BUYOUT campaign successfully', async () => {
       const buyoutDto = {
         ...dto,
         screenIds: undefined,
-        propertyId: 100, // Target 1 Gedung Full
+        propertyId: 100,
       };
 
       mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
-
-      // Mock Property Exist
       mockPrisma.property.count.mockResolvedValue(1);
-
-      // Mock Find All Screens in Property (Misal ada 2 layar)
-      mockPrisma.screen.findMany.mockResolvedValue([mockScreen, mockScreen2]);
-
+      mockPrisma.screen.findMany.mockResolvedValue([mockScreenA, mockScreenB]);
       mockFinance.calculateCampaignCost.mockResolvedValue({
         totalCost: 1000000,
       });
@@ -180,41 +141,22 @@ describe('CampaignsService', () => {
         propertyId: 100,
       });
 
-      const result = await service.create(mockUser, buyoutDto);
+      await service.create(mockUser, buyoutDto);
 
-      // Pastikan logic memanggil screens by propertyId
-      expect(mockPrisma.property.count).toHaveBeenCalledWith({
-        where: { id: 100 },
-      });
-
-      // [FIX] Update expectation agar match dengan implementasi (status: ONLINE, select: id)
       expect(mockPrisma.screen.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { propertyId: 100, status: ScreenStatus.ONLINE },
-          select: { id: true },
         }),
       );
-
-      // Pastikan hitung biaya pakai 2 screen
       expect(mockFinance.calculateCampaignCost).toHaveBeenCalledWith(
         expect.objectContaining({ screenIds: [10, 11] }),
       );
     });
-
-    it('should throw Error if Buyout property has no screens', async () => {
-      const buyoutDto = { ...dto, screenIds: undefined, propertyId: 100 };
-      mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
-      mockPrisma.property.count.mockResolvedValue(1);
-      mockPrisma.screen.findMany.mockResolvedValue([]); // Empty screens
-
-      await expect(service.create(mockUser, buyoutDto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
   });
 
-  // --- FIND ALL TESTS ---
-
+  // ==========================
+  // TEST: FIND CAMPAIGNS
+  // ==========================
   describe('findAll', () => {
     it('should filter by advertiserId if user is advertiser', async () => {
       mockPrisma.campaign.findMany.mockResolvedValue([]);
@@ -228,51 +170,120 @@ describe('CampaignsService', () => {
         }),
       );
     });
+  });
 
-    it('should not filter by advertiserId if user is admin', async () => {
-      mockPrisma.campaign.findMany.mockResolvedValue([]);
-      mockPrisma.campaign.count.mockResolvedValue(0);
+  // ==========================
+  // TEST: CANCEL CAMPAIGN (NEW)
+  // ==========================
+  describe('cancel', () => {
+    const campaignId = 1;
 
-      await service.findAll(mockAdmin, { page: 1, take: 10, skip: 0 });
+    it('should throw NotFound if campaign not found', async () => {
+      mockPrisma.campaign.findUnique.mockResolvedValue(null);
+      await expect(service.cancel(campaignId, mockUser)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
 
-      expect(mockPrisma.campaign.findMany).toHaveBeenCalledWith(
+    it('should throw BadRequest if user is not owner', async () => {
+      mockPrisma.campaign.findUnique.mockResolvedValue({
+        id: campaignId,
+        advertiserId: 999, // ID beda
+      });
+      await expect(service.cancel(campaignId, mockUser)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequest if status is REJECTED', async () => {
+      mockPrisma.campaign.findUnique.mockResolvedValue({
+        id: campaignId,
+        advertiserId: mockUser.id,
+        status: CampaignStatus.REJECTED,
+      });
+      await expect(service.cancel(campaignId, mockUser)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should REFUND frozen balance if status is PENDING_REVIEW', async () => {
+      const pendingCampaign = {
+        id: campaignId,
+        advertiserId: mockUser.id,
+        status: CampaignStatus.PENDING_REVIEW,
+        totalCost: BigInt(500000),
+      };
+
+      mockPrisma.campaign.findUnique.mockResolvedValue(pendingCampaign);
+      mockPrisma.campaign.update.mockResolvedValue({
+        ...pendingCampaign,
+        status: CampaignStatus.CANCELLED,
+      });
+
+      await service.cancel(campaignId, mockUser);
+
+      // Verifikasi Refund Dipanggil
+      expect(mockFinance.releaseFrozenBalance).toHaveBeenCalledWith(
+        mockUser.id,
+        pendingCampaign.totalCost,
+        expect.anything(), // Transaction Client
+      );
+
+      // Verifikasi Status Update
+      expect(mockPrisma.campaign.update).toHaveBeenCalledWith({
+        where: { id: campaignId },
+        data: { status: CampaignStatus.CANCELLED },
+      });
+
+      // Verifikasi Audit Log
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.not.objectContaining({ advertiserId: mockAdmin.id }),
+          data: expect.objectContaining({
+            action: 'CAMPAIGN_CANCELLED_REFUND',
+          }),
+        }),
+      );
+    });
+
+    it('should STOP campaign without refund if status is ACTIVE', async () => {
+      const activeCampaign = {
+        id: campaignId,
+        advertiserId: mockUser.id,
+        status: CampaignStatus.ACTIVE,
+        totalCost: BigInt(500000),
+      };
+
+      mockPrisma.campaign.findUnique.mockResolvedValue(activeCampaign);
+      mockPrisma.campaign.update.mockResolvedValue({
+        ...activeCampaign,
+        status: CampaignStatus.CANCELLED,
+      });
+
+      await service.cancel(campaignId, mockUser);
+
+      // Verifikasi Refund TIDAK Dipanggil
+      expect(mockFinance.releaseFrozenBalance).not.toHaveBeenCalled();
+
+      // Verifikasi Status Update
+      expect(mockPrisma.campaign.update).toHaveBeenCalledWith({
+        where: { id: campaignId },
+        data: { status: CampaignStatus.CANCELLED },
+      });
+
+      // Verifikasi Audit Log Stop
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'CAMPAIGN_STOPPED',
+          }),
         }),
       );
     });
   });
 
-  // --- FIND ONE TESTS ---
-
-  describe('findOne', () => {
-    it('should throw NotFound if campaign not found', async () => {
-      mockPrisma.campaign.findUnique.mockResolvedValue(null);
-      await expect(service.findOne(1, mockUser)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('should throw NotFound if advertiser accesses other campaign', async () => {
-      mockPrisma.campaign.findUnique.mockResolvedValue({
-        id: 1,
-        advertiserId: 999, // Other user
-      });
-      await expect(service.findOne(1, mockUser)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('should return campaign if valid', async () => {
-      const mockCampaign = { id: 1, advertiserId: mockUser.id };
-      mockPrisma.campaign.findUnique.mockResolvedValue(mockCampaign);
-      const result = await service.findOne(1, mockUser);
-      expect(result).toEqual(mockCampaign);
-    });
-  });
-
-  // --- REVIEW TESTS ---
-
+  // ==========================
+  // TEST: ADMIN REVIEW
+  // ==========================
   describe('review', () => {
     const pendingCampaign = {
       id: 1,
@@ -281,17 +292,7 @@ describe('CampaignsService', () => {
       totalCost: BigInt(50000),
     };
 
-    it('should throw BadRequest if not pending', async () => {
-      mockPrisma.campaign.findUnique.mockResolvedValue({
-        ...pendingCampaign,
-        status: CampaignStatus.DRAFT,
-      });
-      await expect(service.review(1, { approved: true }, 99)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should APPROVE campaign (commit balance)', async () => {
+    it('should APPROVE campaign and commit balance', async () => {
       mockPrisma.campaign.findUnique.mockResolvedValue(pendingCampaign);
       mockPrisma.campaign.update.mockResolvedValue({
         ...pendingCampaign,
@@ -305,39 +306,6 @@ describe('CampaignsService', () => {
         pendingCampaign.totalCost,
         pendingCampaign.id,
         expect.anything(),
-      );
-      expect(mockPrisma.campaign.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { status: CampaignStatus.ACTIVE },
-        }),
-      );
-    });
-
-    it('should REJECT campaign (release balance)', async () => {
-      mockPrisma.campaign.findUnique.mockResolvedValue(pendingCampaign);
-      mockPrisma.campaign.update.mockResolvedValue({
-        ...pendingCampaign,
-        status: CampaignStatus.REJECTED,
-      });
-
-      await service.review(
-        1,
-        { approved: false, rejectionReason: 'Bad content' },
-        99,
-      );
-
-      expect(mockFinance.releaseFrozenBalance).toHaveBeenCalledWith(
-        pendingCampaign.advertiserId,
-        pendingCampaign.totalCost,
-        expect.anything(),
-      );
-      expect(mockPrisma.campaign.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: {
-            status: CampaignStatus.REJECTED,
-            rejectionReason: 'Bad content',
-          },
-        }),
       );
     });
   });

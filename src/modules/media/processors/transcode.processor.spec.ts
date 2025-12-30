@@ -16,11 +16,13 @@ jest.mock('fs', () => ({
   statSync: jest.fn().mockReturnValue({ isDirectory: () => false }),
 }));
 
-// Mock MediaUtils agar tidak memanggil ffmpeg sungguhan
+// [FIX] Mock MediaUtils LENGKAP (termasuk helper functions)
 jest.mock('../../../common/utils/media.utils', () => ({
   MediaUtils: {
     hasAudioStream: jest.fn().mockResolvedValue(true),
   },
+  getHlsUrl: jest.fn((id) => `http://mock-hls/${id}/master.m3u8`),
+  getThumbnailUrl: jest.fn((id) => `http://mock-thumb/${id}.jpg`),
 }));
 
 // Mock fluent-ffmpeg
@@ -73,7 +75,6 @@ describe('TranscodeProcessor', () => {
     prisma = module.get<PrismaService>(PrismaService);
     storage = module.get<StorageService>(StorageService);
 
-    // FIX: Reset mock calls agar test tidak saling mencemari
     jest.clearAllMocks();
   });
 
@@ -87,10 +88,16 @@ describe('TranscodeProcessor', () => {
 
     expect(prisma.media.findUnique).toHaveBeenCalledWith({ where: { id: 1 } });
     expect(storage.downloadToLocal).toHaveBeenCalled();
+
+    // [FIX] Expectation disesuaikan dengan logic baru (menggunakan helper mock)
     expect(prisma.media.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 1 },
-        data: expect.objectContaining({ isTranscoded: true }),
+        data: expect.objectContaining({
+          isTranscoded: true,
+          hlsUrl: 'http://mock-hls/1/master.m3u8',
+          thumbnailUrl: 'http://mock-thumb/1.jpg',
+        }),
       }),
     );
   });
@@ -98,7 +105,6 @@ describe('TranscodeProcessor', () => {
   it('should skip if job name is incorrect', async () => {
     const wrongJob = { name: 'wrong-job', data: {} } as Job;
     await processor.process(wrongJob);
-    // Sekarang ini akan PASS karena history call sudah dibersihkan
     expect(prisma.media.findUnique).not.toHaveBeenCalled();
   });
 });
