@@ -17,16 +17,16 @@ export const MediaUtils = {
 
 // 2. Helper URL (Digunakan oleh MediaService & Processor)
 export function getHlsUrl(mediaId: number): string {
-  // URL Default jika ENV tidak ada (untuk local development)
+  // [FIX] Sesuaikan bucket name dengan docker-compose.yml: 'smartiv-media'
   const publicUrl =
-    process.env.MINIO_PUBLIC_URL || 'http://localhost:9000/smartiv-ads-public';
+    process.env.MINIO_PUBLIC_URL || 'http://localhost:9000/smartiv-media';
 
   return `${publicUrl}/hls/${mediaId}/master.m3u8`;
 }
 
 export function getThumbnailUrl(mediaId: number): string {
   const publicUrl =
-    process.env.MINIO_PUBLIC_URL || 'http://localhost:9000/smartiv-ads-public';
+    process.env.MINIO_PUBLIC_URL || 'http://localhost:9000/smartiv-media';
 
   return `${publicUrl}/thumbnails/${mediaId}.jpg`;
 }

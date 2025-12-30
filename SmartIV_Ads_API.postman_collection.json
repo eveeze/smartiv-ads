@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-complete-v9",
-    "name": "SmartIV Ads (Final - Full Features + Buyout)",
-    "description": "Complete collection including Auth, Inventory, Media, Users, Finance, and Campaign Workflow (Selective & Buyout).",
+    "_postman_id": "smartiv-ads-complete-v10",
+    "name": "SmartIV Ads (Final - Full Features + Safety)",
+    "description": "Complete collection including Auth, Inventory, Media, Users, Finance, Campaign Workflow (Selective & Buyout), and Operational Safety (Cancel/Delete).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -778,6 +778,30 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Delete Media (Safety)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/media/{{media_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["media", "{{media_id}}"]
+            },
+            "description": "Menghapus media. Gagal jika media sedang digunakan di Campaign Active/Pending."
+          },
+          "response": []
         }
       ]
     },
@@ -1307,6 +1331,30 @@
               "host": ["{{base_url}}"],
               "path": ["campaigns", "{{campaign_id}}"]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Campaign (Safety)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id}}", "cancel"]
+            },
+            "description": "Batalkan campaign. Jika Pending -> Refund. Jika Active -> Stop Tayang."
           },
           "response": []
         },

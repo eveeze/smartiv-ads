@@ -4,12 +4,11 @@ import {
   BadRequestException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-// FIX: Gunakan 'fromBuffer' untuk file-type versi 14/16
-import { fromBuffer } from 'file-type';
+import { fromBuffer, fromFile } from 'file-type';
+import * as fs from 'fs';
 
 @Injectable()
 export class FileSignatureValidatorPipe implements PipeTransform {
-  // Daftar ekstensi yang diizinkan (berdasarkan isi file, bukan nama file)
   private readonly allowedExtensions = [
     'jpg',
     'png',
@@ -24,11 +23,25 @@ export class FileSignatureValidatorPipe implements PipeTransform {
       throw new BadRequestException('File is required');
     }
 
-    // Cek Magic Bytes (Isi Biner File)
-    const type = await fromBuffer(value.buffer);
+    let type;
 
-    // Jika file tidak dikenali atau ekstensinya tidak ada di daftar putih
+    // SKENARIO 1: Memory Storage (Buffer tersedia)
+    if (value.buffer) {
+      type = await fromBuffer(value.buffer);
+    }
+    // SKENARIO 2: Disk Storage (Buffer kosong, baca dari path)
+    else if (value.path) {
+      // fromFile jauh lebih hemat memori karena hanya membaca header file
+      type = await fromFile(value.path);
+    }
+
+    // Jika file type tidak terdeteksi atau tidak diizinkan
     if (!type || !this.allowedExtensions.includes(type.ext)) {
+      // Hapus file sampah jika sudah terlanjur tersimpan di disk agar tidak menuh-menuhin server
+      if (value.path && fs.existsSync(value.path)) {
+        fs.unlinkSync(value.path);
+      }
+
       throw new UnprocessableEntityException(
         `Validation failed. Detected file type: ${type?.ext || 'unknown'}. Allowed: ${this.allowedExtensions.join(', ')}`,
       );
