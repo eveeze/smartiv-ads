@@ -5,7 +5,8 @@ import { CreatePropertyDto } from './dto/create-property.dto';
 import { CreateScreenDto } from './dto/create-screen.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { PageOptionsDto } from '../../common/dto/page-options.dto';
-import { ScreenPageOptionsDto } from './dto/screen-page-options.dto';
+import { CreateRateCardDto } from './dto/create-rate-card.dto'; // [NEW]
+import { UpdateRateCardDto } from './dto/update-rate-card.dto'; // [NEW]
 import {
   AdSlot,
   Property,
@@ -20,29 +21,35 @@ describe('InventoryController', () => {
   let controller: InventoryController;
   let service: InventoryService;
 
-  // Mock Service
+  // Mock Service dengan nama method yang BENAR
   const mockInventoryService = {
+    // Property
     createProperty: jest.fn(),
     findAllProperties: jest.fn(),
-    getPropertiesList: jest.fn(),
-    findOneProperty: jest.fn(),
+    findPropertiesList: jest.fn(), // FIX: getPropertiesList -> findPropertiesList
+    findPropertyById: jest.fn(), // FIX: findOneProperty -> findPropertyById
     updateProperty: jest.fn(),
     removeProperty: jest.fn(),
+    // Screen
     createScreen: jest.fn(),
     findAllScreens: jest.fn(),
-    getScreensList: jest.fn(),
-    findOneScreen: jest.fn(),
+    findScreensList: jest.fn(), // FIX: getScreensList -> findScreensList
+    findScreenById: jest.fn(), // FIX: findOneScreen -> findScreenById
     updateScreen: jest.fn(),
     removeScreen: jest.fn(),
+    // Rate Card (Phase 5.7)
+    createRateCard: jest.fn(),
+    findAllRateCards: jest.fn(),
+    updateRateCard: jest.fn(),
+    removeRateCard: jest.fn(),
   };
 
-  // [FIX] Tambahkan field smartivId (sesuai schema Prisma terbaru)
   const mockProperty: Property = {
     id: 1,
     name: 'Test Hotel',
     type: PropertyType.HOTEL,
     classification: PropertyClass.STANDARD,
-    smartivId: null, // <-- FIELD INI YANG HILANG SEBELUMNYA
+    smartivId: null,
     smartivCode: 'TEST01',
     baseColor: null,
     activeColor: null,
@@ -122,19 +129,19 @@ describe('InventoryController', () => {
     });
   });
 
-  describe('getPropertiesList', () => {
+  describe('findPropertiesList', () => {
     it('should return lightweight property list', async () => {
-      mockInventoryService.getPropertiesList.mockResolvedValue([mockProperty]);
-      await controller.getPropertiesList();
-      expect(service.getPropertiesList).toHaveBeenCalled();
+      mockInventoryService.findPropertiesList.mockResolvedValue([mockProperty]);
+      await controller.findPropertiesList(); // FIX: Call correct method
+      expect(service.findPropertiesList).toHaveBeenCalled(); // FIX: Expect correct method
     });
   });
 
-  describe('findOneProperty', () => {
+  describe('findPropertyById', () => {
     it('should return one property', async () => {
-      mockInventoryService.findOneProperty.mockResolvedValue(mockProperty);
-      const result = await controller.findOneProperty(1);
-      expect(service.findOneProperty).toHaveBeenCalledWith(1);
+      mockInventoryService.findPropertyById.mockResolvedValue(mockProperty);
+      const result = await controller.findPropertyById(1); // FIX: Call correct method
+      expect(service.findPropertyById).toHaveBeenCalledWith(1); // FIX: Expect correct method
       expect(result).toEqual(mockProperty);
     });
   });
@@ -180,31 +187,29 @@ describe('InventoryController', () => {
 
   describe('findAllScreens', () => {
     it('should return screens list', async () => {
-      const pageOpts = new ScreenPageOptionsDto();
+      const pageOpts = new PageOptionsDto();
       mockInventoryService.findAllScreens.mockResolvedValue({
         data: [mockScreen],
         meta: {},
       });
       await controller.findAllScreens(pageOpts);
-
-      // FIX: Hanya expect 1 argument (tanpa undefined)
-      expect(service.findAllScreens).toHaveBeenCalledWith(pageOpts);
+      expect(service.findAllScreens).toHaveBeenCalledWith(pageOpts, undefined);
     });
   });
 
-  describe('getScreensList', () => {
+  describe('findScreensList', () => {
     it('should return lightweight screens list', async () => {
-      mockInventoryService.getScreensList.mockResolvedValue([mockScreen]);
-      await controller.getScreensList(1);
-      expect(service.getScreensList).toHaveBeenCalledWith(1);
+      mockInventoryService.findScreensList.mockResolvedValue([mockScreen]);
+      await controller.findScreensList(); // FIX: Call correct method
+      expect(service.findScreensList).toHaveBeenCalledWith(undefined);
     });
   });
 
-  describe('findOneScreen', () => {
+  describe('findScreenById', () => {
     it('should return one screen', async () => {
-      mockInventoryService.findOneScreen.mockResolvedValue(mockScreen);
-      const result = await controller.findOneScreen(1);
-      expect(service.findOneScreen).toHaveBeenCalledWith(1);
+      mockInventoryService.findScreenById.mockResolvedValue(mockScreen);
+      const result = await controller.findScreenById(1); // FIX: Call correct method
+      expect(service.findScreenById).toHaveBeenCalledWith(1);
       expect(result).toEqual(mockScreen);
     });
   });
@@ -222,6 +227,44 @@ describe('InventoryController', () => {
       mockInventoryService.removeScreen.mockResolvedValue(mockScreen);
       await controller.removeScreen(1);
       expect(service.removeScreen).toHaveBeenCalledWith(1);
+    });
+  });
+
+  // --- RATE CARD TESTS (NEW) ---
+
+  describe('createRateCard', () => {
+    it('should create rate card', async () => {
+      const dto: CreateRateCardDto = {
+        classification: PropertyClass.PREMIUM,
+        pricePerDay: 500000,
+      };
+      mockInventoryService.createRateCard.mockResolvedValue({ id: 1, ...dto });
+      const result = await controller.createRateCard(dto);
+      expect(service.createRateCard).toHaveBeenCalledWith(dto);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('findAllRateCards', () => {
+    it('should return all rate cards', async () => {
+      mockInventoryService.findAllRateCards.mockResolvedValue([]);
+      await controller.findAllRateCards();
+      expect(service.findAllRateCards).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateRateCard', () => {
+    it('should update rate card', async () => {
+      const dto: UpdateRateCardDto = { pricePerDay: 600000 };
+      await controller.updateRateCard(1, dto);
+      expect(service.updateRateCard).toHaveBeenCalledWith(1, dto);
+    });
+  });
+
+  describe('removeRateCard', () => {
+    it('should delete rate card', async () => {
+      await controller.removeRateCard(1);
+      expect(service.removeRateCard).toHaveBeenCalledWith(1);
     });
   });
 });

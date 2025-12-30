@@ -6,8 +6,8 @@ import {
   Patch,
   Param,
   Delete,
-  Query,
   UseGuards,
+  Query,
   ParseIntPipe,
 } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
@@ -15,63 +15,57 @@ import { CreatePropertyDto } from './dto/create-property.dto';
 import { CreateScreenDto } from './dto/create-screen.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { UpdateScreenDto } from './dto/update-screen.dto';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiTags,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { PageOptionsDto } from '../../common/dto/page-options.dto';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
 import { Role } from '@prisma/client';
-import { PageOptionsDto } from '../../common/dto/page-options.dto';
-import { ScreenPageOptionsDto } from './dto/screen-page-options.dto';
+import { CreateRateCardDto } from './dto/create-rate-card.dto';
+import { UpdateRateCardDto } from './dto/update-rate-card.dto';
 
-@ApiTags('Inventory (Properties & Screens)')
+@ApiTags('Inventory')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('inventory')
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
-  // --- PROPERTIES ---
+  // ==========================================
+  // PROPERTIES (HOTELS/HOSPITALS)
+  // ==========================================
 
   @Post('properties')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Create a new Property (Hotel/Building)' })
+  @ApiOperation({ summary: 'Create new property' })
   createProperty(@Body() createPropertyDto: CreatePropertyDto) {
     return this.inventoryService.createProperty(createPropertyDto);
   }
 
   @Get('properties')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({ summary: 'Get Paginated List of Properties' })
+  @ApiOperation({ summary: 'Get all properties with pagination' })
   findAllProperties(@Query() pageOptionsDto: PageOptionsDto) {
     return this.inventoryService.findAllProperties(pageOptionsDto);
   }
 
-  // [NEW] Harus diatas :id agar tidak tertangkap sebagai parameter ID
   @Get('properties/list')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({
-    summary: 'Get Lightweight Property List (For Dropdowns)',
-    description: 'Returns minimal data (ID, Name, City) without pagination.',
-  })
-  getPropertiesList() {
-    return this.inventoryService.getPropertiesList();
+  @ApiOperation({ summary: 'Get lightweight property list for dropdowns' })
+  findPropertiesList() {
+    return this.inventoryService.findPropertiesList();
   }
 
   @Get('properties/:id')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({ summary: 'Get Property Detail' })
-  findOneProperty(@Param('id', ParseIntPipe) id: number) {
-    return this.inventoryService.findOneProperty(id);
+  @ApiOperation({ summary: 'Get property details' })
+  findPropertyById(@Param('id', ParseIntPipe) id: number) {
+    return this.inventoryService.findPropertyById(id);
   }
 
   @Patch('properties/:id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Update Property' })
+  @ApiOperation({ summary: 'Update property' })
   updateProperty(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePropertyDto: UpdatePropertyDto,
@@ -81,52 +75,54 @@ export class InventoryController {
 
   @Delete('properties/:id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Delete Property' })
+  @ApiOperation({ summary: 'Delete property' })
   removeProperty(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.removeProperty(id);
   }
 
-  // --- SCREENS ---
+  // ==========================================
+  // SCREENS (TV UNITS)
+  // ==========================================
 
   @Post('screens')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Register a new Screen/TV' })
+  @ApiOperation({ summary: 'Register new screen' })
   createScreen(@Body() createScreenDto: CreateScreenDto) {
     return this.inventoryService.createScreen(createScreenDto);
   }
 
   @Get('screens')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({ summary: 'Get Paginated List of Screens' })
-  findAllScreens(@Query() pageOptionsDto: ScreenPageOptionsDto) {
-    return this.inventoryService.findAllScreens(pageOptionsDto);
+  @ApiOperation({ summary: 'Get screens (can filter by propertyId)' })
+  findAllScreens(
+    @Query() pageOptionsDto: PageOptionsDto,
+    @Query('propertyId') propertyId?: string,
+  ) {
+    return this.inventoryService.findAllScreens(
+      pageOptionsDto,
+      propertyId ? +propertyId : undefined,
+    );
   }
 
-  // [NEW] Harus diatas :id
   @Get('screens/list')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({
-    summary: 'Get Lightweight Screen List (For Dropdowns)',
-    description: 'Filterable by propertyId. Returns ID, Name, Code.',
-  })
-  @ApiQuery({ name: 'propertyId', required: false, type: Number })
-  getScreensList(
-    @Query('propertyId', new ParseIntPipe({ optional: true }))
-    propertyId?: number,
-  ) {
-    return this.inventoryService.getScreensList(propertyId);
+  @ApiOperation({ summary: 'Get lightweight screen list for dropdowns' })
+  findScreensList(@Query('propertyId') propertyId?: string) {
+    return this.inventoryService.findScreensList(
+      propertyId ? +propertyId : undefined,
+    );
   }
 
   @Get('screens/:id')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({ summary: 'Get Screen Detail' })
-  findOneScreen(@Param('id', ParseIntPipe) id: number) {
-    return this.inventoryService.findOneScreen(id);
+  @ApiOperation({ summary: 'Get screen details' })
+  findScreenById(@Param('id', ParseIntPipe) id: number) {
+    return this.inventoryService.findScreenById(id);
   }
 
   @Patch('screens/:id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Update Screen' })
+  @ApiOperation({ summary: 'Update screen configuration' })
   updateScreen(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateScreenDto: UpdateScreenDto,
@@ -136,8 +132,43 @@ export class InventoryController {
 
   @Delete('screens/:id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Delete Screen' })
+  @ApiOperation({ summary: 'Delete screen' })
   removeScreen(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.removeScreen(id);
+  }
+
+  // ==========================================
+  // RATE CARDS (PRICING)
+  // ==========================================
+
+  @Post('rate-cards')
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Create new pricing rule (Admin Only)' })
+  createRateCard(@Body() dto: CreateRateCardDto) {
+    return this.inventoryService.createRateCard(dto);
+  }
+
+  @Get('rate-cards')
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'List all active pricing rules' })
+  findAllRateCards() {
+    return this.inventoryService.findAllRateCards();
+  }
+
+  @Patch('rate-cards/:id')
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update pricing rule' })
+  updateRateCard(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateRateCardDto,
+  ) {
+    return this.inventoryService.updateRateCard(id, dto);
+  }
+
+  @Delete('rate-cards/:id')
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Delete pricing rule (Permanently)' })
+  removeRateCard(@Param('id', ParseIntPipe) id: number) {
+    return this.inventoryService.removeRateCard(id);
   }
 }

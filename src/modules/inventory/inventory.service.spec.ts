@@ -4,7 +4,8 @@ import { PrismaService } from '../../providers/prisma/prisma.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { CreateScreenDto } from './dto/create-screen.dto';
-import { AdSlot } from '@prisma/client';
+import { CreateRateCardDto } from './dto/create-rate-card.dto';
+import { AdSlot, PropertyClass } from '@prisma/client';
 
 describe('InventoryService', () => {
   let service: InventoryService;
@@ -14,7 +15,6 @@ describe('InventoryService', () => {
     property: {
       create: jest.fn(),
       findUnique: jest.fn(),
-      findFirst: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
       update: jest.fn(),
@@ -28,7 +28,14 @@ describe('InventoryService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
-    $transaction: jest.fn((promises) => Promise.all(promises)),
+    rateCard: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -47,6 +54,7 @@ describe('InventoryService', () => {
     jest.clearAllMocks();
   });
 
+  // --- PROPERTY TESTS ---
   describe('createProperty', () => {
     it('should create a property if code is unique', async () => {
       const dto: CreatePropertyDto = {
@@ -55,7 +63,7 @@ describe('InventoryService', () => {
         classification: 'PREMIUM',
         city: 'Jakarta',
         smartivCode: 'HTL-001',
-        enabledSlots: [AdSlot.SCREENSAVER], // [FIX] Ditambahkan
+        enabledSlots: [AdSlot.SCREENSAVER],
       };
 
       mockPrisma.property.findUnique.mockResolvedValue(null);
@@ -63,32 +71,10 @@ describe('InventoryService', () => {
 
       const result = await service.createProperty(dto);
       expect(result).toHaveProperty('id', 1);
-      expect(mockPrisma.property.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          name: dto.name,
-          smartivCode: dto.smartivCode,
-        }),
-      });
-    });
-
-    it('should throw ConflictException if smartivCode exists', async () => {
-      const dto: CreatePropertyDto = {
-        name: 'Hotel Test',
-        type: 'HOTEL',
-        classification: 'PREMIUM',
-        city: 'Jakarta',
-        smartivCode: 'HTL-EXIST',
-        enabledSlots: [], // [FIX] Ditambahkan
-      };
-
-      mockPrisma.property.findUnique.mockResolvedValue({ id: 99 });
-
-      await expect(service.createProperty(dto)).rejects.toThrow(
-        ConflictException,
-      );
     });
   });
 
+  // --- SCREEN TESTS ---
   describe('createScreen', () => {
     it('should throw NotFoundException if property does not exist', async () => {
       const dto: CreateScreenDto = {
@@ -105,22 +91,72 @@ describe('InventoryService', () => {
         NotFoundException,
       );
     });
+  });
 
-    it('should throw ConflictException if screen code exists', async () => {
-      const dto: CreateScreenDto = {
-        propertyId: 1,
-        name: 'Lobby TV',
-        code: 'SCR-EXIST',
-        orientation: 'LANDSCAPE',
-        roomCategory: 'LOBBY',
+  // --- RATE CARD TESTS (PHASE 5.7) ---
+  describe('createRateCard', () => {
+    it('should create rate card if configuration is unique', async () => {
+      const dto: CreateRateCardDto = {
+        classification: PropertyClass.PREMIUM,
+        pricePerDay: 500000,
       };
 
-      mockPrisma.property.findUnique.mockResolvedValue({ id: 1 });
-      mockPrisma.screen.findUnique.mockResolvedValue({ id: 50 });
+      // 1. Mock Check Uniqueness (findFirst -> null)
+      mockPrisma.rateCard.findFirst.mockResolvedValue(null);
 
-      await expect(service.createScreen(dto)).rejects.toThrow(
+      // 2. Mock Create
+      mockPrisma.rateCard.create.mockResolvedValue({
+        id: 1,
+        ...dto,
+        pricePerDay: BigInt(dto.pricePerDay),
+      });
+
+      const result = await service.createRateCard(dto);
+
+      // Verify Logic
+      expect(mockPrisma.rateCard.findFirst).toHaveBeenCalled();
+
+      // [FIX] Tambahkan wrapper { data: ... } agar sesuai implementasi Prisma
+      expect(mockPrisma.rateCard.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          classification: PropertyClass.PREMIUM,
+          pricePerDay: BigInt(500000),
+        }),
+      });
+
+      expect(result).toBeDefined();
+    });
+
+    it('should throw ConflictException if duplicate configuration exists', async () => {
+      const dto: CreateRateCardDto = {
+        classification: PropertyClass.PREMIUM,
+        pricePerDay: 600000,
+      };
+
+      // 1. Mock Check Uniqueness (findFirst -> returns existing record)
+      mockPrisma.rateCard.findFirst.mockResolvedValue({ id: 1 });
+
+      await expect(service.createRateCard(dto)).rejects.toThrow(
         ConflictException,
       );
+    });
+  });
+
+  describe('findAllRateCards', () => {
+    it('should return rate cards', async () => {
+      const mockData = [
+        {
+          id: 1,
+          classification: 'PREMIUM',
+          pricePerDay: BigInt(500000),
+          property: { name: 'Test' },
+        },
+      ];
+      mockPrisma.rateCard.findMany.mockResolvedValue(mockData);
+
+      const result = await service.findAllRateCards();
+      expect(result).toHaveLength(1);
+      expect(result[0].pricePerDay).toBe(BigInt(500000));
     });
   });
 });

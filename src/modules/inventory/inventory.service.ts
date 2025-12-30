@@ -1,198 +1,146 @@
 import {
-  Injectable,
+  BadRequestException,
   ConflictException,
+  Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../providers/prisma/prisma.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
-import { CreateScreenDto } from './dto/create-screen.dto';
-import { UpdatePropertyDto } from './dto/update-property.dto';
-import { UpdateScreenDto } from './dto/update-screen.dto';
 import { PageOptionsDto } from '../../common/dto/page-options.dto';
-import { PageMetaDto } from '../../common/dto/page-meta.dto'; // Sudah ada sekarang
-import { PageDto } from '../../common/dto/page.dto'; // Sudah ada sekarang
-import { Prisma } from '@prisma/client';
-import { ScreenPageOptionsDto } from './dto/screen-page-options.dto';
+import { PageDto } from '../../common/dto/page.dto';
+import { PageMetaDto } from '../../common/dto/page-meta.dto';
+import { UpdatePropertyDto } from './dto/update-property.dto';
+import { CreateScreenDto } from './dto/create-screen.dto';
+import { UpdateScreenDto } from './dto/update-screen.dto';
+import { Property, Screen } from '@prisma/client';
+import { CreateRateCardDto } from './dto/create-rate-card.dto';
+import { UpdateRateCardDto } from './dto/update-rate-card.dto';
 
 @Injectable()
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // --- PROPERTIES ---
+  // ==========================================
+  // PROPERTY MANAGEMENT
+  // ==========================================
 
-  async createProperty(createPropertyDto: CreatePropertyDto) {
-    // Check Uniqueness
-    if (createPropertyDto.smartivCode) {
-      const exists = await this.prisma.property.findUnique({
-        where: { smartivCode: createPropertyDto.smartivCode },
-      });
-      if (exists) {
-        throw new ConflictException(
-          'Property with this SmartIV Code already exists',
-        );
-      }
-    }
-
+  async createProperty(dto: CreatePropertyDto): Promise<Property> {
     return this.prisma.property.create({
-      data: {
-        ...createPropertyDto,
-        enabledSlots: createPropertyDto.enabledSlots || [],
-      },
+      data: dto,
     });
   }
 
-  async findAllProperties(pageOptionsDto: PageOptionsDto) {
-    // FIX: Gunakan 'search' bukan 'q'
-    const where: Prisma.PropertyWhereInput = pageOptionsDto.search
-      ? {
-          OR: [
-            { name: { contains: pageOptionsDto.search, mode: 'insensitive' } },
-            {
-              smartivCode: {
-                contains: pageOptionsDto.search,
-                mode: 'insensitive',
-              },
-            },
-          ],
-        }
-      : {};
+  async findAllProperties(
+    pageOptionsDto: PageOptionsDto,
+  ): Promise<PageDto<Property>> {
+    // [FIX] Default value untuk menghindari 'undefined' error di TS strict mode
+    const { page = 1, take = 10, order } = pageOptionsDto;
 
-    const [data, itemCount] = await Promise.all([
+    const [data, total] = await Promise.all([
       this.prisma.property.findMany({
-        where,
-        skip: pageOptionsDto.skip,
-        take: pageOptionsDto.take,
-        orderBy: { createdAt: pageOptionsDto.order },
-        include: {
-          _count: { select: { screens: true } },
-        },
+        skip: (page - 1) * take,
+        take: take,
+        orderBy: { createdAt: order },
+        include: { _count: { select: { screens: true } } },
       }),
-      this.prisma.property.count({ where }),
+      this.prisma.property.count(),
     ]);
 
-    const pageMetaDto = new PageMetaDto({ itemCount, pageOptionsDto });
-    return new PageDto(data, pageMetaDto);
+    const meta = new PageMetaDto({ itemCount: total, pageOptionsDto });
+    return new PageDto(data, meta);
   }
 
-  async getPropertiesList() {
+  async findPropertiesList() {
     return this.prisma.property.findMany({
-      select: {
-        id: true,
-        name: true,
-        city: true,
-      },
-      orderBy: {
-        name: 'asc',
-      },
+      select: { id: true, name: true, city: true, classification: true },
+      orderBy: { name: 'asc' },
     });
   }
 
-  async findOneProperty(id: number) {
+  async findPropertyById(id: number): Promise<Property> {
     const property = await this.prisma.property.findUnique({
       where: { id },
       include: { screens: true },
     });
+
     if (!property)
       throw new NotFoundException(`Property with ID ${id} not found`);
     return property;
   }
 
-  async updateProperty(id: number, updatePropertyDto: UpdatePropertyDto) {
-    await this.findOneProperty(id);
-
-    if (updatePropertyDto.smartivCode) {
-      const exists = await this.prisma.property.findFirst({
-        where: {
-          smartivCode: updatePropertyDto.smartivCode,
-          NOT: { id },
-        },
-      });
-      if (exists) {
-        throw new ConflictException('SmartIV Code is already taken');
-      }
-    }
-
+  async updateProperty(id: number, dto: UpdatePropertyDto): Promise<Property> {
+    await this.findPropertyById(id); // Ensure exists
     return this.prisma.property.update({
       where: { id },
-      data: updatePropertyDto,
+      data: dto,
     });
   }
 
-  async removeProperty(id: number) {
-    await this.findOneProperty(id);
+  async removeProperty(id: number): Promise<Property> {
+    await this.findPropertyById(id); // Ensure exists
     return this.prisma.property.delete({
       where: { id },
     });
   }
 
-  // --- SCREENS ---
+  // ==========================================
+  // SCREEN MANAGEMENT
+  // ==========================================
 
-  async createScreen(createScreenDto: CreateScreenDto) {
-    const property = await this.prisma.property.findUnique({
-      where: { id: createScreenDto.propertyId },
+  async createScreen(dto: CreateScreenDto): Promise<Screen> {
+    const propertyExists = await this.prisma.property.findUnique({
+      where: { id: dto.propertyId },
     });
-    if (!property) throw new NotFoundException('Property ID not found');
+    if (!propertyExists) throw new NotFoundException('Property not found');
 
-    const existingScreen = await this.prisma.screen.findUnique({
-      where: { code: createScreenDto.code },
+    const codeExists = await this.prisma.screen.findUnique({
+      where: { code: dto.code },
     });
-    if (existingScreen) {
-      throw new ConflictException(
-        `Screen code ${createScreenDto.code} already exists`,
-      );
-    }
+    if (codeExists)
+      throw new BadRequestException('Screen Code/MAC already exists');
 
     return this.prisma.screen.create({
-      data: createScreenDto,
+      data: dto,
     });
   }
 
-  async findAllScreens(pageOptionsDto: ScreenPageOptionsDto) {
-    // FIX: Gunakan 'search' bukan 'q'
-    const where: Prisma.ScreenWhereInput = {
-      ...(pageOptionsDto.search
-        ? { name: { contains: pageOptionsDto.search, mode: 'insensitive' } }
-        : {}),
-      propertyId: pageOptionsDto.propertyId,
-    };
+  async findAllScreens(
+    pageOptionsDto: PageOptionsDto,
+    propertyId?: number,
+  ): Promise<PageDto<Screen>> {
+    // [FIX] Default value untuk menghindari 'undefined'
+    const { page = 1, take = 10, order } = pageOptionsDto;
 
-    const [data, itemCount] = await Promise.all([
+    const where: any = {};
+    if (propertyId) where.propertyId = propertyId;
+
+    const [data, total] = await Promise.all([
       this.prisma.screen.findMany({
         where,
-        skip: pageOptionsDto.skip,
-        take: pageOptionsDto.take,
-        orderBy: { createdAt: pageOptionsDto.order },
-        include: {
-          property: { select: { name: true } },
-        },
+        skip: (page - 1) * take,
+        take: take,
+        orderBy: { createdAt: order },
+        include: { property: { select: { name: true } } },
       }),
       this.prisma.screen.count({ where }),
     ]);
 
-    const pageMetaDto = new PageMetaDto({ itemCount, pageOptionsDto });
-    return new PageDto(data, pageMetaDto);
+    const meta = new PageMetaDto({ itemCount: total, pageOptionsDto });
+    return new PageDto(data, meta);
   }
 
-  async getScreensList(propertyId?: number) {
+  async findScreensList(propertyId?: number) {
+    const where: any = {};
+    if (propertyId) where.propertyId = propertyId;
+
     return this.prisma.screen.findMany({
-      where: {
-        propertyId: propertyId,
-      },
-      select: {
-        id: true,
-        name: true,
-        code: true,
-        property: {
-          select: { name: true },
-        },
-      },
-      orderBy: {
-        name: 'asc',
-      },
+      where,
+      select: { id: true, name: true, code: true, orientation: true },
+      orderBy: { name: 'asc' },
     });
   }
 
-  async findOneScreen(id: number) {
+  async findScreenById(id: number): Promise<Screen> {
     const screen = await this.prisma.screen.findUnique({
       where: { id },
       include: { property: true },
@@ -201,17 +149,86 @@ export class InventoryService {
     return screen;
   }
 
-  async updateScreen(id: number, updateScreenDto: UpdateScreenDto) {
-    await this.findOneScreen(id);
+  async updateScreen(id: number, dto: UpdateScreenDto): Promise<Screen> {
+    await this.findScreenById(id);
     return this.prisma.screen.update({
       where: { id },
-      data: updateScreenDto,
+      data: dto,
     });
   }
 
-  async removeScreen(id: number) {
-    await this.findOneScreen(id);
+  async removeScreen(id: number): Promise<Screen> {
+    await this.findScreenById(id);
     return this.prisma.screen.delete({
+      where: { id },
+    });
+  }
+
+  // ==========================================
+  // RATE CARD MANAGEMENT (PHASE 5.7)
+  // ==========================================
+
+  async createRateCard(dto: CreateRateCardDto) {
+    // Note: Validasi 'classification vs propertyId' sudah ditangani DTO (@ValidateIf)
+
+    // Cek Uniqueness (Anti Duplikat Konfigurasi)
+    const existingRateCard = await this.prisma.rateCard.findFirst({
+      where: {
+        propertyId: dto.propertyId || null,
+        classification: dto.classification || null,
+        targetSlot: dto.targetSlot || null,
+        isActive: true,
+      },
+    });
+
+    if (existingRateCard) {
+      throw new ConflictException(
+        'Active Rate Card with this specific configuration already exists. Please update the existing one or deactivate it first.',
+      );
+    }
+
+    // Konversi ke BigInt untuk database
+    return this.prisma.rateCard.create({
+      data: {
+        propertyId: dto.propertyId,
+        classification: dto.classification,
+        targetSlot: dto.targetSlot,
+        pricePerDay: BigInt(dto.pricePerDay),
+        currency: 'IDR',
+      },
+    });
+  }
+
+  async findAllRateCards() {
+    // [OPTIMIZED] Tidak perlu mapping manual BigInt -> Number
+    // Global serializer di main.ts akan menangani konversi ke String saat JSON response dikirim.
+    return this.prisma.rateCard.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        property: { select: { name: true } },
+      },
+    });
+  }
+
+  async updateRateCard(id: number, dto: UpdateRateCardDto) {
+    const rateCard = await this.prisma.rateCard.findUnique({ where: { id } });
+    if (!rateCard) throw new NotFoundException('Rate Card not found');
+
+    return this.prisma.rateCard.update({
+      where: { id },
+      data: {
+        pricePerDay: dto.pricePerDay ? BigInt(dto.pricePerDay) : undefined,
+        isActive: dto.isActive,
+      },
+    });
+  }
+
+  async removeRateCard(id: number) {
+    const rateCard = await this.prisma.rateCard.findUnique({ where: { id } });
+    if (!rateCard) throw new NotFoundException('Rate Card not found');
+
+    // Hard Delete (Sesuai policy sistem saat ini)
+    return this.prisma.rateCard.delete({
       where: { id },
     });
   }
