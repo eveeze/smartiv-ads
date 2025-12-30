@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-complete-v8",
-    "name": "SmartIV Ads (Final - Full Features + Campaigns)",
-    "description": "Complete collection including Auth, Inventory, Media, Users, Finance, and Campaign Workflow.",
+    "_postman_id": "smartiv-ads-complete-v9",
+    "name": "SmartIV Ads (Final - Full Features + Buyout)",
+    "description": "Complete collection including Auth, Inventory, Media, Users, Finance, and Campaign Workflow (Selective & Buyout).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -1138,7 +1138,7 @@
       "name": "6. 📢 Campaign Module",
       "item": [
         {
-          "name": "Create Campaign",
+          "name": "Create Campaign (Selective)",
           "event": [
             {
               "listen": "test",
@@ -1169,7 +1169,54 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"name\": \"Ramadhan Promo 2025\",\n    \"startDate\": \"2025-05-01\",\n    \"endDate\": \"2025-05-07\",\n    \"mediaId\": {{media_id}},\n    \"screenIds\": [{{screen_id}}]\n}",
+              "raw": "{\n    \"name\": \"Ramadhan Promo (Selective)\",\n    \"startDate\": \"2025-05-01\",\n    \"endDate\": \"2025-05-07\",\n    \"mediaId\": {{media_id}},\n    \"screenIds\": [{{screen_id}}]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/campaigns",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Campaign (Buyout)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"campaign_id\", jsonData.data.id);",
+                  "    console.log(\"✅ Buyout Campaign Created: \" + jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Ramadhan Promo (Buyout)\",\n    \"startDate\": \"2025-05-10\",\n    \"endDate\": \"2025-05-15\",\n    \"mediaId\": {{media_id}},\n    \"propertyId\": {{property_id}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
