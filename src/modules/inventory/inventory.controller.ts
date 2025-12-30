@@ -23,6 +23,7 @@ import { Roles } from '../../common/decorators/roles/roles.decorator';
 import { Role } from '@prisma/client';
 import { CreateRateCardDto } from './dto/create-rate-card.dto';
 import { UpdateRateCardDto } from './dto/update-rate-card.dto';
+import { ScreenPageOptionsDto } from './dto/screen-page-options.dto';
 
 @ApiTags('Inventory')
 @ApiBearerAuth()
@@ -94,13 +95,10 @@ export class InventoryController {
   @Get('screens')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
   @ApiOperation({ summary: 'Get screens (can filter by propertyId)' })
-  findAllScreens(
-    @Query() pageOptionsDto: PageOptionsDto,
-    @Query('propertyId') propertyId?: string,
-  ) {
+  findAllScreens(@Query() pageOptionsDto: ScreenPageOptionsDto) {
     return this.inventoryService.findAllScreens(
       pageOptionsDto,
-      propertyId ? +propertyId : undefined,
+      pageOptionsDto.propertyId, // Ambil dari DTO
     );
   }
 

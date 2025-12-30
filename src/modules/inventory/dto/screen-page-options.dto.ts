@@ -1,14 +1,13 @@
-import { PageOptionsDto } from '../../../common/dto/page-options.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsInt } from 'class-validator';
+import { IsInt, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PageOptionsDto } from '../../../common/dto/page-options.dto';
 
 export class ScreenPageOptionsDto extends PageOptionsDto {
-  @ApiPropertyOptional({
-    description: 'Filter screens by Property ID',
-  })
+  @ApiPropertyOptional({ description: 'Filter by Property ID' })
   @Type(() => Number)
   @IsInt()
+  @Min(1)
   @IsOptional()
   readonly propertyId?: number;
 }
