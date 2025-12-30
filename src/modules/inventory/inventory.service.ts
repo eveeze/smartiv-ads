@@ -177,7 +177,7 @@ export class InventoryService {
         propertyId: dto.propertyId || null,
         classification: dto.classification || null,
         targetSlot: dto.targetSlot || null,
-        isActive: true,
+        isActive: true, // Hanya cek yang aktif
       },
     });
 
@@ -213,6 +213,26 @@ export class InventoryService {
   async updateRateCard(id: number, dto: UpdateRateCardDto) {
     const rateCard = await this.prisma.rateCard.findUnique({ where: { id } });
     if (!rateCard) throw new NotFoundException('Rate Card not found');
+
+    // [BUG FIX] Validasi Duplikat saat mengaktifkan kembali Rate Card
+    if (dto.isActive === true && rateCard.isActive === false) {
+      const activeConflict = await this.prisma.rateCard.findFirst({
+        where: {
+          propertyId: rateCard.propertyId,
+          classification: rateCard.classification,
+          targetSlot: rateCard.targetSlot,
+          isActive: true,
+          // Exclude diri sendiri (walaupun harusnya id beda karena status awal false, tapi best practice)
+          id: { not: id },
+        },
+      });
+
+      if (activeConflict) {
+        throw new ConflictException(
+          'Cannot activate this Rate Card because another active Rate Card with the same configuration already exists.',
+        );
+      }
+    }
 
     return this.prisma.rateCard.update({
       where: { id },

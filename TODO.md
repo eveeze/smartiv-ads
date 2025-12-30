@@ -161,45 +161,60 @@ _Definition of Done: Fitur keamanan untuk User agar bisa membatalkan/menghapus r
 
 - [x] **Step 1: Cancel Campaign**
   - [x] **Endpoint User:** `PATCH /campaigns/:id/cancel`.
-  - [x] **Logic:** Refund jika `PENDING`, Stop jika `ACTIVE`.
+  - [x] **Logic & Conditions:**
+    - **Cek Kepemilikan:** User hanya bisa cancel campaign miliknya sendiri.
+    - **Kondisi 1 (Status = PENDING_REVIEW):**
+      - Sistem **WAJIB** mengembalikan saldo (`frozenBalance` dikembalikan ke `balance`).
+      - Buat `AuditLog` tipe `REFUND`.
+      - Set status menjadi `CANCELLED`.
+    - **Kondisi 2 (Status = ACTIVE):**
+      - Set status menjadi `CANCELLED` (agar iklan berhenti tayang di TV).
+      - **Tidak ada refund otomatis** (sisa uang dianggap hangus/sudah terpakai).
+    - **Kondisi 3 (Status Lain):** Jika status `REJECTED`, `DRAFT`, atau `COMPLETED`, tolak request (Throw `BadRequest`).
+
 - [x] **Step 2: Delete Media**
   - [x] **Endpoint User:** `DELETE /media/:id`.
-  - [x] **Logic:** Validasi dependency (tidak boleh hapus jika dipakai campaign aktif).
+  - [x] **Logic & Conditions:**
+    - **Cek Kepemilikan:** User hanya bisa hapus file miliknya.
+    - **Dependency Check (Krusial):** Cek apakah media ini sedang digunakan di tabel `CampaignItem`.
+      - Jika Campaign terkait statusnya `ACTIVE` atau `PENDING_REVIEW` -> **TOLAK** (`BadRequest: Media is currently in use`).
+      - Jika Campaign terkait statusnya `DRAFT`, `CANCELLED`, `REJECTED`, atau `COMPLETED` -> **IZINKAN**.
+    - **Action:** Hapus file fisik di MinIO/S3 **DAN** hapus record di Database.
 
 ---
 
-## 🏷️ Phase 5.7: Rate Card Management (Status: NEXT UP - Prioritas 2)
+## 🏷️ Phase 5.7: Rate Card Management (Status: COMPLETED ✅)
 
 _Definition of Done: Admin bisa mengatur harga dinamis tanpa akses database manual._
 
-- [ ] **Step 1: Interface & DTO**
-  - [ ] **DTO:** `CreateRateCardDto` (Input: `classification`, `pricePerDay`, `propertyId?`, `screenId?`).
-  - [ ] **DTO:** `UpdateRateCardDto` (Input: `pricePerDay`).
-  - [ ] **Validation:** Pastikan `pricePerDay > 0`.
+- [x] **Step 1: Interface & DTO**
+  - [x] **DTO:** `CreateRateCardDto` (Input: `classification`, `pricePerDay`, `propertyId?`, `screenId?`).
+  - [x] **DTO:** `UpdateRateCardDto` (Input: `pricePerDay`).
+  - [x] **Validation:** Pastikan `pricePerDay > 0`, conditional validation untuk `propertyId` vs `classification` via `@ValidateIf`.
 
-- [ ] **Step 2: Business Logic (CRUD)**
-  - [ ] **Service:** `create` (dengan validasi duplikat konfigurasi).
-  - [ ] **Service:** `findAll` (List semua konfigurasi harga aktif).
-  - [ ] **Service:** `update` (Ubah harga).
-  - [ ] **Service:** `remove` (Delete rate card permanently).
-  - [ ] **Logic & Conditions:**
-    - **Uniqueness Check:** Tidak boleh ada 2 Rate Card aktif untuk konfigurasi yang sama (misal: 2 entri untuk `PropertyClass: PREMIUM`).
-    - **Hierarchy Priority:** Pastikan logika perhitungan tetap mengutamakan _Screen Override_ > _Property Override_ > _Global Class Price_.
+- [x] **Step 2: Business Logic (CRUD)**
+  - [x] **Service:** `create` (dengan validasi duplikat konfigurasi).
+  - [x] **Service:** `findAll` (List semua konfigurasi harga aktif).
+  - [x] **Service:** `update` (Ubah harga & status `isActive` dengan pengecekan konflik).
+  - [x] **Service:** `remove` (Delete rate card permanently - Hard Delete).
+  - [x] **Logic & Conditions:**
+    - **Uniqueness Check:** Tidak boleh ada 2 Rate Card **AKTIF** untuk konfigurasi yang sama. Rate card non-aktif (history) boleh duplikat.
+    - **Hierarchy Priority:** Logika perhitungan tetap mengutamakan _Screen Override_ > _Property Override_ > _Global Class Price_.
 
-- [ ] **Step 3: API Endpoints (Admin Only)**
-  - [ ] **Endpoint Admin:** `GET /inventory/rate-cards` (List harga).
-  - [ ] **Endpoint Admin:** `POST /inventory/rate-cards` (Create harga baru).
-  - [ ] **Endpoint Admin:** `PATCH /inventory/rate-cards/:id` (Update harga).
-  - [ ] **Endpoint Admin:** `DELETE /inventory/rate-cards/:id` (Delete secara permanen).
-  - [ ] **Conditions:**
+- [x] **Step 3: API Endpoints (Admin Only)**
+  - [x] **Endpoint Admin:** `GET /inventory/rate-cards` (List harga).
+  - [x] **Endpoint Admin:** `POST /inventory/rate-cards` (Create harga baru).
+  - [x] **Endpoint Admin:** `PATCH /inventory/rate-cards/:id` (Update harga).
+  - [x] **Endpoint Admin:** `DELETE /inventory/rate-cards/:id` (Delete secara permanen).
+  - [x] **Conditions:**
     - **Role Check:** Hanya `SUPER_ADMIN` yang boleh akses.
 
-- [ ] **Step 4: Testing**
-  - [ ] **E2E Test:** `test/rate-card.e2e-spec.ts` (Skenario: Admin CRUD Rate Card, lalu User create campaign dan cek apakah harga berubah sesuai Rate Card baru).
+- [x] **Step 4: Testing**
+  - [x] **E2E Test:** `test/rate-card.e2e-spec.ts` (Skenario: Admin CRUD Rate Card, validasi unik, handling BigInt serializer).
 
 ---
 
-## 📝 Phase 5.8: Quality of Life Improvements (Status: PENDING - Prioritas 3)
+## 📝 Phase 5.8: Quality of Life Improvements (Status: NEXT UP - Prioritas 3)
 
 _Definition of Done: Fitur untuk meningkatkan kenyamanan pengguna (Draft & Profile)._
 
