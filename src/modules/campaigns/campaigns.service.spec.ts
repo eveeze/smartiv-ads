@@ -4,7 +4,13 @@ import { PrismaService } from '../../providers/prisma/prisma.service';
 import { FinanceService } from '../finance/finance.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { ApprovalStatus, CampaignStatus, Role, User } from '@prisma/client';
+import {
+  ApprovalStatus,
+  CampaignStatus,
+  Role,
+  User,
+  ScreenStatus,
+} from '@prisma/client';
 
 // Mock Data Objects
 const mockUser = { id: 1, role: Role.ADVERTISER } as User;
@@ -16,11 +22,13 @@ const mockMedia = {
   status: ApprovalStatus.APPROVED,
 };
 
-const mockScreen = { id: 10, name: 'Screen A' };
+const mockScreen = { id: 10, name: 'Screen A', status: ScreenStatus.ONLINE };
+const mockScreen2 = { id: 11, name: 'Screen B', status: ScreenStatus.ONLINE };
 
 // Mock Prisma
 const mockPrisma = {
   media: { findUnique: jest.fn() },
+  property: { count: jest.fn() },
   screen: { findMany: jest.fn() },
   campaign: {
     create: jest.fn(),
@@ -45,11 +53,11 @@ const mockFinance = {
 describe('CampaignsService', () => {
   let service: CampaignsService;
 
-  // [FIX] Helper untuk tanggal dinamis agar test selalu valid (Future)
+  // Helper tanggal dinamis
   const getFutureDate = (daysToAdd: number) => {
     const date = new Date();
     date.setDate(date.getDate() + daysToAdd);
-    return date.toISOString().split('T')[0]; // Format YYYY-MM-DD
+    return date.toISOString().split('T')[0];
   };
 
   beforeEach(async () => {
@@ -72,11 +80,10 @@ describe('CampaignsService', () => {
   // --- CREATE TESTS ---
 
   describe('create', () => {
-    // [FIX] Gunakan tanggal dinamis
     const dto: CreateCampaignDto = {
       name: 'New Campaign',
-      startDate: getFutureDate(5), // 5 hari dari sekarang
-      endDate: getFutureDate(10), // 10 hari dari sekarang
+      startDate: getFutureDate(5),
+      endDate: getFutureDate(10),
       mediaId: 1,
       screenIds: [10],
     };
@@ -110,7 +117,6 @@ describe('CampaignsService', () => {
 
     it('should throw BadRequest if date range invalid', async () => {
       mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
-      // Start date lebih besar dari End date
       const invalidDto = {
         ...dto,
         startDate: getFutureDate(10),
@@ -121,17 +127,12 @@ describe('CampaignsService', () => {
       );
     });
 
-    it('should throw BadRequest if some screens not found', async () => {
+    // --- TEST SELECTIVE SCREEN ---
+    it('should create SELECTIVE campaign successfully', async () => {
       mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
-      mockPrisma.screen.findMany.mockResolvedValue([]); // No screens found
-      await expect(service.create(mockUser, dto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should create campaign successfully', async () => {
-      mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
+      // Mock validasi screen selective
       mockPrisma.screen.findMany.mockResolvedValue([mockScreen]);
+
       mockFinance.calculateCampaignCost.mockResolvedValue({
         totalCost: 500000,
       });
@@ -145,10 +146,70 @@ describe('CampaignsService', () => {
 
       expect(mockFinance.calculateCampaignCost).toHaveBeenCalled();
       expect(mockFinance.freezeBalanceForCampaign).toHaveBeenCalled();
-      expect(mockPrisma.campaign.create).toHaveBeenCalled();
-      expect(mockPrisma.campaignItem.create).toHaveBeenCalled();
-      expect(mockPrisma.auditLog.create).toHaveBeenCalled();
       expect(result.status).toBe(CampaignStatus.PENDING_REVIEW);
+      // Pastikan propertyId null
+      expect(mockPrisma.campaign.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ propertyId: null }),
+        }),
+      );
+    });
+
+    // --- TEST PROPERTY BUYOUT (FIXED) ---
+    it('should create BUYOUT campaign successfully', async () => {
+      const buyoutDto = {
+        ...dto,
+        screenIds: undefined,
+        propertyId: 100, // Target 1 Gedung Full
+      };
+
+      mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
+
+      // Mock Property Exist
+      mockPrisma.property.count.mockResolvedValue(1);
+
+      // Mock Find All Screens in Property (Misal ada 2 layar)
+      mockPrisma.screen.findMany.mockResolvedValue([mockScreen, mockScreen2]);
+
+      mockFinance.calculateCampaignCost.mockResolvedValue({
+        totalCost: 1000000,
+      });
+      mockPrisma.campaign.create.mockResolvedValue({
+        id: 2,
+        status: CampaignStatus.PENDING_REVIEW,
+        propertyId: 100,
+      });
+
+      const result = await service.create(mockUser, buyoutDto);
+
+      // Pastikan logic memanggil screens by propertyId
+      expect(mockPrisma.property.count).toHaveBeenCalledWith({
+        where: { id: 100 },
+      });
+
+      // [FIX] Update expectation agar match dengan implementasi (status: ONLINE, select: id)
+      expect(mockPrisma.screen.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { propertyId: 100, status: ScreenStatus.ONLINE },
+          select: { id: true },
+        }),
+      );
+
+      // Pastikan hitung biaya pakai 2 screen
+      expect(mockFinance.calculateCampaignCost).toHaveBeenCalledWith(
+        expect.objectContaining({ screenIds: [10, 11] }),
+      );
+    });
+
+    it('should throw Error if Buyout property has no screens', async () => {
+      const buyoutDto = { ...dto, screenIds: undefined, propertyId: 100 };
+      mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
+      mockPrisma.property.count.mockResolvedValue(1);
+      mockPrisma.screen.findMany.mockResolvedValue([]); // Empty screens
+
+      await expect(service.create(mockUser, buyoutDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 

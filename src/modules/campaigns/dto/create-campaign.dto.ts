@@ -1,11 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMinSize,
   IsArray,
   IsDateString,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateCampaignDto {
@@ -14,21 +16,34 @@ export class CreateCampaignDto {
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: '2025-03-01' })
+  @ApiProperty({ example: '2025-05-01' })
   @IsDateString()
   startDate: string;
 
-  @ApiProperty({ example: '2025-03-30' })
+  @ApiProperty({ example: '2025-05-07' })
   @IsDateString()
   endDate: string;
 
   @ApiProperty({ description: 'ID Media yang sudah Approved', example: 1 })
   @IsInt()
   mediaId: number;
-
-  @ApiProperty({ description: 'List ID Screen yang ditarget', example: [1, 2] })
+  @ApiPropertyOptional({
+    description: 'List ID Screen yang ditarget. Wajib jika propertyId kosong.',
+    example: [1, 2],
+  })
+  @ValidateIf((o) => !o.propertyId)
   @IsArray()
   @ArrayMinSize(1)
   @IsInt({ each: true })
-  screenIds: number[];
+  screenIds?: number[];
+
+  @ApiPropertyOptional({
+    description:
+      'ID Property untuk target seluruh layar. Wajib jika screenIds kosong.',
+    example: 5,
+  })
+  @ValidateIf((o) => !o.screenIds)
+  @IsInt()
+  @IsOptional()
+  propertyId?: number;
 }

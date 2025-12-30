@@ -12,6 +12,7 @@ import {
   CampaignStatus,
   User,
   Role,
+  ScreenStatus,
 } from '@prisma/client';
 import { ReviewCampaignDto } from './dto/review-campaign.dto';
 import { CampaignQueryDto } from './dto/campaign-query.dto';
@@ -47,18 +48,66 @@ export class CampaignsService {
     if (start < new Date())
       throw new BadRequestException('Start date must be in the future');
 
-    // 3. Validasi Screen & Availability
-    // (Simplifikasi: Cek apakah screen exist & aktif)
-    const screens = await this.prisma.screen.findMany({
-      where: { id: { in: dto.screenIds } },
-    });
-    if (screens.length !== dto.screenIds.length) {
-      throw new BadRequestException('Some screens not found');
+    // ---------------------------------------------------------
+    // [LOGIC BARU] Menentukan Target Screens
+    // ---------------------------------------------------------
+    let targetScreenIds: number[] = [];
+
+    if (dto.propertyId) {
+      // SCENARIO A: PROPERTY BUYOUT
+      // Cari semua screen yang ONLINE di properti tersebut
+
+      // Cek properti exist
+      const propertyExists = await this.prisma.property.count({
+        where: { id: dto.propertyId },
+      });
+      if (propertyExists === 0) {
+        throw new NotFoundException('Property not found');
+      }
+
+      // Fetch semua screen aktif
+      const propertyScreens = await this.prisma.screen.findMany({
+        where: {
+          propertyId: dto.propertyId,
+          status: ScreenStatus.ONLINE, // Hanya ambil layar yang aktif
+        },
+        select: { id: true },
+      });
+
+      if (propertyScreens.length === 0) {
+        throw new BadRequestException(
+          'Property has no active screens available',
+        );
+      }
+
+      targetScreenIds = propertyScreens.map((s) => s.id);
+    } else {
+      // SCENARIO B: SPECIFIC SCREENS
+      if (!dto.screenIds || dto.screenIds.length === 0) {
+        throw new BadRequestException(
+          'Either propertyId or screenIds must be provided',
+        );
+      }
+
+      // Validasi apakah screen IDs valid dan aktif
+      const validScreens = await this.prisma.screen.findMany({
+        where: {
+          id: { in: dto.screenIds },
+          status: ScreenStatus.ONLINE,
+        },
+        select: { id: true },
+      });
+
+      if (validScreens.length !== dto.screenIds.length) {
+        throw new BadRequestException('Some screens are invalid or not ONLINE');
+      }
+
+      targetScreenIds = dto.screenIds;
     }
 
-    // 4. Hitung Biaya
+    // 4. Hitung Biaya (Gunakan list screen ID yang sudah didapat tadi)
     const costEstimate = await this.financeService.calculateCampaignCost({
-      screenIds: dto.screenIds,
+      screenIds: targetScreenIds,
       startDate: dto.startDate,
       endDate: dto.endDate,
     });
@@ -82,15 +131,20 @@ export class CampaignsService {
           endDate: end,
           totalCost: totalCost,
           status: CampaignStatus.PENDING_REVIEW,
-          // Relasi Many-to-Many ke Screens
+
+          // Simpan Property ID jika Buyout (opsional, untuk reporting/tracking)
+          // Jika selective screen, propertyId akan null
+          propertyId: dto.propertyId ?? null,
+
+          // Relasi Many-to-Many ke Screens (Ini inti dari targetingnya)
           screens: {
-            connect: dto.screenIds.map((id) => ({ id })),
+            connect: targetScreenIds.map((id) => ({ id })),
           },
         },
       });
 
-      // c. Buat Campaign Item (Detail Media per Screen sebenarnya bisa di-expand)
-      // Untuk MVP, 1 Campaign = 1 Media untuk semua target screen
+      // c. Buat Campaign Item (Detail Media per Screen)
+      // MVP: 1 Campaign = 1 Media untuk semua target screen
       await tx.campaignItem.create({
         data: {
           campaignId: campaign.id,
@@ -105,7 +159,11 @@ export class CampaignsService {
         data: {
           userId: user.id,
           action: 'CAMPAIGN_CREATED',
-          details: `Created campaign #${campaign.id} with cost ${totalCost}`,
+          details: `Created campaign #${campaign.id} targeting ${
+            targetScreenIds.length
+          } screens. Type: ${
+            dto.propertyId ? 'BUYOUT' : 'SELECTIVE'
+          }. Cost: ${totalCost}`,
         },
       });
 
@@ -131,6 +189,7 @@ export class CampaignsService {
         include: {
           items: { include: { media: true } },
           _count: { select: { screens: true } },
+          property: { select: { name: true } }, // Include nama properti jika buyout
         },
         skip: query.skip,
         take: query.take,
@@ -150,6 +209,7 @@ export class CampaignsService {
         screens: true, // Show target screens
         items: { include: { media: true } },
         advertiser: { select: { name: true, email: true } },
+        property: { select: { name: true, city: true } },
       },
     });
 
