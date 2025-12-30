@@ -161,25 +161,10 @@ _Definition of Done: Fitur keamanan untuk User agar bisa membatalkan/menghapus r
 
 - [x] **Step 1: Cancel Campaign**
   - [x] **Endpoint User:** `PATCH /campaigns/:id/cancel`.
-  - [x] **Logic & Conditions:**
-    - **Cek Kepemilikan:** User hanya bisa cancel campaign miliknya sendiri.
-    - **Kondisi 1 (Status = PENDING_REVIEW):**
-      - Sistem **WAJIB** mengembalikan saldo (`frozenBalance` dikembalikan ke `balance`).
-      - Buat `AuditLog` tipe `REFUND`.
-      - Set status menjadi `CANCELLED`.
-    - **Kondisi 2 (Status = ACTIVE):**
-      - Set status menjadi `CANCELLED` (agar iklan berhenti tayang di TV).
-      - **Tidak ada refund otomatis** (sisa uang dianggap hangus/sudah terpakai).
-    - **Kondisi 3 (Status Lain):** Jika status `REJECTED`, `DRAFT`, atau `COMPLETED`, tolak request (Throw `BadRequest`).
-
+  - [x] **Logic:** Refund jika `PENDING`, Stop jika `ACTIVE`.
 - [x] **Step 2: Delete Media**
   - [x] **Endpoint User:** `DELETE /media/:id`.
-  - [x] **Logic & Conditions:**
-    - **Cek Kepemilikan:** User hanya bisa hapus file miliknya.
-    - **Dependency Check (Krusial):** Cek apakah media ini sedang digunakan di tabel `CampaignItem`.
-      - Jika Campaign terkait statusnya `ACTIVE` atau `PENDING_REVIEW` -> **TOLAK** (`BadRequest: Media is currently in use`).
-      - Jika Campaign terkait statusnya `DRAFT`, `CANCELLED`, `REJECTED`, atau `COMPLETED` -> **IZINKAN**.
-    - **Action:** Hapus file fisik di MinIO/S3 **DAN** hapus record di Database.
+  - [x] **Logic:** Validasi dependency (tidak boleh hapus jika dipakai campaign aktif).
 
 ---
 
@@ -196,7 +181,7 @@ _Definition of Done: Admin bisa mengatur harga dinamis tanpa akses database manu
   - [ ] **Service:** `create` (dengan validasi duplikat konfigurasi).
   - [ ] **Service:** `findAll` (List semua konfigurasi harga aktif).
   - [ ] **Service:** `update` (Ubah harga).
-  - [ ] **Service:** `remove` (Soft delete rate card).
+  - [ ] **Service:** `remove` (Delete rate card permanently).
   - [ ] **Logic & Conditions:**
     - **Uniqueness Check:** Tidak boleh ada 2 Rate Card aktif untuk konfigurasi yang sama (misal: 2 entri untuk `PropertyClass: PREMIUM`).
     - **Hierarchy Priority:** Pastikan logika perhitungan tetap mengutamakan _Screen Override_ > _Property Override_ > _Global Class Price_.
@@ -205,7 +190,7 @@ _Definition of Done: Admin bisa mengatur harga dinamis tanpa akses database manu
   - [ ] **Endpoint Admin:** `GET /inventory/rate-cards` (List harga).
   - [ ] **Endpoint Admin:** `POST /inventory/rate-cards` (Create harga baru).
   - [ ] **Endpoint Admin:** `PATCH /inventory/rate-cards/:id` (Update harga).
-  - [ ] **Endpoint Admin:** `DELETE /inventory/rate-cards/:id` (Delete harga).
+  - [ ] **Endpoint Admin:** `DELETE /inventory/rate-cards/:id` (Delete secara permanen).
   - [ ] **Conditions:**
     - **Role Check:** Hanya `SUPER_ADMIN` yang boleh akses.
 
