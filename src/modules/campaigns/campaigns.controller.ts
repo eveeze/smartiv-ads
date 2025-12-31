@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -18,6 +19,7 @@ import { Role } from '@prisma/client';
 import type { User } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
+import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { CampaignQueryDto } from './dto/campaign-query.dto';
 import { ReviewCampaignDto } from './dto/review-campaign.dto';
 
@@ -30,7 +32,7 @@ export class CampaignsController {
 
   @Post()
   @Roles(Role.ADVERTISER)
-  @ApiOperation({ summary: 'Create a new campaign draft' })
+  @ApiOperation({ summary: 'Create a new campaign' })
   create(@CurrentUser() user: User, @Body() dto: CreateCampaignDto) {
     return this.campaignsService.create(user, dto);
   }
@@ -57,7 +59,26 @@ export class CampaignsController {
     return this.campaignsService.findOne(id, user);
   }
 
-  // [NEW ENDPOINT]
+  // [NEW ENDPOINT] Update Draft Campaign
+  @Patch(':id')
+  @Roles(Role.ADVERTISER)
+  @ApiOperation({ summary: 'Update campaign (Only if Status = DRAFT)' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+    @Body() dto: UpdateCampaignDto,
+  ) {
+    return this.campaignsService.update(id, user.id, dto);
+  }
+
+  // [NEW ENDPOINT] Delete Draft Campaign
+  @Delete(':id')
+  @Roles(Role.ADVERTISER)
+  @ApiOperation({ summary: 'Delete campaign (Only if Status = DRAFT)' })
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+    return this.campaignsService.remove(id, user.id);
+  }
+
   @Patch(':id/cancel')
   @Roles(Role.ADVERTISER)
   @ApiOperation({

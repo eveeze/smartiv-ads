@@ -267,4 +267,83 @@ describe('Campaign Flow (E2E)', () => {
       expect(Number(wallet!.balance)).toBe(400000); // Kembali ke 400k
     });
   });
+
+  describe('4. Draft Management Flow (NEW - Phase 5.8)', () => {
+    let draftId: number;
+
+    it('Should create a campaign (simulated as DRAFT)', async () => {
+      // Catatan: Karena endpoint Create defaultnya PENDING_REVIEW (sesuai Phase 5.5),
+      // kita akan override statusnya di DB menjadi DRAFT agar bisa ditest fitur Edit/Delete Draftnya.
+      // Dalam implementasi nyata, mungkin ada flag `isDraft` di DTO Create.
+
+      const res = await request(app.getHttpServer())
+        .post('/campaigns')
+        .set('Authorization', `Bearer ${advertiserToken}`)
+        .send({
+          name: 'Draft Candidate',
+          startDate: getFutureDate(20),
+          endDate: getFutureDate(22),
+          mediaId: mediaId,
+          screenIds: [screenId1],
+        })
+        .expect(201);
+
+      draftId = res.body.data.id;
+
+      // Force status to DRAFT via Prisma (Simulation)
+      await prisma.campaign.update({
+        where: { id: draftId },
+        data: { status: CampaignStatus.DRAFT },
+      });
+    });
+
+    it('Should update DRAFT campaign name & dates', async () => {
+      await request(app.getHttpServer())
+        .patch(`/campaigns/${draftId}`)
+        .set('Authorization', `Bearer ${advertiserToken}`)
+        .send({
+          name: 'Updated Draft Name',
+          startDate: getFutureDate(21), // Geser tanggal
+        })
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.data.name).toBe('Updated Draft Name');
+          // StartDate berubah
+          expect(res.body.data.startDate).toContain(getFutureDate(21));
+        });
+    });
+
+    it('Should fail updating if status is NOT DRAFT', async () => {
+      // Ubah status ke PENDING_REVIEW
+      await prisma.campaign.update({
+        where: { id: draftId },
+        data: { status: CampaignStatus.PENDING_REVIEW },
+      });
+
+      await request(app.getHttpServer())
+        .patch(`/campaigns/${draftId}`)
+        .set('Authorization', `Bearer ${advertiserToken}`)
+        .send({ name: 'Hacking Attempt' })
+        .expect(400); // Bad Request
+    });
+
+    it('Should delete DRAFT campaign', async () => {
+      // Kembalikan ke DRAFT
+      await prisma.campaign.update({
+        where: { id: draftId },
+        data: { status: CampaignStatus.DRAFT },
+      });
+
+      await request(app.getHttpServer())
+        .delete(`/campaigns/${draftId}`)
+        .set('Authorization', `Bearer ${advertiserToken}`)
+        .expect(200);
+
+      // Verify Gone from DB
+      const check = await prisma.campaign.findUnique({
+        where: { id: draftId },
+      });
+      expect(check).toBeNull();
+    });
+  });
 });

@@ -10,7 +10,7 @@ datasource db {
 }
 
 // --------------------------------------
-// ENUMS
+// ENUMS·
 // --------------------------------------
 
 enum Role {
@@ -339,7 +339,7 @@ model Campaign {
 model CampaignItem {
   id                 Int            @id @default(autoincrement())
   campaignId         Int
-  campaign           Campaign       @relation(fields: [campaignId], references: [id])
+  campaign           Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   mediaId            Int
   media              Media          @relation(fields: [mediaId], references: [id])

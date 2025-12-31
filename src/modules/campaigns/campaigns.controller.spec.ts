@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CampaignsController } from './campaigns.controller';
 import { CampaignsService } from './campaigns.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
+import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { ReviewCampaignDto } from './dto/review-campaign.dto';
 import { CampaignQueryDto } from './dto/campaign-query.dto';
 import { Role, User, CampaignStatus } from '@prisma/client';
@@ -29,6 +30,10 @@ describe('CampaignsController', () => {
     findAll: jest.fn(),
     findOne: jest.fn(),
     review: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    getPendingCampaigns: jest.fn(),
+    cancel: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -91,10 +96,10 @@ describe('CampaignsController', () => {
       const query: CampaignQueryDto = { page: 1, take: 10, skip: 0 };
       mockCampaignsService.findAll.mockResolvedValue({ data: [], meta: {} });
 
-      await controller.findPending(mockAdmin, query);
+      await controller.findPending(mockUser, query);
 
       expect(service.findAll).toHaveBeenCalledWith(
-        mockAdmin,
+        mockUser,
         expect.objectContaining({ status: CampaignStatus.PENDING_REVIEW }),
       );
     });
@@ -129,6 +134,39 @@ describe('CampaignsController', () => {
         dto,
         mockAdmin.id,
       );
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
+  // [UPDATED] Menggunakan mockUser.id
+  describe('update', () => {
+    it('should call service.update', async () => {
+      const campaignId = 1;
+      const dto: UpdateCampaignDto = { name: 'Updated Name' };
+      const expectedResult = { id: campaignId, name: 'Updated Name' };
+
+      mockCampaignsService.update.mockResolvedValue(expectedResult);
+
+      const result = await controller.update(campaignId, mockUser, dto);
+
+      // FIX: Expect mockUser.id, not mockUser object
+      expect(service.update).toHaveBeenCalledWith(campaignId, mockUser.id, dto);
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
+  // [UPDATED] Menggunakan mockUser.id
+  describe('remove', () => {
+    it('should call service.remove', async () => {
+      const campaignId = 1;
+      const expectedResult = { id: campaignId };
+
+      mockCampaignsService.remove.mockResolvedValue(expectedResult);
+
+      const result = await controller.remove(campaignId, mockUser);
+
+      // FIX: Expect mockUser.id, not mockUser object
+      expect(service.remove).toHaveBeenCalledWith(campaignId, mockUser.id);
       expect(result).toEqual(expectedResult);
     });
   });

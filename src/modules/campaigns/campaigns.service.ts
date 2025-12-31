@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../providers/prisma/prisma.service';
 import { FinanceService } from '../finance/finance.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
+import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import {
   AdSlot,
   ApprovalStatus,
@@ -146,6 +148,122 @@ export class CampaignsService {
     });
   }
 
+  // ==========================================
+  // [NEW] UPDATE CAMPAIGN (DRAFT ONLY)
+  // ==========================================
+  async update(id: number, userId: number, dto: UpdateCampaignDto) {
+    // 1. Cek keberadaan & kepemilikan campaign
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id },
+      include: { screens: true },
+    });
+
+    if (!campaign) throw new NotFoundException('Campaign not found');
+    if (campaign.advertiserId !== userId)
+      throw new ForbiddenException('You do not own this campaign');
+
+    // 2. Validasi Status (Hanya DRAFT yang boleh diedit)
+    if (campaign.status !== CampaignStatus.DRAFT) {
+      throw new BadRequestException(
+        'Only DRAFT campaigns can be edited. Please cancel and create a new one.',
+      );
+    }
+
+    // 3. Validasi Tanggal
+    let startDate = campaign.startDate;
+    let endDate = campaign.endDate;
+
+    if (dto.startDate) startDate = new Date(dto.startDate);
+    if (dto.endDate) endDate = new Date(dto.endDate);
+
+    if (dto.startDate || dto.endDate) {
+      if (startDate >= endDate) {
+        throw new BadRequestException('Start date must be before end date');
+      }
+      if (startDate < new Date()) {
+        throw new BadRequestException('Start date must be in the future');
+      }
+    }
+
+    // 4. Validasi Screens / Property (Jika berubah)
+    let targetScreenIds: number[] = campaign.screens.map((s) => s.id);
+
+    if (dto.propertyId) {
+      // Logic Buyout Baru
+      const propertyScreens = await this.prisma.screen.findMany({
+        where: { propertyId: dto.propertyId, status: ScreenStatus.ONLINE },
+        select: { id: true },
+      });
+      if (propertyScreens.length === 0)
+        throw new BadRequestException('Property has no active screens');
+      targetScreenIds = propertyScreens.map((s) => s.id);
+    } else if (dto.screenIds) {
+      // Logic Selective Baru
+      const validScreens = await this.prisma.screen.findMany({
+        where: { id: { in: dto.screenIds }, status: ScreenStatus.ONLINE },
+        select: { id: true },
+      });
+      if (validScreens.length !== dto.screenIds.length) {
+        throw new BadRequestException('Some screens are invalid or not ONLINE');
+      }
+      targetScreenIds = dto.screenIds;
+    }
+
+    // 5. Hitung Ulang Cost (Karena Draft, hanya update record, tidak freeze balance dulu)
+    const costEstimate = await this.financeService.calculateCampaignCost({
+      screenIds: targetScreenIds,
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+    });
+    const newTotalCost = BigInt(costEstimate.totalCost);
+
+    // 6. Update Database
+    return this.prisma.campaign.update({
+      where: { id },
+      data: {
+        name: dto.name,
+        startDate: startDate,
+        endDate: endDate,
+        totalCost: newTotalCost,
+        propertyId: dto.propertyId, // Bisa null jika ganti ke Selective
+        screens: {
+          set: targetScreenIds.map((sid) => ({ id: sid })), // Reset relasi screens
+        },
+      },
+      include: {
+        screens: { select: { id: true, name: true } },
+      },
+    });
+  }
+
+  // ==========================================
+  // [NEW] DELETE CAMPAIGN (DRAFT ONLY)
+  // ==========================================
+  async remove(id: number, userId: number) {
+    // 1. Cek keberadaan & kepemilikan
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id },
+    });
+
+    if (!campaign) throw new NotFoundException('Campaign not found');
+    if (campaign.advertiserId !== userId)
+      throw new ForbiddenException('You do not own this campaign');
+
+    // 2. Validasi Status
+    if (campaign.status !== CampaignStatus.DRAFT) {
+      throw new BadRequestException(
+        'Only DRAFT campaigns can be deleted directly. Use CANCEL for active/pending campaigns.',
+      );
+    }
+
+    // 3. Hapus (Hard Delete karena masih Draft dan belum ada transaksi keuangan)
+    // Note: CampaignItem akan terhapus jika ada Cascade Delete di schema,
+    // jika tidak, kita harus hapus manual items dulu. Asumsi: Prisma Cascade aktif.
+    return this.prisma.campaign.delete({
+      where: { id },
+    });
+  }
+
   async findAll(user: User, query: CampaignQueryDto) {
     const where: any = {};
 
@@ -196,7 +314,6 @@ export class CampaignsService {
     return campaign;
   }
 
-  // [NEW FEATURE] Cancel Campaign
   async cancel(id: number, user: User) {
     const campaign = await this.prisma.campaign.findUnique({ where: { id } });
     if (!campaign) throw new NotFoundException('Campaign not found');
@@ -205,7 +322,6 @@ export class CampaignsService {
       throw new BadRequestException('You do not own this campaign');
     }
 
-    // Tipe eksplisit agar TypeScript tidak error saat komparasi Enum
     const allowedStatuses: CampaignStatus[] = [
       CampaignStatus.PENDING_REVIEW,
       CampaignStatus.ACTIVE,
@@ -218,7 +334,6 @@ export class CampaignsService {
     }
 
     return await this.prisma.$transaction(async (tx) => {
-      // SKENARIO 1: Refund jika masih PENDING
       if (campaign.status === CampaignStatus.PENDING_REVIEW) {
         await this.financeService.releaseFrozenBalance(
           user.id,
@@ -234,7 +349,6 @@ export class CampaignsService {
           },
         });
       } else {
-        // SKENARIO 2: ACTIVE (Stop Tayang, No Refund Otomatis)
         await tx.auditLog.create({
           data: {
             userId: user.id,
