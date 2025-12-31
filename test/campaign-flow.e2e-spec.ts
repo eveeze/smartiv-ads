@@ -271,30 +271,34 @@ describe('Campaign Flow (E2E)', () => {
   describe('4. Draft Management Flow (NEW - Phase 5.8)', () => {
     let draftId: number;
 
-    it('Should create a campaign (simulated as DRAFT)', async () => {
-      // Catatan: Karena endpoint Create defaultnya PENDING_REVIEW (sesuai Phase 5.5),
-      // kita akan override statusnya di DB menjadi DRAFT agar bisa ditest fitur Edit/Delete Draftnya.
-      // Dalam implementasi nyata, mungkin ada flag `isDraft` di DTO Create.
-
+    it('Should create a campaign as DRAFT (Status: DRAFT, No Frozen)', async () => {
+      // NOTE: Menggunakan flag saveAsDraft: true yang baru diimplementasikan
       const res = await request(app.getHttpServer())
         .post('/campaigns')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
           name: 'Draft Candidate',
           startDate: getFutureDate(20),
-          endDate: getFutureDate(22),
+          endDate: getFutureDate(22), // 2 days x 50k = 100k
           mediaId: mediaId,
           screenIds: [screenId1],
+          saveAsDraft: true, // FLAG BARU
         })
         .expect(201);
 
       draftId = res.body.data.id;
 
-      // Force status to DRAFT via Prisma (Simulation)
-      await prisma.campaign.update({
+      // Verify Status = DRAFT
+      const campaign = await prisma.campaign.findUnique({
         where: { id: draftId },
-        data: { status: CampaignStatus.DRAFT },
       });
+      expect(campaign?.status).toBe(CampaignStatus.DRAFT);
+
+      // Verify Wallet NO FROZEN
+      const wallet = await prisma.wallet.findUnique({
+        where: { userId: advertiserId },
+      });
+      expect(Number(wallet?.frozenBalance)).toBe(0); // Tetap 0
     });
 
     it('Should update DRAFT campaign name & dates', async () => {
@@ -313,13 +317,27 @@ describe('Campaign Flow (E2E)', () => {
         });
     });
 
-    it('Should fail updating if status is NOT DRAFT', async () => {
-      // Ubah status ke PENDING_REVIEW
-      await prisma.campaign.update({
-        where: { id: draftId },
-        data: { status: CampaignStatus.PENDING_REVIEW },
-      });
+    it('Should SUBMIT draft -> Become PENDING & Freeze Balance', async () => {
+      await request(app.getHttpServer())
+        .patch(`/campaigns/${draftId}/submit`)
+        .set('Authorization', `Bearer ${advertiserToken}`)
+        .expect(200);
 
+      // Verify Status -> PENDING_REVIEW
+      const campaign = await prisma.campaign.findUnique({
+        where: { id: draftId },
+      });
+      expect(campaign?.status).toBe(CampaignStatus.PENDING_REVIEW);
+
+      const wallet = await prisma.wallet.findUnique({
+        where: { userId: advertiserId },
+      });
+      // Kita expect frozen > 0
+      expect(Number(wallet?.frozenBalance)).toBeGreaterThan(0);
+    });
+
+    it('Should fail updating if status is NOT DRAFT', async () => {
+      // Sekarang status sudah PENDING_REVIEW karena submit di atas
       await request(app.getHttpServer())
         .patch(`/campaigns/${draftId}`)
         .set('Authorization', `Bearer ${advertiserToken}`)
@@ -328,20 +346,30 @@ describe('Campaign Flow (E2E)', () => {
     });
 
     it('Should delete DRAFT campaign', async () => {
-      // Kembalikan ke DRAFT
-      await prisma.campaign.update({
-        where: { id: draftId },
-        data: { status: CampaignStatus.DRAFT },
-      });
+      // Buat draft baru untuk dihapus
+      const res = await request(app.getHttpServer())
+        .post('/campaigns')
+        .set('Authorization', `Bearer ${advertiserToken}`)
+        .send({
+          name: 'To Delete',
+          startDate: getFutureDate(25),
+          endDate: getFutureDate(26),
+          mediaId: mediaId,
+          screenIds: [screenId1],
+          saveAsDraft: true,
+        })
+        .expect(201);
+
+      const deleteId = res.body.data.id;
 
       await request(app.getHttpServer())
-        .delete(`/campaigns/${draftId}`)
+        .delete(`/campaigns/${deleteId}`)
         .set('Authorization', `Bearer ${advertiserToken}`)
         .expect(200);
 
       // Verify Gone from DB
       const check = await prisma.campaign.findUnique({
-        where: { id: draftId },
+        where: { id: deleteId },
       });
       expect(check).toBeNull();
     });

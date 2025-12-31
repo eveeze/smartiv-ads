@@ -2,11 +2,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Min,
   ValidateIf,
 } from 'class-validator';
 
@@ -26,7 +28,9 @@ export class CreateCampaignDto {
 
   @ApiProperty({ description: 'ID Media yang sudah Approved', example: 1 })
   @IsInt()
+  @Min(1)
   mediaId: number;
+
   @ApiPropertyOptional({
     description: 'List ID Screen yang ditarget. Wajib jika propertyId kosong.',
     example: [1, 2],
@@ -46,4 +50,12 @@ export class CreateCampaignDto {
   @IsInt()
   @IsOptional()
   propertyId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Jika true, simpan sebagai DRAFT tanpa memotong saldo.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  saveAsDraft?: boolean;
 }

@@ -22,12 +22,24 @@ const mockUser = {
   id: 1,
   role: Role.ADVERTISER,
   email: 'advertiser@test.com',
+  name: 'Test Advertiser',
+  password: 'hashed',
+  phone: '08123456789',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  propertyId: null,
 } as User;
 
 const mockAdmin = {
   id: 99,
   role: Role.SUPER_ADMIN,
   email: 'admin@test.com',
+  name: 'Test Admin',
+  password: 'hashed',
+  phone: '08123456789',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  propertyId: null,
 } as User;
 
 const mockMedia = {
@@ -117,7 +129,7 @@ describe('CampaignsService', () => {
       );
     });
 
-    it('should create SELECTIVE campaign successfully', async () => {
+    it('should create SELECTIVE campaign successfully (SUBMIT)', async () => {
       mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
       mockPrisma.screen.findMany.mockResolvedValue([{ id: 10 }]);
 
@@ -135,6 +147,29 @@ describe('CampaignsService', () => {
       expect(mockFinance.calculateCampaignCost).toHaveBeenCalled();
       expect(mockFinance.freezeBalanceForCampaign).toHaveBeenCalled();
       expect(result.status).toBe(CampaignStatus.PENDING_REVIEW);
+    });
+
+    it('should create DRAFT campaign successfully (NO FREEZE)', async () => {
+      const draftDto = { ...dto, saveAsDraft: true };
+
+      mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
+      mockPrisma.screen.findMany.mockResolvedValue([{ id: 10 }]);
+      mockFinance.calculateCampaignCost.mockResolvedValue({
+        totalCost: 500000,
+      });
+
+      mockPrisma.campaign.create.mockResolvedValue({
+        id: 1,
+        status: CampaignStatus.DRAFT,
+        totalCost: BigInt(500000),
+      });
+
+      const result = await service.create(mockUser, draftDto);
+
+      expect(mockFinance.calculateCampaignCost).toHaveBeenCalled();
+      // Should NOT freeze balance for draft
+      expect(mockFinance.freezeBalanceForCampaign).not.toHaveBeenCalled();
+      expect(result.status).toBe(CampaignStatus.DRAFT);
     });
 
     it('should create BUYOUT campaign successfully', async () => {
@@ -296,7 +331,7 @@ describe('CampaignsService', () => {
   });
 
   // ==========================
-  // TEST: UPDATE DRAFT (FIXED)
+  // TEST: UPDATE DRAFT
   // ==========================
   describe('update', () => {
     const campaignId = 1;
@@ -309,7 +344,6 @@ describe('CampaignsService', () => {
         status: CampaignStatus.DRAFT,
         screens: [],
       });
-      // [FIX] Mengirim mockUser.id (number) bukan mockUser (object)
       await expect(
         service.update(campaignId, mockUser.id, updateDto),
       ).rejects.toThrow(ForbiddenException);
@@ -322,7 +356,6 @@ describe('CampaignsService', () => {
         status: CampaignStatus.PENDING_REVIEW,
         screens: [],
       });
-      // [FIX] Mengirim mockUser.id
       await expect(
         service.update(campaignId, mockUser.id, updateDto),
       ).rejects.toThrow(BadRequestException);
@@ -345,7 +378,6 @@ describe('CampaignsService', () => {
         name: updateDto.name,
       });
 
-      // [FIX] Mengirim mockUser.id
       const result = await service.update(campaignId, mockUser.id, updateDto);
 
       expect(mockPrisma.campaign.update).toHaveBeenCalledWith(
@@ -359,7 +391,53 @@ describe('CampaignsService', () => {
   });
 
   // ==========================
-  // TEST: DELETE DRAFT (FIXED)
+  // TEST: SUBMIT DRAFT
+  // ==========================
+  describe('submit', () => {
+    const campaignId = 1;
+
+    it('should throw BadRequest if status is not DRAFT', async () => {
+      mockPrisma.campaign.findUnique.mockResolvedValue({
+        id: campaignId,
+        advertiserId: mockUser.id,
+        status: CampaignStatus.PENDING_REVIEW,
+      });
+      await expect(service.submit(campaignId, mockUser.id)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should freeze balance and update status to PENDING_REVIEW', async () => {
+      const draftCampaign = {
+        id: campaignId,
+        advertiserId: mockUser.id,
+        status: CampaignStatus.DRAFT,
+        totalCost: BigInt(500000),
+        startDate: new Date(getFutureDate(1)),
+      };
+
+      mockPrisma.campaign.findUnique.mockResolvedValue(draftCampaign);
+      mockPrisma.campaign.update.mockResolvedValue({
+        ...draftCampaign,
+        status: CampaignStatus.PENDING_REVIEW,
+      });
+
+      await service.submit(campaignId, mockUser.id);
+
+      expect(mockFinance.freezeBalanceForCampaign).toHaveBeenCalledWith(
+        mockUser.id,
+        draftCampaign.totalCost,
+        expect.anything(),
+      );
+      expect(mockPrisma.campaign.update).toHaveBeenCalledWith({
+        where: { id: campaignId },
+        data: { status: CampaignStatus.PENDING_REVIEW },
+      });
+    });
+  });
+
+  // ==========================
+  // TEST: DELETE DRAFT
   // ==========================
   describe('remove', () => {
     const campaignId = 1;
@@ -370,7 +448,6 @@ describe('CampaignsService', () => {
         advertiserId: 999,
         status: CampaignStatus.DRAFT,
       });
-      // [FIX] Mengirim mockUser.id
       await expect(service.remove(campaignId, mockUser.id)).rejects.toThrow(
         ForbiddenException,
       );
@@ -382,7 +459,6 @@ describe('CampaignsService', () => {
         advertiserId: mockUser.id,
         status: CampaignStatus.ACTIVE,
       });
-      // [FIX] Mengirim mockUser.id
       await expect(service.remove(campaignId, mockUser.id)).rejects.toThrow(
         BadRequestException,
       );
@@ -396,7 +472,6 @@ describe('CampaignsService', () => {
       });
       mockPrisma.campaign.delete.mockResolvedValue({ id: campaignId });
 
-      // [FIX] Mengirim mockUser.id
       await service.remove(campaignId, mockUser.id);
 
       expect(mockPrisma.campaign.delete).toHaveBeenCalledWith({

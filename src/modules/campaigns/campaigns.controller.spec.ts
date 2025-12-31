@@ -16,13 +16,25 @@ describe('CampaignsController', () => {
     id: 1,
     email: 'advertiser@test.com',
     role: Role.ADVERTISER,
-  } as unknown as User;
+    name: 'Test Advertiser',
+    password: 'hashed',
+    phone: '08123456789',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    propertyId: null,
+  };
 
   const mockAdmin: User = {
     id: 99,
     email: 'admin@test.com',
     role: Role.SUPER_ADMIN,
-  } as unknown as User;
+    name: 'Test Admin',
+    password: 'hashed',
+    phone: '08123456789',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    propertyId: null,
+  };
 
   // Mock Service
   const mockCampaignsService = {
@@ -32,8 +44,8 @@ describe('CampaignsController', () => {
     review: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
-    getPendingCampaigns: jest.fn(),
     cancel: jest.fn(),
+    submit: jest.fn(), // [NEW] Mock submit method
   };
 
   beforeEach(async () => {
@@ -138,7 +150,7 @@ describe('CampaignsController', () => {
     });
   });
 
-  // [UPDATED] Menggunakan mockUser.id
+  // [NEW] Update Draft
   describe('update', () => {
     it('should call service.update', async () => {
       const campaignId = 1;
@@ -149,13 +161,12 @@ describe('CampaignsController', () => {
 
       const result = await controller.update(campaignId, mockUser, dto);
 
-      // FIX: Expect mockUser.id, not mockUser object
       expect(service.update).toHaveBeenCalledWith(campaignId, mockUser.id, dto);
       expect(result).toEqual(expectedResult);
     });
   });
 
-  // [UPDATED] Menggunakan mockUser.id
+  // [NEW] Delete Draft
   describe('remove', () => {
     it('should call service.remove', async () => {
       const campaignId = 1;
@@ -165,8 +176,43 @@ describe('CampaignsController', () => {
 
       const result = await controller.remove(campaignId, mockUser);
 
-      // FIX: Expect mockUser.id, not mockUser object
       expect(service.remove).toHaveBeenCalledWith(campaignId, mockUser.id);
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
+  // [NEW] Submit Draft
+  describe('submit', () => {
+    it('should call service.submit', async () => {
+      const campaignId = 1;
+      const expectedResult = {
+        id: campaignId,
+        status: CampaignStatus.PENDING_REVIEW,
+      };
+
+      mockCampaignsService.submit.mockResolvedValue(expectedResult);
+
+      const result = await controller.submit(campaignId, mockUser);
+
+      expect(service.submit).toHaveBeenCalledWith(campaignId, mockUser.id);
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
+  // [NEW] Cancel Campaign
+  describe('cancel', () => {
+    it('should call service.cancel', async () => {
+      const campaignId = 1;
+      const expectedResult = {
+        id: campaignId,
+        status: CampaignStatus.CANCELLED,
+      };
+
+      mockCampaignsService.cancel.mockResolvedValue(expectedResult);
+
+      const result = await controller.cancel(campaignId, mockUser);
+
+      expect(service.cancel).toHaveBeenCalledWith(campaignId, mockUser);
       expect(result).toEqual(expectedResult);
     });
   });

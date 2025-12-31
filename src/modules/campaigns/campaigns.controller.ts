@@ -32,7 +32,11 @@ export class CampaignsController {
 
   @Post()
   @Roles(Role.ADVERTISER)
-  @ApiOperation({ summary: 'Create a new campaign' })
+  @ApiOperation({
+    summary: 'Create a new campaign',
+    description:
+      'Use saveAsDraft=true to create a draft without freezing balance.',
+  })
   create(@CurrentUser() user: User, @Body() dto: CreateCampaignDto) {
     return this.campaignsService.create(user, dto);
   }
@@ -59,7 +63,6 @@ export class CampaignsController {
     return this.campaignsService.findOne(id, user);
   }
 
-  // [NEW ENDPOINT] Update Draft Campaign
   @Patch(':id')
   @Roles(Role.ADVERTISER)
   @ApiOperation({ summary: 'Update campaign (Only if Status = DRAFT)' })
@@ -71,7 +74,17 @@ export class CampaignsController {
     return this.campaignsService.update(id, user.id, dto);
   }
 
-  // [NEW ENDPOINT] Delete Draft Campaign
+  @Patch(':id/submit')
+  @Roles(Role.ADVERTISER)
+  @ApiOperation({
+    summary: 'Submit Draft Campaign',
+    description:
+      'Changes status from DRAFT to PENDING_REVIEW and freezes balance.',
+  })
+  submit(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+    return this.campaignsService.submit(id, user.id);
+  }
+
   @Delete(':id')
   @Roles(Role.ADVERTISER)
   @ApiOperation({ summary: 'Delete campaign (Only if Status = DRAFT)' })
