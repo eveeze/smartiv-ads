@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-complete-v10",
-    "name": "SmartIV Ads (Final - Full Features + Safety)",
-    "description": "Complete collection including Auth, Inventory, Media, Users, Finance, Campaign Workflow (Selective & Buyout), and Operational Safety (Cancel/Delete).",
+    "_postman_id": "smartiv-ads-complete-v13",
+    "name": "SmartIV Ads (Final - Phase 5.8 Complete + Draft Flow)",
+    "description": "Complete collection including Auth, Inventory, Media, Users, Finance, Campaign Workflow (Standard & Draft), Rate Cards, and Self-Service Features.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -73,6 +73,11 @@
     },
     {
       "key": "campaign_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "rate_card_id",
       "value": "",
       "type": "string"
     }
@@ -205,6 +210,39 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "me"]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile (Self Service)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"PT Maju Mundur Sejahtera\",\n    \"phone\": \"081999888777\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "profile"]
+            },
+            "description": "User update their own profile (Name & Phone only)."
           },
           "response": []
         }
@@ -1256,6 +1294,135 @@
           "response": []
         },
         {
+          "name": "Create Campaign (Draft Mode)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"campaign_id\", jsonData.data.id);",
+                  "    console.log(\"✅ Draft Campaign Created: \" + jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Ramadhan Promo (Draft)\",\n    \"startDate\": \"2025-06-01\",\n    \"endDate\": \"2025-06-05\",\n    \"mediaId\": {{media_id}},\n    \"screenIds\": [{{screen_id}}],\n    \"saveAsDraft\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/campaigns",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns"]
+            },
+            "description": "Create a campaign with status DRAFT. No balance frozen."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Campaign (Draft)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Ramadhan Promo - Updated Draft\",\n    \"startDate\": \"2025-06-02\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id}}"]
+            },
+            "description": "Hanya bisa dilakukan jika status campaign adalah DRAFT."
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Campaign (Draft -> Pending)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id}}/submit",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id}}", "submit"]
+            },
+            "description": "Submit draft campaign. Changes status to PENDING_REVIEW and freezes balance."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Campaign (Draft)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id}}"]
+            },
+            "description": "Hapus campaign permanen. Hanya bisa jika status DRAFT."
+          },
+          "response": []
+        },
+        {
           "name": "Get My Campaigns",
           "request": {
             "auth": {
@@ -1418,6 +1585,168 @@
               "raw": "{{base_url}}/campaigns/{{campaign_id}}/review",
               "host": ["{{base_url}}"],
               "path": ["campaigns", "{{campaign_id}}", "review"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. 🏷️ Rate Card (Admin)",
+      "item": [
+        {
+          "name": "Create Rate Card (Global PREMIUM)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"rate_card_id\", jsonData.data.id);",
+                  "    console.log(\"✅ Rate Card Created: \" + jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"classification\": \"PREMIUM\",\n    \"pricePerDay\": 750000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/inventory/rate-cards",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "rate-cards"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Rate Card (Property Override)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"propertyId\": {{property_id}},\n    \"pricePerDay\": 600000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/inventory/rate-cards",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "rate-cards"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Rate Cards",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/inventory/rate-cards",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "rate-cards"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Rate Card",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"pricePerDay\": 800000,\n    \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/inventory/rate-cards/{{rate_card_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "rate-cards", "{{rate_card_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Rate Card",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/inventory/rate-cards/{{rate_card_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "rate-cards", "{{rate_card_id}}"]
             }
           },
           "response": []
