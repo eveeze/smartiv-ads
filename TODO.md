@@ -214,27 +214,29 @@ _Definition of Done: Admin bisa mengatur harga dinamis tanpa akses database manu
 
 ---
 
-## 📝 Phase 5.8: Quality of Life Improvements (Status: NEXT UP - Prioritas 3)
+## 📝 Phase 5.8: Quality of Life Improvements (Status: COMPLETED ✅)
 
 _Definition of Done: Fitur untuk meningkatkan kenyamanan pengguna (Draft & Profile)._
 
-- [ ] **Step 1: Edit & Delete Draft Campaign**
-  - [ ] **Endpoint:** `PATCH /campaigns/:id` & `DELETE /campaigns/:id`.
-  - [ ] **Logic & Conditions:**
+- [x] **Step 1: Campaign Draft Flow**
+  - [x] **Update Logic Create:** Tambahkan flag `saveAsDraft` di `CreateCampaignDto`. Jika `true`, simpan sebagai `DRAFT` tanpa freeze balance.
+  - [x] **Endpoint Submit:** `PATCH /campaigns/:id/submit` (Transition `DRAFT` -> `PENDING_REVIEW` & Freeze Balance).
+- [x] **Step 2: Edit & Delete Draft Campaign**
+  - [x] **Endpoint:** `PATCH /campaigns/:id` & `DELETE /campaigns/:id`.
+  - [x] **Logic & Conditions:**
     - **Status Check (Strict):** Hanya boleh dilakukan jika status campaign === `DRAFT`.
-    - Jika status sudah `PENDING` (sedang direview admin) atau `ACTIVE`, user **TIDAK BOLEH** mengedit data (harus cancel dan buat baru).
     - Jika delete `DRAFT`, tidak perlu ada pengembalian dana (karena draft belum memotong saldo).
 
-- [ ] **Step 2: User Self-Service (Update Profile)**
-  - [ ] **Endpoint:** `PATCH /users/profile`.
-  - [ ] **Logic & Conditions:**
+- [x] **Step 3: User Self-Service (Update Profile)**
+  - [x] **Endpoint:** `PATCH /users/profile`.
+  - [x] **Logic & Conditions:**
     - Input: `name`, `phone`.
     - **Restricted Fields:** User **TIDAK BOLEH** mengubah `email` (identitas unik) atau `role` (keamanan) lewat endpoint ini.
-    - **Validation:** Pastikan format nomor HP valid.
+    - **Validation:** Pastikan format nomor HP valid (ID Locale).
 
 ---
 
-## 🔐 Phase 5.9: Account Security (Status: PENDING - Prioritas 4)
+## 🔐 Phase 5.9: Account Security (Status: NEXT UP - Prioritas 4)
 
 _Definition of Done: User bisa mengamankan akun dan melakukan pemulihan._
 
