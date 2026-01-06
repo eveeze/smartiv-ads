@@ -236,27 +236,7 @@ _Definition of Done: Fitur untuk meningkatkan kenyamanan pengguna (Draft & Profi
 
 ---
 
-## 🔐 Phase 5.9: Account Security (Status: NEXT UP - Prioritas 4)
-
-_Definition of Done: User bisa mengamankan akun dan melakukan pemulihan._
-
-- [ ] **Step 1: Change Password**
-  - [ ] **Endpoint:** `PATCH /auth/change-password`.
-  - [ ] **Input:** `oldPassword`, `newPassword`.
-  - [ ] **Logic & Conditions:**
-    - Verifikasi `oldPassword` dengan hash di database. Jika salah -> **TOLAK**.
-    - Hash `newPassword` sebelum disimpan.
-    - Logout semua sesi lain (opsional, best practice).
-
-- [ ] **Step 2: Forgot Password Flow**
-  - [ ] **Endpoint:** `POST /auth/forgot-password` (Input: Email).
-    - **Logic:** Generate token acak, simpan di DB dengan expiry time (misal 15 menit), kirim email.
-  - [ ] **Endpoint:** `POST /auth/reset-password` (Input: Token, New Password).
-    - **Logic:** Cek apakah token valid dan belum expired. Jika ya, update password dan hapus token.
-
----
-
-## 📺 Phase 6: Player API (Integration Point) (Status: PENDING)
+## 📺 Phase 6: Player API (Integration Point) (Status: NEXT UP - Prioritas Utama)
 
 _Definition of Done: TV/Player bisa komunikasi dengan server, tarik jadwal secara aman, dan lapor status._
 
@@ -312,3 +292,23 @@ _Definition of Done: Fitur tambahan untuk manajemen aktor lain sesuai spesifikas
   - [ ] **Role:** Implementasi Role `PROPERTY_OPERATOR` (sebelumnya HOTEL_ADMIN).
   - [ ] **Permissions:** View Schedule Properti Sendiri, View Screen Status.
   - [ ] **Endpoint:** `GET /property/screens` (Khusus Operator melihat status layar di propertinya sendiri).
+
+---
+
+## 🔐 Phase 9: Account Security (Status: PENDING - Low Priority)
+
+_Definition of Done: User bisa mengamankan akun dan melakukan pemulihan (Optional/Akhir)._
+
+- [ ] **Step 1: Change Password**
+  - [ ] **Endpoint:** `PATCH /auth/change-password`.
+  - [ ] **Input:** `oldPassword`, `newPassword`.
+  - [ ] **Logic & Conditions:**
+    - Verifikasi `oldPassword` dengan hash di database. Jika salah -> **TOLAK**.
+    - Hash `newPassword` sebelum disimpan.
+    - Logout semua sesi lain (opsional, best practice).
+
+- [ ] **Step 2: Forgot Password Flow**
+  - [ ] **Endpoint:** `POST /auth/forgot-password` (Input: Email).
+    - **Logic:** Generate token acak, simpan di DB dengan expiry time (misal 15 menit), kirim email.
+  - [ ] **Endpoint:** `POST /auth/reset-password` (Input: Token, New Password).
+    - **Logic:** Cek apakah token valid dan belum expired. Jika ya, update password dan hapus token.
