@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-complete-v13",
-    "name": "SmartIV Ads (Final - Phase 5.8 Complete + Draft Flow)",
-    "description": "Complete collection including Auth, Inventory, Media, Users, Finance, Campaign Workflow (Standard & Draft), Rate Cards, and Self-Service Features.",
+    "_postman_id": "smartiv-ads-complete-v14",
+    "name": "SmartIV Ads (Final - Phase 6 Player API)",
+    "description": "Complete collection including Auth, Inventory, Media, Users, Finance, Campaign Workflow, Rate Cards, Self-Service, and Player API.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -79,6 +79,11 @@
     {
       "key": "rate_card_id",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "device_id",
+      "value": "MAC-1234567890",
       "type": "string"
     }
   ],
@@ -453,6 +458,10 @@
                       "if (pm.response.code === 201) {",
                       "    if (jsonData.data && jsonData.data.id) {",
                       "        pm.collectionVariables.set(\"screen_id\", jsonData.data.id);",
+                      "        // Set DEVICE ID variable for Player API testing",
+                      "        if(jsonData.data.code) {",
+                      "             pm.collectionVariables.set(\"device_id\", jsonData.data.code);",
+                      "        }",
                       "        console.log(\"✅ Screen ID Saved: \" + jsonData.data.id);",
                       "    }",
                       "}"
@@ -1200,100 +1209,6 @@
       "name": "6. 📢 Campaign Module",
       "item": [
         {
-          "name": "Create Campaign (Selective)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (pm.response.code === 201) {",
-                  "    pm.collectionVariables.set(\"campaign_id\", jsonData.data.id);",
-                  "    console.log(\"✅ Campaign Created: \" + jsonData.data.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{advertiser_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"name\": \"Ramadhan Promo (Selective)\",\n    \"startDate\": \"2025-05-01\",\n    \"endDate\": \"2025-05-07\",\n    \"mediaId\": {{media_id}},\n    \"screenIds\": [{{screen_id}}]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/campaigns",
-              "host": ["{{base_url}}"],
-              "path": ["campaigns"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Create Campaign (Buyout)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (pm.response.code === 201) {",
-                  "    pm.collectionVariables.set(\"campaign_id\", jsonData.data.id);",
-                  "    console.log(\"✅ Buyout Campaign Created: \" + jsonData.data.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{advertiser_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"name\": \"Ramadhan Promo (Buyout)\",\n    \"startDate\": \"2025-05-10\",\n    \"endDate\": \"2025-05-15\",\n    \"mediaId\": {{media_id}},\n    \"propertyId\": {{property_id}}\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/campaigns",
-              "host": ["{{base_url}}"],
-              "path": ["campaigns"]
-            }
-          },
-          "response": []
-        },
-        {
           "name": "Create Campaign (Draft Mode)",
           "event": [
             {
@@ -1399,63 +1314,6 @@
           "response": []
         },
         {
-          "name": "Delete Campaign (Draft)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{advertiser_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/campaigns/{{campaign_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["campaigns", "{{campaign_id}}"]
-            },
-            "description": "Hapus campaign permanen. Hanya bisa jika status DRAFT."
-          },
-          "response": []
-        },
-        {
-          "name": "Get My Campaigns",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{advertiser_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/campaigns?page=1&take=10",
-              "host": ["{{base_url}}"],
-              "path": ["campaigns"],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "take",
-                  "value": "10"
-                }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
           "name": "Get Pending Campaigns (Admin)",
           "request": {
             "auth": {
@@ -1475,53 +1333,6 @@
               "host": ["{{base_url}}"],
               "path": ["campaigns", "pending"]
             }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Campaign Detail",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{advertiser_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/campaigns/{{campaign_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["campaigns", "{{campaign_id}}"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Cancel Campaign (Safety)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{advertiser_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "PATCH",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/campaigns/{{campaign_id}}/cancel",
-              "host": ["{{base_url}}"],
-              "path": ["campaigns", "{{campaign_id}}", "cancel"]
-            },
-            "description": "Batalkan campaign. Jika Pending -> Refund. Jika Active -> Stop Tayang."
           },
           "response": []
         },
@@ -1558,34 +1369,26 @@
           "response": []
         },
         {
-          "name": "Review Campaign (Reject)",
+          "name": "Delete Campaign (Draft)",
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{admin_token}}",
+                  "value": "{{advertiser_token}}",
                   "type": "string"
                 }
               ]
             },
-            "method": "PATCH",
+            "method": "DELETE",
             "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"approved\": false,\n    \"rejectionReason\": \"Konten tidak sesuai standar\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
             "url": {
-              "raw": "{{base_url}}/campaigns/{{campaign_id}}/review",
+              "raw": "{{base_url}}/campaigns/{{campaign_id}}",
               "host": ["{{base_url}}"],
-              "path": ["campaigns", "{{campaign_id}}", "review"]
-            }
+              "path": ["campaigns", "{{campaign_id}}"]
+            },
+            "description": "Hapus campaign permanen. Hanya bisa jika status DRAFT."
           },
           "response": []
         }
@@ -1748,6 +1551,80 @@
               "host": ["{{base_url}}"],
               "path": ["inventory", "rate-cards", "{{rate_card_id}}"]
             }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. 📺 Player API",
+      "item": [
+        {
+          "name": "Get Player Config",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player/config",
+              "host": ["{{base_url}}"],
+              "path": ["player", "config"]
+            },
+            "description": "Mengambil konfigurasi layar (orientasi, refresh interval, logo, dll)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Playlist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player/playlist",
+              "host": ["{{base_url}}"],
+              "path": ["player", "playlist"]
+            },
+            "description": "Mengambil daftar iklan yang harus diputar untuk layar ini."
+          },
+          "response": []
+        },
+        {
+          "name": "Heartbeat (Ping)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"ipAddress\": \"192.168.1.10\",\n    \"freeStorage\": 5000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/player/heartbeat",
+              "host": ["{{base_url}}"],
+              "path": ["player", "heartbeat"]
+            },
+            "description": "Player melapor status online ke server."
           },
           "response": []
         }
