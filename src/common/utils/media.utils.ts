@@ -1,8 +1,8 @@
 import Ffmpeg from 'fluent-ffmpeg';
 
-// 1. Helper Logic (Digunakan oleh TranscodeProcessor)
-export const MediaUtils = {
-  async hasAudioStream(filePath: string): Promise<boolean> {
+export class MediaUtils {
+  // 1. Helper Logic: Cek Audio Stream (Untuk TranscodeProcessor)
+  static async hasAudioStream(filePath: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
       Ffmpeg.ffprobe(filePath, (err, metadata) => {
         if (err) return reject(err);
@@ -12,21 +12,37 @@ export const MediaUtils = {
         resolve(hasAudio);
       });
     });
-  },
-};
+  }
 
-// 2. Helper URL (Digunakan oleh MediaService & Processor)
-export function getHlsUrl(mediaId: number): string {
-  // [FIX] Sesuaikan bucket name dengan docker-compose.yml: 'smartiv-media'
-  const publicUrl =
-    process.env.MINIO_PUBLIC_URL || 'http://localhost:9000/smartiv-media';
+  // 2. Helper URL: Generate Full URL dari Relative Path
+  // Digunakan oleh PlayerService & MediaService
+  static getFullUrl(relativePath: string | null): string | null {
+    if (!relativePath) return null;
+    // Jika sudah full URL (misal dari S3 eksternal), kembalikan langsung
+    if (relativePath.startsWith('http')) return relativePath;
 
-  return `${publicUrl}/hls/${mediaId}/master.m3u8`;
-}
+    // Ambil Base URL dari ENV, fallback ke default local MinIO bucket
+    // .replace(/\/$/, '') gunanya membuang trailing slash jika ada, biar aman saat digabung
+    const baseUrl = (
+      process.env.MINIO_PUBLIC_URL || 'http://localhost:9000/smartiv-media'
+    ).replace(/\/$/, '');
 
-export function getThumbnailUrl(mediaId: number): string {
-  const publicUrl =
-    process.env.MINIO_PUBLIC_URL || 'http://localhost:9000/smartiv-media';
+    // Pastikan path diawali slash
+    const path = relativePath.startsWith('/')
+      ? relativePath
+      : `/${relativePath}`;
 
-  return `${publicUrl}/thumbnails/${mediaId}.jpg`;
+    return `${baseUrl}${path}`;
+  }
+
+  // 3. Helper Spesifik (Optional wrappers)
+  static getHlsUrl(mediaId: number): string {
+    // [FIX] Gunakan '?? ""' untuk menjamin return string (menghilangkan tipe null)
+    return this.getFullUrl(`hls/${mediaId}/master.m3u8`) ?? '';
+  }
+
+  static getThumbnailUrl(mediaId: number): string {
+    // [FIX] Gunakan '?? ""' untuk menjamin return string
+    return this.getFullUrl(`thumbnails/${mediaId}.jpg`) ?? '';
+  }
 }

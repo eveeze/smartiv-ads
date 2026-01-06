@@ -14,7 +14,8 @@ import {
   User,
 } from '@prisma/client';
 import { ReviewMediaDto } from './dto/review-media.dto';
-import { getHlsUrl, getThumbnailUrl } from '../../common/utils/media.utils';
+// [FIX] Import Class MediaUtils, bukan fungsi terpisah
+import { MediaUtils } from '../../common/utils/media.utils';
 import { createReadStream, ReadStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
@@ -178,11 +179,13 @@ export class MediaService {
       ...media,
       hlsUrl:
         media.type === MediaType.VIDEO && media.isTranscoded
-          ? getHlsUrl(media.id)
+          ? // [FIX] Panggil static method dari Class MediaUtils
+            MediaUtils.getHlsUrl(media.id)
           : null,
       thumbnailUrl:
         media.type === MediaType.VIDEO && media.isTranscoded
-          ? getThumbnailUrl(media.id)
+          ? // [FIX] Panggil static method dari Class MediaUtils
+            MediaUtils.getThumbnailUrl(media.id)
           : null,
     };
   }

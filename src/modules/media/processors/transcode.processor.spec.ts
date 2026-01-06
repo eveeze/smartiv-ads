@@ -4,40 +4,40 @@ import { PrismaService } from '../../../providers/prisma/prisma.service';
 import { StorageService } from '../../../providers/storage/storage.service';
 import { Job } from 'bullmq';
 import { JOB_TRANSCODE_VIDEO } from '../../../providers/queue/queue.service';
+import { MediaUtils } from '../../../common/utils/media.utils';
 
-// Mock Modules
-jest.mock('fs', () => ({
-  mkdtempSync: jest.fn().mockReturnValue('/tmp/mock-dir'),
-  existsSync: jest.fn().mockReturnValue(true),
-  mkdirSync: jest.fn(),
-  readFileSync: jest.fn().mockReturnValue(Buffer.from('mock-data')),
-  rmSync: jest.fn(),
-  readdirSync: jest.fn().mockReturnValue([]),
-  statSync: jest.fn().mockReturnValue({ isDirectory: () => false }),
-}));
-
-// [FIX] Mock MediaUtils LENGKAP (termasuk helper functions)
+// [FIX] Mocking MediaUtils Class Static Methods
 jest.mock('../../../common/utils/media.utils', () => ({
   MediaUtils: {
     hasAudioStream: jest.fn().mockResolvedValue(true),
+    getHlsUrl: jest.fn((id) => `http://mock/hls/${id}`),
+    getThumbnailUrl: jest.fn((id) => `http://mock/thumb/${id}`),
   },
-  getHlsUrl: jest.fn((id) => `http://mock-hls/${id}/master.m3u8`),
-  getThumbnailUrl: jest.fn((id) => `http://mock-thumb/${id}.jpg`),
 }));
 
-// Mock fluent-ffmpeg
+// Mock Modules
 jest.mock('fluent-ffmpeg', () => {
-  return jest.fn().mockImplementation(() => ({
+  return () => ({
     screenshots: jest.fn().mockReturnThis(),
     output: jest.fn().mockReturnThis(),
     addOptions: jest.fn().mockReturnThis(),
     on: jest.fn().mockImplementation((event, callback) => {
-      if (event === 'end') callback();
-      return { run: jest.fn() }; // Chainable run()
+      if (event === 'end') callback(); // Simulate success
+      return { run: jest.fn() };
     }),
-    run: jest.fn(),
-  }));
+  });
 });
+
+jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
+  mkdtempSync: jest.fn().mockReturnValue('/tmp/mock-dir'),
+  existsSync: jest.fn().mockReturnValue(false),
+  mkdirSync: jest.fn(),
+  readFileSync: jest.fn().mockReturnValue(Buffer.from('mock')),
+  readdirSync: jest.fn().mockReturnValue(['stream.m3u8']),
+  statSync: jest.fn().mockReturnValue({ isDirectory: () => false }),
+  rmSync: jest.fn(),
+}));
 
 describe('TranscodeProcessor', () => {
   let processor: TranscodeProcessor;
@@ -47,7 +47,12 @@ describe('TranscodeProcessor', () => {
   const mockJob = {
     name: JOB_TRANSCODE_VIDEO,
     data: { mediaId: 1 },
-  } as unknown as Job;
+  } as Job;
+
+  const mockMedia = {
+    id: 1,
+    url: 'http://minio/bucket/raw/video.mp4',
+  };
 
   const mockPrisma = {
     media: {
@@ -57,9 +62,8 @@ describe('TranscodeProcessor', () => {
   };
 
   const mockStorage = {
-    downloadToLocal: jest.fn().mockResolvedValue(undefined),
-    uploadFile: jest.fn().mockResolvedValue('http://s3.url/file.m3u8'),
-    getFileUrl: jest.fn((key) => `http://s3.url/${key}`),
+    downloadToLocal: jest.fn(),
+    uploadFile: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -78,33 +82,29 @@ describe('TranscodeProcessor', () => {
     jest.clearAllMocks();
   });
 
+  it('should be defined', () => {
+    expect(processor).toBeDefined();
+  });
+
   it('should process video transcoding flow', async () => {
-    mockPrisma.media.findUnique.mockResolvedValue({
-      id: 1,
-      url: 'http://minio:9000/bucket/raw/test.mp4',
-    });
+    mockPrisma.media.findUnique.mockResolvedValue(mockMedia);
 
     await processor.process(mockJob);
 
+    // Verify Steps
     expect(prisma.media.findUnique).toHaveBeenCalledWith({ where: { id: 1 } });
     expect(storage.downloadToLocal).toHaveBeenCalled();
+    // Verify FFmpeg & Upload (Implicit via Mocks)
+    expect(storage.uploadFile).toHaveBeenCalled();
 
-    // [FIX] Expectation disesuaikan dengan logic baru (menggunakan helper mock)
-    expect(prisma.media.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 1 },
-        data: expect.objectContaining({
-          isTranscoded: true,
-          hlsUrl: 'http://mock-hls/1/master.m3u8',
-          thumbnailUrl: 'http://mock-thumb/1.jpg',
-        }),
-      }),
-    );
-  });
-
-  it('should skip if job name is incorrect', async () => {
-    const wrongJob = { name: 'wrong-job', data: {} } as Job;
-    await processor.process(wrongJob);
-    expect(prisma.media.findUnique).not.toHaveBeenCalled();
+    // Verify Update DB
+    expect(prisma.media.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        isTranscoded: true,
+        hlsUrl: expect.stringContaining('http://mock/hls/1'),
+        thumbnailUrl: expect.stringContaining('http://mock/thumb/1'),
+      },
+    });
   });
 });

@@ -7,12 +7,8 @@ import {
   TRANSCODE_QUEUE,
   JOB_TRANSCODE_VIDEO,
 } from '../../../providers/queue/queue.service';
-// [FIX] Import Helper URL dan Helper Class Logic
-import {
-  MediaUtils,
-  getHlsUrl,
-  getThumbnailUrl,
-} from '../../../common/utils/media.utils';
+// [FIX] Import hanya Class MediaUtils
+import { MediaUtils } from '../../../common/utils/media.utils';
 import Ffmpeg from 'fluent-ffmpeg';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -225,13 +221,13 @@ export class TranscodeProcessor extends WorkerHost {
       await uploadRecursive(outputPath, s3BaseKey);
 
       // 6. Update DB [FIXED]
-      // Menggunakan helper function agar konsisten dengan MediaService
+      // Panggil static method MediaUtils
       await this.prisma.media.update({
         where: { id: mediaId },
         data: {
           isTranscoded: true,
-          hlsUrl: getHlsUrl(mediaId), // Menggunakan Helper
-          thumbnailUrl: getThumbnailUrl(mediaId), // Menggunakan Helper
+          hlsUrl: MediaUtils.getHlsUrl(mediaId),
+          thumbnailUrl: MediaUtils.getThumbnailUrl(mediaId),
         },
       });
 
