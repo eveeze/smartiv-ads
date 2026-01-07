@@ -15,6 +15,8 @@ import { UsersModule } from './modules/users/users.module';
 import configuration, {
   validationSchema,
 } from './config/configuration/configuration';
+import { TelemetryModule } from './modules/telemetry/telemetry.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import configuration, {
     StorageModule,
     QueueModule,
     UsersModule,
+    TelemetryModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

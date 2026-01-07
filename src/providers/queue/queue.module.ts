@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { QueueService, TRANSCODE_QUEUE } from './queue.service';
+import {
+  QueueService,
+  TELEMETRY_QUEUE,
+  TRANSCODE_QUEUE,
+} from './queue.service';
 
 @Module({
   imports: [
@@ -15,9 +19,14 @@ import { QueueService, TRANSCODE_QUEUE } from './queue.service';
       }),
       inject: [ConfigService],
     }),
-    BullModule.registerQueue({
-      name: TRANSCODE_QUEUE,
-    }),
+    BullModule.registerQueue(
+      {
+        name: TRANSCODE_QUEUE, // Queue Lama
+      },
+      {
+        name: TELEMETRY_QUEUE, // [NEW] Queue Baru
+      },
+    ),
   ],
   providers: [QueueService],
   exports: [QueueService, BullModule],

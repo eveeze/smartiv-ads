@@ -25,7 +25,6 @@ export class AuthService implements IAuthService {
   async register(registerDto: RegisterDto): Promise<Omit<User, 'password'>> {
     const { email, password, name, phone } = registerDto;
 
-    // 1. Cek Email
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
@@ -34,17 +33,15 @@ export class AuthService implements IAuthService {
       throw new BadRequestException('Email already registered');
     }
 
-    // 2. Hash Password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 3. Transaction Create User + Wallet
     const result = await this.prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
           email,
           password: hashedPassword,
           name,
-          phone, // Aman karena sudah migrate DB
+          phone,
           role: 'ADVERTISER',
         },
       });
@@ -80,6 +77,22 @@ export class AuthService implements IAuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    // [BEST PRACTICE] Panggil method internal untuk generate token
+    // Hasilnya kode lebih rapi dan logic terpusat
+    const token = await this.createToken(user);
+
+    return {
+      accessToken: token.accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name ?? '',
+        role: user.role,
+      },
+    };
+  }
+
+  async createToken(user: User) {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -88,12 +101,6 @@ export class AuthService implements IAuthService {
 
     return {
       accessToken: await this.jwtService.signAsync(payload),
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name ?? '',
-        role: user.role,
-      },
     };
   }
 }
