@@ -236,30 +236,30 @@ _Definition of Done: Fitur untuk meningkatkan kenyamanan pengguna (Draft & Profi
 
 ---
 
-## 📺 Phase 6: Player API (Integration Point) (Status: NEXT UP - Prioritas Utama)
+## 📺 Phase 6: Player API (Integration Point) (Status: COMPLETED ✅)
 
 _Definition of Done: TV/Player bisa komunikasi dengan server, tarik jadwal secara aman, dan lapor status._
 
-- [ ] **Step 1: Player Authentication & Config**
-  - [ ] **Middleware:** `PlayerAuthMiddleware`.
+- [x] **Step 1: Player Authentication & Config**
+  - [x] **Middleware:** `PlayerAuthMiddleware` (via Guard).
     - **Logic:** Validasi Header `X-Device-ID` (Mac Address/Unique ID) dengan data `code` di tabel `Screen`.
-  - [ ] **Endpoint:** `GET /player/config` (Return: Interval Sync, Orientation, Default Media).
+  - [x] **Endpoint:** `GET /player/config` (Return: Interval Sync, Orientation, Default Media).
 
-- [ ] **Step 2: Playlist Generation (The Brain)**
-  - [ ] **Service:** `generatePlaylist(screenId)`.
-  - [ ] **Logic & Conditions:**
+- [x] **Step 2: Playlist Generation (The Brain)**
+  - [x] **Service:** `generatePlaylist(screenId)`.
+  - [x] **Logic & Conditions:**
     - Cari Campaign yang statusnya **HANYA** `ACTIVE`.
     - Cek tanggal: `startDate` <= TODAY <= `endDate`.
     - Cek targeting: Apakah `Screen` ini termasuk dalam list `campaign.screens`? (Handle logic Buyout vs Selective secara otomatis via relasi Prisma).
     - **Security:** Generate URL file yang aman (Presigned URL) jika private, atau direct URL jika public.
 
-- [ ] **Step 3: Monitoring (Heartbeat)**
-  - [ ] **Endpoint:** `POST /player/heartbeat` (TV lapor status "Online").
-  - [ ] **Logic:** Update field `lastPing` di tabel `Screen` dengan waktu sekarang. Jika `lastPing` > 5 menit lalu, Admin dashboard menganggap layar "Offline".
+- [x] **Step 3: Monitoring (Heartbeat)**
+  - [x] **Endpoint:** `POST /player/heartbeat` (TV lapor status "Online").
+  - [x] **Logic:** Update field `lastPing` di tabel `Screen` dengan waktu sekarang. Jika `lastPing` > 5 menit lalu, Admin dashboard menganggap layar "Offline".
 
 ---
 
-## 📊 Phase 7: Reporting & Analytics Dashboard (Status: PENDING)
+## 📊 Phase 7: Reporting & Analytics Dashboard (Status: NEXT UP - Prioritas Utama)
 
 _Definition of Done: Pengolahan data telemetri menjadi laporan yang bisa dibaca Advertiser & Admin._
 
