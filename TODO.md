@@ -259,29 +259,29 @@ _Definition of Done: TV/Player bisa komunikasi dengan server, tarik jadwal secar
 
 ---
 
-## 📊 Phase 7: Reporting & Analytics Dashboard (Status: NEXT UP - Prioritas Utama)
+## 📊 Phase 7: Reporting & Analytics Dashboard (Status: COMPLETED ✅)
 
 _Definition of Done: Pengolahan data telemetri menjadi laporan yang bisa dibaca Advertiser & Admin._
 
-- [ ] **Step 1: Telemetry Ingest (High Throughput)**
-  - [ ] **Endpoint:** `POST /telemetry/impression`.
-  - [ ] **Logic:** Terima array logs dari TV. Validasi `screenId` dan `campaignId`. Push ke Redis Queue (`telemetry-queue`). Jangan tulis langsung ke DB SQL agar API cepat.
+- [x] **Step 1: Telemetry Ingest (High Throughput)**
+  - [x] **Endpoint:** `POST /telemetry/impression`.
+  - [x] **Logic:** Terima array logs dari TV. Validasi `screenId` dan `campaignId`. Push ke Redis Queue (`telemetry-queue`). Jangan tulis langsung ke DB SQL agar API cepat.
 
-- [ ] **Step 2: Advertiser Dashboard**
-  - [ ] **Endpoint:** `GET /campaigns/summary`.
-  - [ ] **Logic:**
+- [x] **Step 2: Advertiser Dashboard**
+  - [x] **Endpoint:** `GET /campaigns/summary`.
+  - [x] **Logic:**
     - `activeCampaigns`: Count where status = ACTIVE.
     - `pendingCampaigns`: Count where status = PENDING.
     - `totalSpent`: Sum `totalCost` from campaigns (or transactions).
     - `remainingBalance`: Ambil dari tabel `Wallet`.
 
-- [ ] **Step 3: Super Admin Dashboard**
-  - [ ] **Endpoint:** `GET /dashboard/summary`.
-  - [ ] **Logic:** Aggregation seluruh revenue, total layar aktif vs total layar mati.
+- [x] **Step 3: Super Admin Dashboard**
+  - [x] **Endpoint:** `GET /dashboard/summary`.
+  - [x] **Logic:** Aggregation seluruh revenue, total layar aktif vs total layar mati.
 
 ---
 
-## 👥 Phase 8: User Management & Expansion (CMS Extras) (Status: PENDING)
+## 👥 Phase 8: User Management & Expansion (CMS Extras) (Status: NEXT UP - Prioritas Utama)
 
 _Definition of Done: Fitur tambahan untuk manajemen aktor lain sesuai spesifikasi._
 
