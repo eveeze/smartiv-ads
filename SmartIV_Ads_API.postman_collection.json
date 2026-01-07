@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-complete-v14",
-    "name": "SmartIV Ads (Final - Phase 6 Player API)",
-    "description": "Complete collection including Auth, Inventory, Media, Users, Finance, Campaign Workflow, Rate Cards, Self-Service, and Player API.",
+    "_postman_id": "smartiv-ads-complete-v18",
+    "name": "SmartIV Ads (Final - v18 Complete & Fixed)",
+    "description": "Complete collection including ALL endpoints (Get, Detail, List) + Separated flows for regression testing. Fixed Property Enum values.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -44,17 +44,38 @@
     {
       "key": "property_id",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Main Property ID (Kept for Screen creation)"
+    },
+    {
+      "key": "property_id_lifecycle",
+      "value": "",
+      "type": "string",
+      "description": "Temp Property ID (Deleted in CRUD test)"
     },
     {
       "key": "screen_id",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Main Screen ID (Kept for Campaigns)"
+    },
+    {
+      "key": "screen_id_lifecycle",
+      "value": "",
+      "type": "string",
+      "description": "Temp Screen ID (Deleted in CRUD test)"
     },
     {
       "key": "media_id",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Main Media ID (Approved, Kept for Campaigns)"
+    },
+    {
+      "key": "media_id_lifecycle",
+      "value": "",
+      "type": "string",
+      "description": "Temp Media ID (Deleted/Rejected in test)"
     },
     {
       "key": "user_id",
@@ -72,14 +93,31 @@
       "type": "string"
     },
     {
-      "key": "campaign_id",
+      "key": "campaign_id_selective",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "campaign_id_buyout",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "campaign_id_draft",
       "value": "",
       "type": "string"
     },
     {
       "key": "rate_card_id",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Main Rate Card"
+    },
+    {
+      "key": "rate_card_id_lifecycle",
+      "value": "",
+      "type": "string",
+      "description": "Temp Rate Card for Delete test"
     },
     {
       "key": "device_id",
@@ -260,7 +298,7 @@
           "name": "Properties",
           "item": [
             {
-              "name": "Create Property",
+              "name": "Create Property (MAIN)",
               "event": [
                 {
                   "listen": "test",
@@ -270,7 +308,7 @@
                       "if (pm.response.code === 201) {",
                       "    if (jsonData.data && jsonData.data.id) {",
                       "        pm.collectionVariables.set(\"property_id\", jsonData.data.id);",
-                      "        console.log(\"✅ Property ID Saved: \" + jsonData.data.id);",
+                      "        console.log(\"✅ MAIN Property ID Saved: \" + jsonData.data.id);",
                       "    }",
                       "}"
                     ],
@@ -293,7 +331,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"name\": \"Grand Hotel Postman\",\n    \"type\": \"HOTEL\",\n    \"classification\": \"PREMIUM\",\n    \"city\": \"Jakarta\",\n    \"smartivCode\": \"GHP-{{$timestamp}}\",\n    \"enabledSlots\": [\"SCREENSAVER\", \"INFO_SLIDER\"]\n}",
+                  "raw": "{\n    \"name\": \"Grand Hotel Postman\",\n    \"type\": \"HOTEL\",\n    \"classification\": \"PREMIUM\",\n    \"city\": \"Jakarta\",\n    \"smartivCode\": \"MAIN-{{$timestamp}}\",\n    \"enabledSlots\": [\"SCREENSAVER\", \"INFO_SLIDER\"]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -304,12 +342,124 @@
                   "raw": "{{base_url}}/inventory/properties",
                   "host": ["{{base_url}}"],
                   "path": ["inventory", "properties"]
+                },
+                "description": "Property ini TIDAK akan dihapus, digunakan untuk Screen & Campaign."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Property (LIFECYCLE)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "if (pm.response.code === 201) {",
+                      "    pm.collectionVariables.set(\"property_id_lifecycle\", jsonData.data.id);",
+                      "    console.log(\"✅ Lifecycle Property Created\");",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Temp Property (To Delete)\",\n    \"type\": \"VILLA\",\n    \"classification\": \"BUDGET\",\n    \"city\": \"Bali\",\n    \"enabledSlots\": [\"SCREENSAVER\"]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/inventory/properties",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "properties"]
+                },
+                "description": "Property ini akan di-update dan di-delete untuk testing CRUD."
+              },
+              "response": []
+            },
+            {
+              "name": "Update Property (LIFECYCLE)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Temp Property Updated\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/inventory/properties/{{property_id_lifecycle}}",
+                  "host": ["{{base_url}}"],
+                  "path": [
+                    "inventory",
+                    "properties",
+                    "{{property_id_lifecycle}}"
+                  ]
                 }
               },
               "response": []
             },
             {
-              "name": "Get All Properties (Pagination)",
+              "name": "Delete Property (LIFECYCLE)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventory/properties/{{property_id_lifecycle}}",
+                  "host": ["{{base_url}}"],
+                  "path": [
+                    "inventory",
+                    "properties",
+                    "{{property_id_lifecycle}}"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get All Properties",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -386,61 +536,6 @@
                 }
               },
               "response": []
-            },
-            {
-              "name": "Update Property",
-              "request": {
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{admin_token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "method": "PATCH",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n    \"name\": \"Grand Hotel Postman Updated\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{base_url}}/inventory/properties/{{property_id}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["inventory", "properties", "{{property_id}}"]
-                }
-              },
-              "response": []
-            },
-            {
-              "name": "Delete Property",
-              "request": {
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{admin_token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "method": "DELETE",
-                "header": [],
-                "url": {
-                  "raw": "{{base_url}}/inventory/properties/{{property_id}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["inventory", "properties", "{{property_id}}"]
-                }
-              },
-              "response": []
             }
           ]
         },
@@ -448,7 +543,7 @@
           "name": "Screens",
           "item": [
             {
-              "name": "Create Screen",
+              "name": "Create Screen (MAIN)",
               "event": [
                 {
                   "listen": "test",
@@ -456,14 +551,11 @@
                     "exec": [
                       "var jsonData = pm.response.json();",
                       "if (pm.response.code === 201) {",
-                      "    if (jsonData.data && jsonData.data.id) {",
-                      "        pm.collectionVariables.set(\"screen_id\", jsonData.data.id);",
-                      "        // Set DEVICE ID variable for Player API testing",
-                      "        if(jsonData.data.code) {",
-                      "             pm.collectionVariables.set(\"device_id\", jsonData.data.code);",
-                      "        }",
-                      "        console.log(\"✅ Screen ID Saved: \" + jsonData.data.id);",
+                      "    pm.collectionVariables.set(\"screen_id\", jsonData.data.id);",
+                      "    if(jsonData.data.code) {",
+                      "         pm.collectionVariables.set(\"device_id\", jsonData.data.code);",
                       "    }",
+                      "    console.log(\"✅ MAIN Screen ID Saved: \" + jsonData.data.id);",
                       "}"
                     ],
                     "type": "text/javascript"
@@ -496,6 +588,108 @@
                   "raw": "{{base_url}}/inventory/screens",
                   "host": ["{{base_url}}"],
                   "path": ["inventory", "screens"]
+                },
+                "description": "Menggunakan property_id MAIN. Screen ini tidak akan dihapus."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Screen (LIFECYCLE)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "if (pm.response.code === 201) {",
+                      "    pm.collectionVariables.set(\"screen_id_lifecycle\", jsonData.data.id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"propertyId\": {{property_id}},\n    \"name\": \"Temp Screen\",\n    \"code\": \"TEMP-{{$timestamp}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/inventory/screens",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "screens"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Screen (Lifecycle)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"status\": \"MAINTENANCE\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/inventory/screens/{{screen_id_lifecycle}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "screens", "{{screen_id_lifecycle}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Screen (LIFECYCLE)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{admin_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventory/screens/{{screen_id_lifecycle}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["inventory", "screens", "{{screen_id_lifecycle}}"]
                 }
               },
               "response": []
@@ -580,61 +774,6 @@
                 }
               },
               "response": []
-            },
-            {
-              "name": "Update Screen",
-              "request": {
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{admin_token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "method": "PATCH",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n    \"status\": \"MAINTENANCE\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{base_url}}/inventory/screens/{{screen_id}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["inventory", "screens", "{{screen_id}}"]
-                }
-              },
-              "response": []
-            },
-            {
-              "name": "Delete Screen",
-              "request": {
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{admin_token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "method": "DELETE",
-                "header": [],
-                "url": {
-                  "raw": "{{base_url}}/inventory/screens/{{screen_id}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["inventory", "screens", "{{screen_id}}"]
-                }
-              },
-              "response": []
             }
           ]
         }
@@ -644,7 +783,7 @@
       "name": "3. 🎥 Media Module",
       "item": [
         {
-          "name": "Upload Media (Image/Video)",
+          "name": "Upload Media (MAIN)",
           "event": [
             {
               "listen": "test",
@@ -652,10 +791,87 @@
                 "exec": [
                   "var jsonData = pm.response.json();",
                   "if (pm.response.code === 201) {",
-                  "    if (jsonData.data && jsonData.data.id) {",
-                  "        pm.collectionVariables.set(\"media_id\", jsonData.data.id);",
-                  "        console.log(\"✅ Media ID Saved: \" + jsonData.data.id);",
-                  "    }",
+                  "    pm.collectionVariables.set(\"media_id\", jsonData.data.id);",
+                  "    console.log(\"✅ MAIN Media ID Saved: \" + jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/media/upload",
+              "host": ["{{base_url}}"],
+              "path": ["media", "upload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Approve Media (MAIN)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/media/{{media_id}}/review",
+              "host": ["{{base_url}}"],
+              "path": ["media", "{{media_id}}", "review"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Media (LIFECYCLE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"media_id_lifecycle\", jsonData.data.id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -717,7 +933,7 @@
           "response": []
         },
         {
-          "name": "Get Media Detail (Preview)",
+          "name": "Get Media Detail (Main)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -740,7 +956,7 @@
           "response": []
         },
         {
-          "name": "Get Pending Media (Admin)",
+          "name": "Get Pending Media",
           "request": {
             "auth": {
               "type": "bearer",
@@ -763,7 +979,7 @@
           "response": []
         },
         {
-          "name": "Approve Media (Admin)",
+          "name": "Reject Media (Lifecycle)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -779,55 +995,19 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"status\": \"APPROVED\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\"status\": \"REJECTED\", \"rejectionReason\": \"Quality check\"}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{base_url}}/media/{{media_id}}/review",
+              "raw": "{{base_url}}/media/{{media_id_lifecycle}}/review",
               "host": ["{{base_url}}"],
-              "path": ["media", "{{media_id}}", "review"]
+              "path": ["media", "{{media_id_lifecycle}}", "review"]
             }
           },
           "response": []
         },
         {
-          "name": "Reject Media (Admin)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{admin_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "PATCH",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"status\": \"REJECTED\",\n    \"rejectionReason\": \"Kualitas buruk / Melanggar aturan\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/media/{{media_id}}/review",
-              "host": ["{{base_url}}"],
-              "path": ["media", "{{media_id}}", "review"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Media (Safety)",
+          "name": "Delete Media (LIFECYCLE)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -842,11 +1022,10 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/media/{{media_id}}",
+              "raw": "{{base_url}}/media/{{media_id_lifecycle}}",
               "host": ["{{base_url}}"],
-              "path": ["media", "{{media_id}}"]
-            },
-            "description": "Menghapus media. Gagal jika media sedang digunakan di Campaign Active/Pending."
+              "path": ["media", "{{media_id_lifecycle}}"]
+            }
           },
           "response": []
         }
@@ -864,10 +1043,8 @@
                 "exec": [
                   "var jsonData = pm.response.json();",
                   "if (pm.response.code === 200 && jsonData.data && jsonData.data.data.length > 0) {",
-                  "    // Ambil ID user pertama untuk test endpoint detail",
                   "    var firstUserId = jsonData.data.data[0].id;",
                   "    pm.collectionVariables.set(\"user_id\", firstUserId);",
-                  "    console.log(\"✅ User ID Saved for Detail Test: \" + firstUserId);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -927,7 +1104,7 @@
           "name": "Advertiser",
           "item": [
             {
-              "name": "Calculate Campaign Cost",
+              "name": "Calculate Cost",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -943,7 +1120,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"screenIds\": [{{screen_id}}],\n    \"startDate\": \"2025-05-01\",\n    \"endDate\": \"2025-05-07\"\n}",
+                  "raw": "{\n    \"screenIds\": [{{screen_id}}],\n    \"startDate\": \"2026-01-07\",\n    \"endDate\": \"2026-01-14\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -959,29 +1136,6 @@
               "response": []
             },
             {
-              "name": "Get My Wallet",
-              "request": {
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{advertiser_token}}",
-                      "type": "string"
-                    }
-                  ]
-                },
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{base_url}}/finance/wallet",
-                  "host": ["{{base_url}}"],
-                  "path": ["finance", "wallet"]
-                }
-              },
-              "response": []
-            },
-            {
               "name": "Topup Balance",
               "event": [
                 {
@@ -991,7 +1145,6 @@
                       "var jsonData = pm.response.json();",
                       "if (pm.response.code === 201) {",
                       "    pm.collectionVariables.set(\"topup_order_id\", jsonData.data.orderId);",
-                      "    console.log(\"✅ Order ID Saved for Webhook: \" + jsonData.data.orderId);",
                       "}"
                     ],
                     "type": "text/javascript"
@@ -1029,7 +1182,44 @@
               "response": []
             },
             {
+              "name": "Get My Wallet",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{advertiser_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/finance/wallet",
+                  "host": ["{{base_url}}"],
+                  "path": ["finance", "wallet"]
+                }
+              },
+              "response": []
+            },
+            {
               "name": "Request Withdrawal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "if (pm.response.code === 201) {",
+                      "    pm.collectionVariables.set(\"withdrawal_id\", jsonData.data.id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -1066,13 +1256,13 @@
           "name": "System (Webhook)",
           "item": [
             {
-              "name": "Simulate Midtrans Webhook",
+              "name": "Simulate Midtrans",
               "request": {
                 "method": "POST",
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"transaction_time\": \"2025-12-29 10:00:00\",\n    \"transaction_status\": \"settlement\",\n    \"transaction_id\": \"midtrans-{{$timestamp}}\",\n    \"status_message\": \"midtrans payment notification\",\n    \"status_code\": \"200\",\n    \"signature_key\": \"dummy-signature\",\n    \"payment_type\": \"bank_transfer\",\n    \"order_id\": \"{{topup_order_id}}\",\n    \"merchant_id\": \"G123456789\",\n    \"gross_amount\": \"150000.00\",\n    \"fraud_status\": \"accept\",\n    \"currency\": \"IDR\"\n}",
+                  "raw": "{\n    \"transaction_time\": \"2026-01-07 10:00:00\",\n    \"transaction_status\": \"settlement\",\n    \"transaction_id\": \"midtrans-{{$timestamp}}\",\n    \"status_message\": \"midtrans payment notification\",\n    \"status_code\": \"200\",\n    \"signature_key\": \"dummy-signature\",\n    \"payment_type\": \"bank_transfer\",\n    \"order_id\": \"{{topup_order_id}}\",\n    \"merchant_id\": \"G123456789\",\n    \"gross_amount\": \"150000.00\",\n    \"fraud_status\": \"accept\",\n    \"currency\": \"IDR\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1093,7 +1283,7 @@
           "name": "Admin",
           "item": [
             {
-              "name": "Get All Transactions (Audit)",
+              "name": "Get All Transactions",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -1112,14 +1302,8 @@
                   "host": ["{{base_url}}"],
                   "path": ["finance", "admin", "transactions"],
                   "query": [
-                    {
-                      "key": "page",
-                      "value": "1"
-                    },
-                    {
-                      "key": "take",
-                      "value": "10"
-                    }
+                    { "key": "page", "value": "1" },
+                    { "key": "take", "value": "10" }
                   ]
                 }
               },
@@ -1127,21 +1311,6 @@
             },
             {
               "name": "Get Pending Withdrawals",
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "var jsonData = pm.response.json();",
-                      "if (pm.response.code === 200 && jsonData.data.length > 0) {",
-                      "    pm.collectionVariables.set(\"withdrawal_id\", jsonData.data[0].id);",
-                      "    console.log(\"✅ Withdrawal ID Saved: \" + jsonData.data[0].id);",
-                      "}"
-                    ],
-                    "type": "text/javascript"
-                  }
-                }
-              ],
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -1209,7 +1378,7 @@
       "name": "6. 📢 Campaign Module",
       "item": [
         {
-          "name": "Create Campaign (Draft Mode)",
+          "name": "Create Campaign (Selective) - Main Active",
           "event": [
             {
               "listen": "test",
@@ -1217,8 +1386,8 @@
                 "exec": [
                   "var jsonData = pm.response.json();",
                   "if (pm.response.code === 201) {",
-                  "    pm.collectionVariables.set(\"campaign_id\", jsonData.data.id);",
-                  "    console.log(\"✅ Draft Campaign Created: \" + jsonData.data.id);",
+                  "    pm.collectionVariables.set(\"campaign_id_selective\", jsonData.data.id);",
+                  "    console.log(\"✅ Selective Campaign (Active) Saved\");",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -1240,7 +1409,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"name\": \"Ramadhan Promo (Draft)\",\n    \"startDate\": \"2025-06-01\",\n    \"endDate\": \"2025-06-05\",\n    \"mediaId\": {{media_id}},\n    \"screenIds\": [{{screen_id}}],\n    \"saveAsDraft\": true\n}",
+              "raw": "{\n    \"name\": \"Ramadhan Promo (Selective) - Live\",\n    \"startDate\": \"2026-01-01\",\n    \"endDate\": \"2026-01-31\",\n    \"mediaId\": {{media_id}},\n    \"screenIds\": [{{screen_id}}]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1251,93 +1420,12 @@
               "raw": "{{base_url}}/campaigns",
               "host": ["{{base_url}}"],
               "path": ["campaigns"]
-            },
-            "description": "Create a campaign with status DRAFT. No balance frozen."
-          },
-          "response": []
-        },
-        {
-          "name": "Update Campaign (Draft)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{advertiser_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "PATCH",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"name\": \"Ramadhan Promo - Updated Draft\",\n    \"startDate\": \"2025-06-02\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/campaigns/{{campaign_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["campaigns", "{{campaign_id}}"]
-            },
-            "description": "Hanya bisa dilakukan jika status campaign adalah DRAFT."
-          },
-          "response": []
-        },
-        {
-          "name": "Submit Campaign (Draft -> Pending)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{advertiser_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "PATCH",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/campaigns/{{campaign_id}}/submit",
-              "host": ["{{base_url}}"],
-              "path": ["campaigns", "{{campaign_id}}", "submit"]
-            },
-            "description": "Submit draft campaign. Changes status to PENDING_REVIEW and freezes balance."
-          },
-          "response": []
-        },
-        {
-          "name": "Get Pending Campaigns (Admin)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{admin_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/campaigns/pending",
-              "host": ["{{base_url}}"],
-              "path": ["campaigns", "pending"]
             }
           },
           "response": []
         },
         {
-          "name": "Review Campaign (Approve)",
+          "name": "Approve Campaign (Selective)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -1361,9 +1449,161 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/campaigns/{{campaign_id}}/review",
+              "raw": "{{base_url}}/campaigns/{{campaign_id_selective}}/review",
               "host": ["{{base_url}}"],
-              "path": ["campaigns", "{{campaign_id}}", "review"]
+              "path": ["campaigns", "{{campaign_id_selective}}", "review"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Campaign (Buyout) - To Reject",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"campaign_id_buyout\", jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Ramadhan Promo (Buyout)\",\n    \"startDate\": \"2026-02-01\",\n    \"endDate\": \"2026-02-10\",\n    \"mediaId\": {{media_id}},\n    \"propertyId\": {{property_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/campaigns",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Campaign (Buyout)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"approved\": false,\n    \"rejectionReason\": \"Sold out\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id_buyout}}/review",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id_buyout}}", "review"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Campaign (Draft) - Lifecycle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"campaign_id_draft\", jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Draft Campaign\",\n    \"startDate\": \"2026-03-01\",\n    \"endDate\": \"2026-03-05\",\n    \"mediaId\": {{media_id}},\n    \"screenIds\": [{{screen_id}}],\n    \"saveAsDraft\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/campaigns",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Campaign (Draft)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Updated Draft Name\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id_draft}}",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id_draft}}"]
             }
           },
           "response": []
@@ -1384,11 +1624,113 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/campaigns/{{campaign_id}}",
+              "raw": "{{base_url}}/campaigns/{{campaign_id_draft}}",
               "host": ["{{base_url}}"],
-              "path": ["campaigns", "{{campaign_id}}"]
+              "path": ["campaigns", "{{campaign_id_draft}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Campaigns",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
             },
-            "description": "Hapus campaign permanen. Hanya bisa jika status DRAFT."
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns?page=1&take=10",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "take",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Campaign Detail (Selective)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id_selective}}",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id_selective}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pending Campaigns",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns/pending",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "pending"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Campaign (Safety)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advertiser_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id_selective}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id_selective}}", "cancel"]
+            },
+            "description": "Batalkan campaign. Jika Pending -> Refund. Jika Active -> Stop Tayang."
           },
           "response": []
         }
@@ -1398,7 +1740,7 @@
       "name": "7. 🏷️ Rate Card (Admin)",
       "item": [
         {
-          "name": "Create Rate Card (Global PREMIUM)",
+          "name": "Create Rate Card (Main)",
           "event": [
             {
               "listen": "test",
@@ -1407,7 +1749,6 @@
                   "var jsonData = pm.response.json();",
                   "if (pm.response.code === 201) {",
                   "    pm.collectionVariables.set(\"rate_card_id\", jsonData.data.id);",
-                  "    console.log(\"✅ Rate Card Created: \" + jsonData.data.id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -1429,12 +1770,8 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"classification\": \"PREMIUM\",\n    \"pricePerDay\": 750000\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\"classification\": \"PREMIUM\", \"pricePerDay\": 750000}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
               "raw": "{{base_url}}/inventory/rate-cards",
@@ -1445,7 +1782,21 @@
           "response": []
         },
         {
-          "name": "Create Rate Card (Property Override)",
+          "name": "Create Rate Card (Lifecycle)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"rate_card_id_lifecycle\", jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
@@ -1461,12 +1812,8 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"propertyId\": {{property_id}},\n    \"pricePerDay\": 600000\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\"propertyId\": {{property_id}}, \"pricePerDay\": 900000}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
               "raw": "{{base_url}}/inventory/rate-cards",
@@ -1516,12 +1863,8 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"pricePerDay\": 800000,\n    \"isActive\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\"pricePerDay\": 800000}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
               "raw": "{{base_url}}/inventory/rate-cards/{{rate_card_id}}",
@@ -1532,7 +1875,7 @@
           "response": []
         },
         {
-          "name": "Delete Rate Card",
+          "name": "Delete Rate Card (Lifecycle)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -1547,9 +1890,9 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/inventory/rate-cards/{{rate_card_id}}",
+              "raw": "{{base_url}}/inventory/rate-cards/{{rate_card_id_lifecycle}}",
               "host": ["{{base_url}}"],
-              "path": ["inventory", "rate-cards", "{{rate_card_id}}"]
+              "path": ["inventory", "rate-cards", "{{rate_card_id_lifecycle}}"]
             }
           },
           "response": []
@@ -1574,8 +1917,7 @@
               "raw": "{{base_url}}/player/config",
               "host": ["{{base_url}}"],
               "path": ["player", "config"]
-            },
-            "description": "Mengambil konfigurasi layar (orientasi, refresh interval, logo, dll)."
+            }
           },
           "response": []
         },
@@ -1594,13 +1936,12 @@
               "raw": "{{base_url}}/player/playlist",
               "host": ["{{base_url}}"],
               "path": ["player", "playlist"]
-            },
-            "description": "Mengambil daftar iklan yang harus diputar untuk layar ini."
+            }
           },
           "response": []
         },
         {
-          "name": "Heartbeat (Ping)",
+          "name": "Heartbeat",
           "request": {
             "method": "POST",
             "header": [
@@ -1612,19 +1953,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"ipAddress\": \"192.168.1.10\",\n    \"freeStorage\": 5000000\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\"ipAddress\": \"192.168.100.1\", \"freeStorage\": 1024000}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
               "raw": "{{base_url}}/player/heartbeat",
               "host": ["{{base_url}}"],
               "path": ["player", "heartbeat"]
-            },
-            "description": "Player melapor status online ke server."
+            }
           },
           "response": []
         }
