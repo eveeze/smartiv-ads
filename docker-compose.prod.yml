@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # ---------------------------
+  # 1. Aplikasi Backend (NestJS)
+  # ---------------------------
+  app:
+    container_name: smartiv-ads-api
+    # Image akan diisi otomatis oleh GitHub Actions
+    image: ${APP_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Expose port 3000 ke localhost VPS agar bisa diambil Nginx Proxy Manager
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - smartiv-net # Untuk konek ke DB & Redis sendiri
+      - shared_network # Untuk konek ke MinIO Teman & Nginx Proxy Manager
+
+  # ---------------------------
+  # 2. Database (PostgreSQL) - Dedicated
+  # ---------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: smartiv-ads-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    networks:
+      - smartiv-net
+
+  # ---------------------------
+  # 3. Queue & Cache (Redis) - Dedicated
+  # ---------------------------
+  redis:
+    image: redis:alpine
+    container_name: smartiv-ads-redis
+    restart: unless-stopped
+    networks:
+      - smartiv-net
+
+# Volume agar data DB aman
+volumes:
+  postgres_data_prod:
+
+# Konfigurasi Network
+networks:
+  smartiv-net:
+    driver: bridge
+  # Network ini WAJIB sudah ada di VPS (dibuat oleh Nginx Proxy Manager / MinIO)
+  shared_network:
+    external: true
