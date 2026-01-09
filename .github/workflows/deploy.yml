@@ -2,7 +2,7 @@ name: Deploy SmartIV Ads
 
 on:
   push:
-    branches: ['main'] # Trigger deploy saat push ke main
+    branches: ['main']
 
 env:
   REGISTRY: ghcr.io
@@ -19,7 +19,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Login ke GHCR
+      # 1. Setup Docker Buildx (WAJIB ADA untuk fitur Cache GHA)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 2. Login ke GHCR
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
@@ -27,18 +31,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 2. Build & Push Docker Image
+      # 3. Build & Push Docker Image
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          # Cache agar build lebih cepat
+          # Cache config ini sekarang akan berjalan lancar
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 3. Deploy ke VPS
+      # 4. Deploy ke VPS
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -46,24 +50,19 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_KEY }}
           script: |
-            # Login Docker di VPS
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Masuk folder App (Pastikan folder ini dibuat dulu di langkah 2)
+            # Masuk folder
             cd ~/smartiv-ads-backend
 
-            # Definisikan nama image terbaru
             export APP_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-            # Pull Image
             docker pull $APP_IMAGE
 
-            # Restart Container (Update)
-            # Kita pass variable APP_IMAGE ke docker-compose
+            # Update container
             APP_IMAGE=$APP_IMAGE docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            # Jalankan Migrasi Database Otomatis
+            # Migrasi DB
             APP_IMAGE=$APP_IMAGE docker compose -f docker-compose.prod.yml exec -T app npx prisma migrate deploy
 
-            # Hapus image lama (Clean up)
             docker image prune -f
