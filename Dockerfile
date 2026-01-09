@@ -7,7 +7,7 @@ FROM node:20-alpine AS builder
 # Install pnpm & dependencies sistem
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# [FIX] Install FFmpeg & OpenSSL di sini agar tersedia saat mode Dev (docker-compose.dev.yml)
+# [FIX] Install FFmpeg & OpenSSL di sini agar tersedia saat mode Dev
 RUN apk add --no-cache openssl ffmpeg
 
 WORKDIR /app
@@ -39,9 +39,16 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
-# Install HANYA production dependencies
-RUN pnpm install --prod --frozen-lockfile
+# --- [FIX START] ---
+# 1. Install SEMUA dependencies dulu (supaya Prisma CLI ke-install)
+RUN pnpm install --frozen-lockfile
+
+# 2. Generate Prisma Client (Sekarang CLI sudah ada, jadi aman)
 RUN pnpm prisma generate
+
+# 3. Hapus devDependencies agar image final tetap kecil
+RUN pnpm prune --prod
+# --- [FIX END] ---
 
 # --------------------------------------------------------
 # 3. Stage: Runner (Final Image untuk Production)
@@ -62,7 +69,7 @@ COPY package.json pnpm-lock.yaml ./
 # Copy hasil build dari 'builder'
 COPY --from=builder /app/dist ./dist
 
-# Copy node_modules yang bersih dari 'prod-deps'
+# Copy node_modules yang bersih (hasil prune) dari 'prod-deps'
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/prisma ./prisma
 
