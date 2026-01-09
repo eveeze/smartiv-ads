@@ -1,33 +1,32 @@
 # --------------------------------------------------------
-# 1. Stage: Builder (Untuk Build & Development)
-#    Image ini memiliki SEMUA dependencies (Dev + Prod) + FFmpeg
+# 1. Stage: Builder (Build App)
 # --------------------------------------------------------
 FROM node:20-alpine AS builder
 
-# Install pnpm & dependencies sistem
+# Install sistem dependencies
 RUN corepack enable && corepack prepare pnpm@latest --activate
-
-# [FIX] Install FFmpeg & OpenSSL di sini agar tersedia saat mode Dev
 RUN apk add --no-cache openssl ffmpeg
 
 WORKDIR /app
 
-# Copy config files
+# Copy dependency files
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
-# Install SEMUA dependencies (termasuk devDependencies)
+# Install SEMUA dependencies (termasuk devDependencies untuk build)
 RUN pnpm install --frozen-lockfile
 
 # Generate Prisma Client
 RUN pnpm prisma generate
 
-# Copy source code & Build (untuk production artifact)
+# Copy source code
 COPY . .
+
+# Build Aplikasi NestJS
 RUN pnpm build
 
 # --------------------------------------------------------
-# 2. Stage: Prod-Deps (Intermediate Stage untuk membersihkan deps)
+# 2. Stage: Prod-Deps (Dependencies Only)
 # --------------------------------------------------------
 FROM node:20-alpine AS prod-deps
 
@@ -39,40 +38,39 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
-# --- [FIX START] ---
-# 1. Install SEMUA dependencies dulu (supaya Prisma CLI ke-install)
+# Install dependencies (termasuk dev untuk prisma generate)
 RUN pnpm install --frozen-lockfile
-
-# 2. Generate Prisma Client (Sekarang CLI sudah ada, jadi aman)
 RUN pnpm prisma generate
 
-# 3. Hapus devDependencies agar image final tetap kecil
+# Hapus devDependencies (sisakan production saja)
 RUN pnpm prune --prod
-# --- [FIX END] ---
 
 # --------------------------------------------------------
-# 3. Stage: Runner (Final Image untuk Production)
+# 3. Stage: Runner (Production Image)
 # --------------------------------------------------------
 FROM node:20-alpine AS runner
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
-
-# Install FFmpeg di Production juga
 RUN apk add --no-cache openssl ffmpeg
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY package.json pnpm-lock.yaml ./
+# Copy package.json (penting untuk referensi)
+COPY package.json ./
 
-# Copy hasil build dari 'builder'
-COPY --from=builder /app/dist ./dist
-
-# Copy node_modules yang bersih (hasil prune) dari 'prod-deps'
+# Copy Node Modules dari prod-deps
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/prisma ./prisma
 
+# Copy Hasil Build dari builder (INTI MASALAHNYA DI SINI)
+COPY --from=builder /app/dist ./dist
+
+# Pastikan folder dist ada (Debug purpose, opsional)
+# RUN ls -la ./dist
+
 EXPOSE 3000
 
+# Jalankan aplikasi
 CMD ["node", "dist/main"]
