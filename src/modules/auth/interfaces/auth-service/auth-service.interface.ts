@@ -1,8 +1,11 @@
 import { RegisterDto } from '../../dto/register.dto';
 import { LoginDto } from '../../dto/login.dto';
+import { ChangePasswordDto } from '../../dto/change-password.dto'; // [NEW] Import DTO
+import { ForgotPasswordDto } from '../../dto/forgot-password.dto'; // [NEW] Import DTO
+import { ResetPasswordDto } from '../../dto/reset-password.dto'; // [NEW] Import DTO
 import { User } from '@prisma/client';
-import { JwtPayload } from '../jwt-payload/jwt-payload.interface';
-// 1. Injection Token (Kupon Unik)
+
+// 1. Injection Token
 export const AUTH_SERVICE = 'AUTH_SERVICE';
 
 // 2. Response Type Definition
@@ -16,8 +19,13 @@ export interface LoginResponse {
   };
 }
 
-// 3. Interface Contract (Kontrak Kerja)
+// 3. Interface Contract (Update Kontrak Kerja)
 export interface IAuthService {
   register(registerDto: RegisterDto): Promise<Omit<User, 'password'>>;
   login(loginDto: LoginDto): Promise<LoginResponse>;
+
+  // [NEW] Tambahkan definisi method baru di sini
+  changePassword(userId: number, dto: ChangePasswordDto): Promise<void>;
+  forgotPassword(dto: ForgotPasswordDto): Promise<void>;
+  resetPassword(dto: ResetPasswordDto): Promise<void>;
 }

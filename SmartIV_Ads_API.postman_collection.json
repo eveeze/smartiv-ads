@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-complete-v18",
-    "name": "SmartIV Ads (Final - v18 Complete & Fixed)",
-    "description": "Complete collection including ALL endpoints (Get, Detail, List) + Separated flows for regression testing. Fixed Property Enum values.",
+    "_postman_id": "smartiv-ads-complete-v19",
+    "name": "SmartIV Ads (Final - v19 Phase 9 Security)",
+    "description": "Complete collection including Phase 9: Account Security (Change Password, Forgot Password Flow).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -42,40 +42,46 @@
       "type": "string"
     },
     {
+      "key": "reset_token",
+      "value": "",
+      "type": "string",
+      "description": "Token from server logs/email"
+    },
+    {
       "key": "property_id",
       "value": "",
       "type": "string",
-      "description": "Main Property ID (Kept for Screen creation)"
+      "description": "Main Property ID"
     },
     {
       "key": "property_id_lifecycle",
       "value": "",
       "type": "string",
-      "description": "Temp Property ID (Deleted in CRUD test)"
+      "description": "Temp Property ID"
     },
     {
       "key": "screen_id",
       "value": "",
       "type": "string",
-      "description": "Main Screen ID (Kept for Campaigns)"
+      "description": "Main Screen ID"
     },
     {
       "key": "screen_id_lifecycle",
       "value": "",
       "type": "string",
-      "description": "Temp Screen ID (Deleted in CRUD test)"
+      "description": "Temp Screen ID"
     },
     {
       "key": "media_id",
       "value": "",
       "type": "string",
-      "description": "Main Media ID (Approved, Kept for Campaigns)"
+      "description": "Main Media ID"
     },
     {
       "key": "media_id_lifecycle",
       "value": "",
       "type": "string",
-      "description": "Temp Media ID (Deleted/Rejected in test)"
+      "description": "Temp Media ID"
     },
     {
       "key": "user_id",
@@ -117,7 +123,7 @@
       "key": "rate_card_id_lifecycle",
       "value": "",
       "type": "string",
-      "description": "Temp Rate Card for Delete test"
+      "description": "Temp Rate Card"
     },
     {
       "key": "device_id",
@@ -130,164 +136,286 @@
       "name": "1. 🔐 Auth Module",
       "item": [
         {
-          "name": "Register Advertiser",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"email\": \"{{advertiser_email}}\",\n    \"password\": \"{{advertiser_password}}\",\n    \"name\": \"PT Maju Mundur\",\n    \"phone\": \"081234567890\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/auth/register",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "register"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Login (Super Admin)",
-          "event": [
+          "name": "Basic Auth",
+          "item": [
             {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (pm.response.code === 200 || pm.response.code === 201) {",
-                  "    if (jsonData.data && jsonData.data.accessToken) {",
-                  "        pm.collectionVariables.set(\"admin_token\", jsonData.data.accessToken);",
-                  "        console.log(\"✅ ADMIN TOKEN SAVED\");",
-                  "    } else {",
-                  "        console.error(\"❌ TOKEN NOT FOUND\");",
-                  "    }",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"{{admin_password}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "name": "Register Advertiser",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"email\": \"{{advertiser_email}}\",\n    \"password\": \"{{advertiser_password}}\",\n    \"name\": \"PT Maju Mundur\",\n    \"phone\": \"081234567890\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/register",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "register"]
                 }
-              }
+              },
+              "response": []
             },
-            "url": {
-              "raw": "{{base_url}}/auth/login",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "login"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Login (Advertiser)",
-          "event": [
             {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (pm.response.code === 200 || pm.response.code === 201) {",
-                  "    if (jsonData.data && jsonData.data.accessToken) {",
-                  "        pm.collectionVariables.set(\"advertiser_token\", jsonData.data.accessToken);",
-                  "        console.log(\"✅ ADVERTISER TOKEN SAVED\");",
-                  "    } else {",
-                  "        console.error(\"❌ TOKEN NOT FOUND\");",
-                  "    }",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"email\": \"{{advertiser_email}}\",\n    \"password\": \"{{advertiser_password}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "name": "Login (Super Admin)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    if (jsonData.data && jsonData.data.accessToken) {",
+                      "        pm.collectionVariables.set(\"admin_token\", jsonData.data.accessToken);",
+                      "        console.log(\"✅ ADMIN TOKEN SAVED\");",
+                      "    } else {",
+                      "        console.error(\"❌ TOKEN NOT FOUND\");",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
                 }
-              }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"{{admin_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "login"]
+                }
+              },
+              "response": []
             },
-            "url": {
-              "raw": "{{base_url}}/auth/login",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "login"]
+            {
+              "name": "Login (Advertiser)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var jsonData = pm.response.json();",
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    if (jsonData.data && jsonData.data.accessToken) {",
+                      "        pm.collectionVariables.set(\"advertiser_token\", jsonData.data.accessToken);",
+                      "        console.log(\"✅ ADVERTISER TOKEN SAVED\");",
+                      "    } else {",
+                      "        console.error(\"❌ TOKEN NOT FOUND\");",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"email\": \"{{advertiser_email}}\",\n    \"password\": \"{{advertiser_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "login"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Profile (Me)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{advertiser_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/auth/me",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "me"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Profile (Self Service)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{advertiser_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"PT Maju Mundur Sejahtera\",\n    \"phone\": \"081999888777\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/users/profile",
+                  "host": ["{{base_url}}"],
+                  "path": ["users", "profile"]
+                },
+                "description": "User update their own profile (Name & Phone only)."
+              },
+              "response": []
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "Get Profile (Me)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{advertiser_token}}",
-                  "type": "string"
-                }
-              ]
+          "name": "Security & Account",
+          "item": [
+            {
+              "name": "Change Password",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{advertiser_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"oldPassword\": \"{{advertiser_password}}\",\n    \"newPassword\": \"NewStrongPass123!\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/change-password",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "change-password"]
+                },
+                "description": "Mengganti password saat user sedang login."
+              },
+              "response": []
             },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/auth/me",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "me"]
+            {
+              "name": "Change Password Back (Cleanup)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{advertiser_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"oldPassword\": \"NewStrongPass123!\",\n    \"newPassword\": \"{{advertiser_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/change-password",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "change-password"]
+                },
+                "description": "Mengembalikan password ke semula agar test lain tidak error."
+              },
+              "response": []
+            },
+            {
+              "name": "Forgot Password (Request Token)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"email\": \"{{advertiser_email}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/forgot-password",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "forgot-password"]
+                },
+                "description": "Cek console server/terminal untuk melihat 'reset_token' yang dikirim via Mock Email."
+              },
+              "response": []
+            },
+            {
+              "name": "Reset Password",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"token\": \"{{reset_token}}\",\n    \"newPassword\": \"{{advertiser_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/reset-password",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "reset-password"]
+                },
+                "description": "Ganti 'reset_token' di environment variable dengan token yang didapat dari langkah sebelumnya."
+              },
+              "response": []
             }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Profile (Self Service)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{advertiser_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "PATCH",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"name\": \"PT Maju Mundur Sejahtera\",\n    \"phone\": \"081999888777\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/users/profile",
-              "host": ["{{base_url}}"],
-              "path": ["users", "profile"]
-            },
-            "description": "User update their own profile (Name & Phone only)."
-          },
-          "response": []
+          ]
         }
       ]
     },

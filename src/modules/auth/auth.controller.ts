@@ -1,9 +1,23 @@
-import { Body, Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AUTH_SERVICE } from './interfaces/auth-service/auth-service.interface';
 import type { IAuthService } from './interfaces/auth-service/auth-service.interface';
 
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto'; // [NEW]
+import { ForgotPasswordDto } from './dto/forgot-password.dto'; // [NEW]
+import { ResetPasswordDto } from './dto/reset-password.dto'; // [NEW]
+
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -31,6 +45,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @HttpCode(HttpStatus.OK) // Login standardnya 200 OK
   @ApiOperation({ summary: 'Login to get Access Token' })
   @ApiResponse({ status: 200, description: 'Return Access Token' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
@@ -44,5 +59,40 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current logged in user profile' })
   async getProfile(@CurrentUser() user: User) {
     return user;
+  }
+
+  // ==========================================
+  // PHASE 9: ACCOUNT SECURITY ENDPOINTS
+  // ==========================================
+
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change current user password' })
+  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 400, description: 'Old password wrong' })
+  async changePassword(
+    @CurrentUser() user: User,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user.id, dto);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request password reset token (via email)' })
+  @ApiResponse({ status: 200, description: 'If email exists, token sent' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password using token' })
+  @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  @ApiResponse({ status: 400, description: 'Token invalid or expired' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 }
