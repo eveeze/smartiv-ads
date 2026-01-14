@@ -281,6 +281,26 @@ _Definition of Done: Pengolahan data telemetri menjadi laporan yang bisa dibaca 
 
 ---
 
+## 🔐 Phase 9: Account Security (Status: COMPLETED ✅)
+
+_Definition of Done: User bisa mengamankan akun dan melakukan pemulihan (Reset Password)._
+
+- [x] **Step 1: Change Password**
+  - [x] **Endpoint:** `PATCH /auth/change-password`.
+  - [x] **Input:** `oldPassword`, `newPassword`.
+  - [x] **Logic & Conditions:**
+    - Verifikasi `oldPassword` dengan hash di database.
+    - Hash `newPassword` sebelum disimpan.
+
+- [x] **Step 2: Forgot Password Flow**
+  - [x] **Module Mail:** Setup `MailModule` dengan Brevo SMTP.
+  - [x] **Endpoint:** `POST /auth/forgot-password` (Input: Email).
+    - **Logic:** Generate secure token, hash, simpan di DB dengan expiry time, kirim email real.
+  - [x] **Endpoint:** `POST /auth/reset-password` (Input: Token, New Password).
+    - **Logic:** Validasi token, cek expiry, update password, clear token.
+
+---
+
 ## 👥 Phase 8: User Management & Expansion (CMS Extras) (Status: NEXT UP - Prioritas Utama)
 
 _Definition of Done: Fitur tambahan untuk manajemen aktor lain sesuai spesifikasi._
@@ -292,23 +312,3 @@ _Definition of Done: Fitur tambahan untuk manajemen aktor lain sesuai spesifikas
   - [ ] **Role:** Implementasi Role `PROPERTY_OPERATOR` (sebelumnya HOTEL_ADMIN).
   - [ ] **Permissions:** View Schedule Properti Sendiri, View Screen Status.
   - [ ] **Endpoint:** `GET /property/screens` (Khusus Operator melihat status layar di propertinya sendiri).
-
----
-
-## 🔐 Phase 9: Account Security (Status: PENDING - Low Priority)
-
-_Definition of Done: User bisa mengamankan akun dan melakukan pemulihan (Optional/Akhir)._
-
-- [ ] **Step 1: Change Password**
-  - [ ] **Endpoint:** `PATCH /auth/change-password`.
-  - [ ] **Input:** `oldPassword`, `newPassword`.
-  - [ ] **Logic & Conditions:**
-    - Verifikasi `oldPassword` dengan hash di database. Jika salah -> **TOLAK**.
-    - Hash `newPassword` sebelum disimpan.
-    - Logout semua sesi lain (opsional, best practice).
-
-- [ ] **Step 2: Forgot Password Flow**
-  - [ ] **Endpoint:** `POST /auth/forgot-password` (Input: Email).
-    - **Logic:** Generate token acak, simpan di DB dengan expiry time (misal 15 menit), kirim email.
-  - [ ] **Endpoint:** `POST /auth/reset-password` (Input: Token, New Password).
-    - **Logic:** Cek apakah token valid dan belum expired. Jika ya, update password dan hapus token.
