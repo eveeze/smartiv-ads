@@ -2,39 +2,38 @@ import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PrismaModule } from '../../providers/prisma/prisma.module';
-import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategies';
-import { AUTH_SERVICE } from './interfaces/auth-service/auth-service.interface';
+import { MailModule } from '../mail/mail.module';
+import { AUTH_SERVICE } from './interfaces/auth-service/auth-service.interface'; // [1] Import Token
 
 @Module({
   imports: [
     PrismaModule,
     PassportModule,
+    MailModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('jwt.secret')!,
+        secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
-          // [FIX] Tambahkan 'as any' untuk mengatasi error TypeScript 2322
-          // Masalah ini terjadi karena definisi tipe 'expiresIn' di library terkadang konflik dengan string biasa
-          expiresIn: configService.get<string>('jwt.expiresIn') as any,
+          expiresIn: configService.get<string>('JWT_EXPIRES_IN') as any,
         },
       }),
+      inject: [ConfigService],
     }),
   ],
   controllers: [AuthController],
   providers: [
-    AuthService,
-    // Provider alias agar bisa di-inject menggunakan token interface 'AUTH_SERVICE'
+    AuthService, // [2] Provider Class (untuk JwtStrategy dll)
     {
       provide: AUTH_SERVICE,
-      useExisting: AuthService,
+      useExisting: AuthService, // [3] Provider Alias (untuk AuthController)
     },
     JwtStrategy,
   ],
-  exports: [AuthService, AUTH_SERVICE],
+  exports: [AuthService, AUTH_SERVICE], // [4] Export keduanya agar aman
 })
 export class AuthModule {}

@@ -17,6 +17,7 @@ import configuration, {
 } from './config/configuration/configuration';
 import { TelemetryModule } from './modules/telemetry/telemetry.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     UsersModule,
     TelemetryModule,
     AnalyticsModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

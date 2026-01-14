@@ -1,13 +1,19 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../../providers/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto'; // [FIX 1] Import Module Crypto Node.js
 import { JwtPayload } from './interfaces/jwt-payload/jwt-payload.interface';
 import {
   IAuthService,
@@ -20,6 +26,7 @@ export class AuthService implements IAuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly mailService: MailService, // [FIX 2] Inject MailService
   ) {}
 
   async register(registerDto: RegisterDto): Promise<Omit<User, 'password'>> {
@@ -56,6 +63,7 @@ export class AuthService implements IAuthService {
       return newUser;
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = result;
     return userWithoutPassword;
   }
@@ -77,8 +85,6 @@ export class AuthService implements IAuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // [BEST PRACTICE] Panggil method internal untuk generate token
-    // Hasilnya kode lebih rapi dan logic terpusat
     const token = await this.createToken(user);
 
     return {
@@ -102,5 +108,98 @@ export class AuthService implements IAuthService {
     return {
       accessToken: await this.jwtService.signAsync(payload),
     };
+  }
+
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const isOldPasswordValid = await bcrypt.compare(
+      dto.oldPassword,
+      user.password,
+    );
+    if (!isOldPasswordValid)
+      throw new BadRequestException('Old password does not match');
+
+    const newHashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: newHashedPassword },
+    });
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user) return;
+
+    // Generate Token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    const passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 Menit
+
+    await this.prisma.user.update({
+      where: { email: dto.email },
+      data: {
+        passwordResetToken: hashedToken,
+        passwordResetExpires,
+      },
+    });
+
+    try {
+      await this.mailService.sendUserConfirmation(user, resetToken);
+    } catch (error) {
+      // Rollback jika gagal kirim email
+      await this.prisma.user.update({
+        where: { email: dto.email },
+        data: { passwordResetToken: null, passwordResetExpires: null },
+      });
+      throw new BadRequestException(
+        'Error sending email, please try again later',
+      );
+    }
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<void> {
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(dto.token)
+      .digest('hex');
+
+    const user = await this.prisma.user.findUnique({
+      where: {
+        passwordResetToken: hashedToken,
+      },
+    });
+
+    if (
+      !user ||
+      !user.passwordResetExpires ||
+      user.passwordResetExpires < new Date()
+    ) {
+      throw new BadRequestException('Token is invalid or has expired');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      },
+    });
   }
 }
