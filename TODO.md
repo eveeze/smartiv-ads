@@ -312,3 +312,24 @@ _Definition of Done: Fitur tambahan untuk manajemen aktor lain sesuai spesifikas
   - [ ] **Role:** Implementasi Role `PROPERTY_OPERATOR` (sebelumnya HOTEL_ADMIN).
   - [ ] **Permissions:** View Schedule Properti Sendiri, View Screen Status.
   - [ ] **Endpoint:** `GET /property/screens` (Khusus Operator melihat status layar di propertinya sendiri).
+
+## 👥 Phase 8.5: Admin-Managed Onboarding (Pengganti Manual DB)
+
+_Definition of Done: Admin bisa membuatkan akun untuk Operator Hotel dan langsung menyambungkannya ke properti._
+
+- [ ] **Step 1: Create User by Admin (The "Onboarding" Endpoint)**
+  - [ ] **Endpoint:** `POST /users` (Protected: Super Admin Only).
+  - [ ] **DTO:** `CreateUserDto`
+    - Fields: `email`, `name`, `password`, `phone`, `role`, `propertyId?` (Optional).
+  - [ ] **Logic Service:**
+    - Hash password.
+    - Cek email duplikat.
+    - **Validasi Role:** Jika `role` == `PROPERTY_OPERATOR`, pastikan `propertyId` dikirim dan valid (Exist di DB).
+    - **Create Wallet:** Otomatis buatkan wallet kosong untuk user baru (agar tidak error saat login).
+    - Return: User data (tanpa password).
+
+- [ ] **Step 2: Re-Assignment (Jika salah assign)**
+  - [ ] **Endpoint:** `PATCH /users/:id/assign-property`.
+  - [ ] **Logic:** Update field `propertyId` pada user yang sudah ada. Hanya boleh jika role user adalah `PROPERTY_OPERATOR`.
+
+---
