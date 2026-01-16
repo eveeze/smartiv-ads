@@ -14,9 +14,9 @@ import type { IAuthService } from './interfaces/auth-service/auth-service.interf
 
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { ChangePasswordDto } from './dto/change-password.dto'; // [NEW]
-import { ForgotPasswordDto } from './dto/forgot-password.dto'; // [NEW]
-import { ResetPasswordDto } from './dto/reset-password.dto'; // [NEW]
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 import {
   ApiBearerAuth,
@@ -45,7 +45,7 @@ export class AuthController {
   }
 
   @Post('login')
-  @HttpCode(HttpStatus.OK) // Login standardnya 200 OK
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login to get Access Token' })
   @ApiResponse({ status: 200, description: 'Return Access Token' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
@@ -60,10 +60,6 @@ export class AuthController {
   async getProfile(@CurrentUser() user: User) {
     return user;
   }
-
-  // ==========================================
-  // PHASE 9: ACCOUNT SECURITY ENDPOINTS
-  // ==========================================
 
   @Patch('change-password')
   @UseGuards(JwtAuthGuard)
