@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "smartiv-ads-complete-v19",
-    "name": "SmartIV Ads (Final - v19 Phase 9 Security)",
-    "description": "Complete collection including Phase 9: Account Security (Change Password, Forgot Password Flow).",
+    "_postman_id": "smartiv-ads-complete-v21",
+    "name": "SmartIV Ads (Final - v21 Phase 8.5 Admin Onboarding)",
+    "description": "Complete collection including Phase 8.5: Admin Managed Onboarding (Create Operator & Assign Property via API). No more Manual DB steps.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -32,12 +32,27 @@
       "type": "string"
     },
     {
+      "key": "operator_email",
+      "value": "operator@hotel-a.com",
+      "type": "string"
+    },
+    {
+      "key": "operator_password",
+      "value": "password123",
+      "type": "string"
+    },
+    {
       "key": "admin_token",
       "value": "",
       "type": "string"
     },
     {
       "key": "advertiser_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "operator_token",
       "value": "",
       "type": "string"
     },
@@ -85,6 +100,11 @@
     },
     {
       "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "operator_user_id",
       "value": "",
       "type": "string"
     },
@@ -1160,25 +1180,10 @@
       ]
     },
     {
-      "name": "4. 👥 User Management (Admin Only)",
+      "name": "4. 👥 User Mgmt & Operator (New Phase 8)",
       "item": [
         {
-          "name": "Get All Users",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (pm.response.code === 200 && jsonData.data && jsonData.data.data.length > 0) {",
-                  "    var firstUserId = jsonData.data.data[0].id;",
-                  "    pm.collectionVariables.set(\"user_id\", firstUserId);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
+          "name": "Get Users (Search & Filter)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -1193,15 +1198,34 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/users",
+              "raw": "{{base_url}}/users?role=ADVERTISER&q=Maju&page=1&take=10",
               "host": ["{{base_url}}"],
-              "path": ["users"]
-            }
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "ADVERTISER"
+                },
+                {
+                  "key": "q",
+                  "value": "Maju"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "take",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Mencari user dengan nama 'Maju' dan role 'ADVERTISER'."
           },
           "response": []
         },
         {
-          "name": "Get User Detail",
+          "name": "Get User Detail (with Wallet)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -1220,6 +1244,232 @@
               "host": ["{{base_url}}"],
               "path": ["users", "{{user_id}}"]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "Block User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"isActive\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Test Blocked Login (Should Fail)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{advertiser_email}}\",\n    \"password\": \"{{advertiser_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unblock User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Operator (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set(\"operator_user_id\", jsonData.data.id);",
+                  "    console.log(\"✅ Operator Created by Admin\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{operator_email}}\",\n    \"password\": \"{{operator_password}}\",\n    \"name\": \"Hotel Operator A\",\n    \"phone\": \"08111222333\",\n    \"role\": \"PROPERTY_OPERATOR\",\n    \"propertyId\": {{property_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            },
+            "description": "Admin membuatkan akun Operator dan langsung assign property."
+          },
+          "response": []
+        },
+        {
+          "name": "Re-Assign Property (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"propertyId\": {{property_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{operator_user_id}}/assign-property",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{operator_user_id}}", "assign-property"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Operator",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set(\"operator_token\", jsonData.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{operator_email}}\",\n    \"password\": \"{{operator_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Operator Get My Screens",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operator_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/inventory/operator/screens",
+              "host": ["{{base_url}}"],
+              "path": ["inventory", "operator", "screens"]
+            },
+            "description": "Operator harusnya bisa melihat list screen di propertinya sendiri."
           },
           "response": []
         }
