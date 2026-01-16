@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import request from 'supertest';
+import request from 'supertest'; // [FIX] Ganti import * as menjadi import default
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/providers/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -18,25 +18,18 @@ describe('AuthController (e2e)', () => {
   const testUserEmail = `auth_test_${Date.now()}@example.com`;
   const registerUserEmail = `auth_reg_${Date.now()}@example.com`;
 
-  // Helper untuk membersihkan user & wallet dengan aman
   const cleanupUsers = async () => {
     const targetEmails = [testUserEmail, registerUserEmail];
-
-    // 1. Cari User ID berdasarkan email
     const users = await prisma.user.findMany({
       where: { email: { in: targetEmails } },
       select: { id: true },
     });
-
     const userIds = users.map((u) => u.id);
 
     if (userIds.length > 0) {
-      // 2. Hapus Wallet milik user tersebut
       await prisma.wallet.deleteMany({
         where: { userId: { in: userIds } },
       });
-
-      // 3. Hapus User
       await prisma.user.deleteMany({
         where: { id: { in: userIds } },
       });
@@ -58,10 +51,8 @@ describe('AuthController (e2e)', () => {
     const configService = app.get<ConfigService>(ConfigService);
     const jwtSecret = configService.get<string>('jwt.secret') || 'secret_key';
 
-    // Cleanup Awal
     await cleanupUsers();
 
-    // Create Test User Manual
     const hashedPassword = await bcrypt.hash('password123', 10);
     const user = await prisma.user.create({
       data: {
@@ -72,7 +63,6 @@ describe('AuthController (e2e)', () => {
         phone: '08123456789',
       },
     });
-    // Create Wallet manual (jika logic register tidak dipanggil untuk testUser)
     await prisma.wallet.create({ data: { userId: user.id } });
 
     accessToken = jwtService.sign(
@@ -82,7 +72,6 @@ describe('AuthController (e2e)', () => {
   });
 
   afterAll(async () => {
-    // Cleanup Akhir (Hapus Wallet dulu baru User)
     await cleanupUsers();
     await app.close();
   });
@@ -95,7 +84,7 @@ describe('AuthController (e2e)', () => {
           email: registerUserEmail,
           password: 'password123',
           name: 'New User',
-          phone: '08123456780', // Phone wajib sesuai DTO
+          phone: '08123456780',
         })
         .expect(201);
     });
@@ -106,7 +95,7 @@ describe('AuthController (e2e)', () => {
       return request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: testUserEmail, password: 'password123' })
-        .expect(201)
+        .expect(200) // Expect 200 OK
         .expect((res) => {
           expect(res.body.data.accessToken).toBeDefined();
         });

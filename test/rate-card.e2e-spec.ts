@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import request from 'supertest';
+import request from 'supertest'; // [FIX] Ganti import * as menjadi import default
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/providers/prisma/prisma.service';
 import { PropertyClass, Role } from '@prisma/client';
@@ -31,16 +31,13 @@ describe('Rate Card Management (E2E)', () => {
 
     prisma = app.get<PrismaService>(PrismaService);
 
-    // --- SETUP DATA ADMIN ---
     const adminEmail = 'admin.ratecard.e2e@test.com';
     const adminPassword = 'password123';
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
-    // [FIX] Cleanup lebih menyeluruh sebelum mulai
-    await prisma.rateCard.deleteMany({}); // Hapus semua rate card lama
+    await prisma.rateCard.deleteMany({});
     await prisma.user.deleteMany({ where: { email: adminEmail } });
 
-    // Create Admin User di DB Test
     const admin = await prisma.user.create({
       data: {
         email: adminEmail,
@@ -52,17 +49,15 @@ describe('Rate Card Management (E2E)', () => {
     });
     adminId = admin.id;
 
-    // Login untuk mendapatkan Token
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: adminEmail, password: adminPassword })
-      .expect(201);
+      .expect(200); // Expect 200 OK
 
     adminToken = loginRes.body.data?.accessToken || loginRes.body.accessToken;
   });
 
   afterAll(async () => {
-    // Cleanup Data Test
     await prisma.rateCard.deleteMany({});
     if (adminId) {
       await prisma.user.delete({ where: { id: adminId } }).catch(() => {});
@@ -87,7 +82,6 @@ describe('Rate Card Management (E2E)', () => {
   });
 
   it('2. Create Rate Card (Global PREMIUM Class)', async () => {
-    // Pastikan bersih dulu agar tidak 409 Conflict
     await prisma.rateCard.deleteMany({
       where: { classification: PropertyClass.PREMIUM, propertyId: null },
     });
@@ -114,7 +108,7 @@ describe('Rate Card Management (E2E)', () => {
         classification: PropertyClass.PREMIUM,
         pricePerDay: 600000,
       })
-      .expect(409); // Conflict Exception from Service
+      .expect(409);
   });
 
   it('4. Get All Rate Cards', async () => {
@@ -126,13 +120,11 @@ describe('Rate Card Management (E2E)', () => {
     const data = res.body.data || res.body;
     expect(Array.isArray(data)).toBe(true);
 
-    // [FIX] Validasi yang lebih aman (karena id mungkin undefined jika step 2 gagal)
     if (rateCardId) {
       const found = data.find((rc) => rc.id === rateCardId);
       expect(found).toBeDefined();
       expect(Number(found.pricePerDay)).toBe(500000);
     } else {
-      // Jika step 2 gagal, test ini akan fail, tapi dengan pesan jelas
       throw new Error('Rate Card ID is undefined (Step 2 Failed)');
     }
   });
