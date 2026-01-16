@@ -160,6 +160,7 @@ model User {
   name      String?
   phone     String?
   role      Role     @default(ADVERTISER)
+  isActive  Boolean  @default(true)
   passwordResetToken   String?   @unique  
   passwordResetExpires DateTime?
 

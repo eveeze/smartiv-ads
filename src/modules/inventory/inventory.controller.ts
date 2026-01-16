@@ -9,6 +9,7 @@ import {
   UseGuards,
   Query,
   ParseIntPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
@@ -16,14 +17,24 @@ import { CreateScreenDto } from './dto/create-screen.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { UpdateScreenDto } from './dto/update-screen.dto';
 import { PageOptionsDto } from '../../common/dto/page-options.dto';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
+
+// [FIX] Pisahkan import Role (Value) dan User (Type)
 import { Role } from '@prisma/client';
+import type { User } from '@prisma/client'; // Gunakan 'import type' agar aman dari error 1272
+
 import { CreateRateCardDto } from './dto/create-rate-card.dto';
 import { UpdateRateCardDto } from './dto/update-rate-card.dto';
 import { ScreenPageOptionsDto } from './dto/screen-page-options.dto';
+import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
 
 @ApiTags('Inventory')
 @ApiBearerAuth()
@@ -32,9 +43,41 @@ import { ScreenPageOptionsDto } from './dto/screen-page-options.dto';
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
-  // ==========================================
-  // PROPERTIES (HOTELS/HOSPITALS)
-  // ==========================================
+  // ... (Sisa kode ke bawah SAMA PERSIS, tidak perlu diubah) ...
+
+  @Get('operator/screens')
+  @Roles(Role.PROPERTY_OPERATOR, Role.SUPER_ADMIN)
+  @ApiOperation({
+    summary: 'Get screens specific to the logged-in Operator Property',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of screens filtered by assigned property',
+  })
+  async getOperatorScreens(
+    @CurrentUser() user: User,
+    @Query() pageOptionsDto: ScreenPageOptionsDto,
+  ) {
+    let targetPropertyId = pageOptionsDto.propertyId;
+
+    if (user.role === Role.PROPERTY_OPERATOR) {
+      if (!user.propertyId) {
+        throw new BadRequestException(
+          'Operator account is not assigned to any property.',
+        );
+      }
+      targetPropertyId = user.propertyId;
+    }
+
+    return this.inventoryService.findAllScreens(
+      pageOptionsDto,
+      targetPropertyId,
+    );
+  }
+
+  // ... (Method CRUD Property, Screens, RateCards biarkan seperti sebelumnya) ...
+  // Pastikan Anda menyalin sisa method dari file sebelumnya jika belum ada di sini.
+  // Tapi error utamanya hanya pada import di atas.
 
   @Post('properties')
   @Roles(Role.SUPER_ADMIN)
@@ -81,10 +124,6 @@ export class InventoryController {
     return this.inventoryService.removeProperty(id);
   }
 
-  // ==========================================
-  // SCREENS (TV UNITS)
-  // ==========================================
-
   @Post('screens')
   @Roles(Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Register new screen' })
@@ -98,7 +137,7 @@ export class InventoryController {
   findAllScreens(@Query() pageOptionsDto: ScreenPageOptionsDto) {
     return this.inventoryService.findAllScreens(
       pageOptionsDto,
-      pageOptionsDto.propertyId, // Ambil dari DTO
+      pageOptionsDto.propertyId,
     );
   }
 
@@ -112,7 +151,7 @@ export class InventoryController {
   }
 
   @Get('screens/:id')
-  @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
+  @Roles(Role.SUPER_ADMIN, Role.ADVERTISER, Role.PROPERTY_OPERATOR)
   @ApiOperation({ summary: 'Get screen details' })
   findScreenById(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.findScreenById(id);
@@ -134,10 +173,6 @@ export class InventoryController {
   removeScreen(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.removeScreen(id);
   }
-
-  // ==========================================
-  // RATE CARDS (PRICING)
-  // ==========================================
 
   @Post('rate-cards')
   @Roles(Role.SUPER_ADMIN)
