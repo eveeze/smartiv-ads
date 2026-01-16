@@ -5,7 +5,35 @@
 
 ---
 
-## 🎯 Phase 10: Structural Upgrade (Placement & Zones) (Status: NEXT UP)
+## 🎥 Phase 10: Advanced Media Architecture & Security (Status: ON PROGRESS 🚧)
+
+_Definition of Done: Implementasi standar streaming modern (ABR), keamanan konten (Signed URL), dan preview visual._
+
+- [x] **Step 1: Adaptive Bitrate (ABR) Pipeline**
+  - [x] **Processor:** Transcoding HLS Multi-bitrate (240p, 360p, 480p, 720p) via FFmpeg.
+  - [x] **Playlist:** Generate `master.m3u8` yang menggabungkan seluruh stream varian.
+  - [x] **Storage Structure:** Refactor struktur folder di MinIO: `hls/{id}/*.ts` & `hls/{id}/*.m3u8`.
+
+- [ ] **Step 2: Rich Media Previews (GIF)**
+  - [x] **Thumbnail:** Generate gambar `.jpg` statis dari video (Sudah diimplementasikan).
+  - [ ] **GIF Preview:** Update Processor untuk generate animasi `.gif` (durasi 3 detik, fps 5) dari detik awal video untuk _hover preview_ di CMS.
+    - _Command Hint:_ `ffmpeg -ss 1 -t 3 -i input.mp4 -vf "fps=5,scale=320:-1:flags=lanczos" -c:v gif preview.gif`
+  - [ ] **Schema Update:** Tambahkan field `previewUrl` (atau `previewPath`) di model `Media`.
+  - [ ] **Storage:** Upload GIF ke MinIO path `hls/{id}/preview.gif`.
+
+- [ ] **Step 3: Content Security (Signed URLs & Protection)**
+  - [ ] **Signed URL Engine:**
+    - Update `StorageService`: Tambahkan method `getPresignedUrl(key: string, expiry: number)`.
+    - Ganti return value `getFileUrl` agar menghasilkan URL dengan signature AWS S3/MinIO yang valid (misal: 1 jam).
+  - [ ] **API Endpoint Update:**
+    - Update `MediaService`: Saat `findOne` atau `findAll`, generate Signed URL secara dinamis (jangan simpan Signed URL di DB karena akan expired).
+  - [ ] **Access Control:**
+    - Pastikan Bucket MinIO diset **Private** (bukan Public Read) agar user wajib lewat Signed URL.
+    - Implementasi CORS Policy ketat (hanya izinkan domain dashboard & player).
+
+---
+
+## 🎯 Phase 11: Structural Upgrade (Placement & Zones) (Status: NEXT UP)
 
 _Definition of Done: Sistem mengenali spesifikasi slot iklan secara teknis (Resolusi & Aspek Rasio), bukan sekadar Enum. Ini penting agar manual input inventory lebih valid._
 
@@ -22,7 +50,7 @@ _Definition of Done: Sistem mengenali spesifikasi slot iklan secara teknis (Reso
 
 ---
 
-## 🛡️ Phase 11: Brand Safety & Category Blocking (Status: PENDING)
+## 🛡️ Phase 12: Brand Safety & Category Blocking (Status: PENDING)
 
 _Definition of Done: Hotel (Property Owner) bisa memblokir kategori iklan tertentu agar tidak tayang di properti mereka (misal: Blokir Alkohol atau Kompetitor)._
 
@@ -43,7 +71,7 @@ _Definition of Done: Hotel (Property Owner) bisa memblokir kategori iklan terten
 
 ---
 
-## 🤝 Phase 12: Publisher Revenue Share (Billing Expansion) (Status: PENDING)
+## 🤝 Phase 13: Publisher Revenue Share (Billing Expansion) (Status: PENDING)
 
 _Definition of Done: Sistem menghitung bagi hasil untuk pemilik properti (Hotel Owner) berdasarkan impresi yang tercatat via Telemetry._
 
@@ -65,7 +93,7 @@ _Definition of Done: Sistem menghitung bagi hasil untuk pemilik properti (Hotel 
 
 ---
 
-## 👁️ Phase 13: Sales Tools & Preview (Status: PENDING)
+## 👁️ Phase 14: Sales Tools & Preview (Status: PENDING)
 
 _Definition of Done: Advertiser bisa melihat simulasi tampilan iklan di TV sebelum membayar._
 
@@ -78,7 +106,7 @@ _Definition of Done: Advertiser bisa melihat simulasi tampilan iklan di TV sebel
 
 ---
 
-## 🔗 Phase 14: Integration Sync Engine (SmartIV Core Link) (Status: BLOCKED / FUTURE)
+## 🔗 Phase 15: Integration Sync Engine (SmartIV Core Link) (Status: BLOCKED / FUTURE)
 
 _Definition of Done: Data Hotel & Layar tersinkronisasi otomatis dari SmartIV Core. Dilakukan NANTI saat API Core sudah siap. Saat ini menggunakan Manual CRUD._
 
