@@ -46,6 +46,33 @@ _Definition of Done: Implementasi standar streaming (ABR), keamanan konten, dan 
 
 ---
 
+## 📊 Phase 10.5: Operator Portal & Analytics (Status: NEXT UP - IMPORTANT)
+
+_Definition of Done: Dashboard khusus untuk Property Operator (Hotel/RS) untuk memantau performa iklan dan jadwal (Tanpa kontrol fisik TV)._
+
+- [ ] **Step 1: Operator Dashboard (Finance & Stats)**
+  - [ ] **Endpoint:** `GET /dashboard/operator`.
+  - [ ] **Guard:** `Roles(PROPERTY_OPERATOR)`.
+  - [ ] **Logic:**
+    - `revenueCurrentMonth`: Hitung estimasi pendapatan dari `PublisherLedger` (jika ada).
+    - `totalImpressions`: Count logs hari ini where `screen.propertyId` == user.propertyId.
+    - `activeCampaigns`: Count campaign yang statusnya `ACTIVE` di properti ini.
+    - `screenSummary`: Simple count "Online vs Offline" (ambil dari field `status` & `lastPing`).
+
+- [ ] **Step 2: Schedule View (Monitoring)**
+  - [ ] **Endpoint:** `GET /schedule/property`.
+  - [ ] **Logic:**
+    - Ambil semua `Campaign` yang `ACTIVE` dan berhubungan dengan `propertyId` user.
+    - Return format kalender: `{ date: '2026-01-20', campaigns: [{ name: 'Iklan Sirup', slot: 'SCREENSAVER' }] }`.
+    - _Tujuannya:_ Agar Operator bisa cek jika ada iklan yang tidak pantas di jam tertentu.
+
+- [ ] **Step 3: Property Profile (Read-Only Mirror)**
+  - [ ] **Endpoint:** `GET /properties/my-profile`.
+  - [ ] **Logic:** Return data `Property` (Nama, Alamat, Logo) milik user yang sedang login.
+  - [ ] **Validation:** Pastikan Read-Only (tidak ada endpoint Update di sini karena Data Master ada di SmartIV Core).
+
+---
+
 ## 🎯 Phase 11: Structural Upgrade (Placement & Zones) (Status: NEXT UP)
 
 _Definition of Done: Sistem mengenali spesifikasi slot iklan secara teknis (Resolusi & Aspek Rasio), bukan sekadar Enum. Ini penting agar manual input inventory lebih valid._
