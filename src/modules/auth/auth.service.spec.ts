@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../providers/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { MailService } from '../mail/mail.service'; // [NEW] Wajib Import
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
@@ -17,6 +18,7 @@ describe('AuthService', () => {
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(), // Tambahkan ini jika dibutuhkan oleh forgotPassword
     },
     wallet: {
       create: jest.fn(),
@@ -26,6 +28,11 @@ describe('AuthService', () => {
 
   const mockJwtService = {
     signAsync: jest.fn(),
+  };
+
+  const mockMailService = {
+    sendUserConfirmation: jest.fn(),
+    sendForgotPassword: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -39,6 +46,11 @@ describe('AuthService', () => {
         {
           provide: JwtService,
           useValue: mockJwtService,
+        },
+        // [FIX] Tambahkan Mock MailService agar tidak error dependency
+        {
+          provide: MailService,
+          useValue: mockMailService,
         },
       ],
     }).compile();
@@ -61,6 +73,7 @@ describe('AuthService', () => {
     it('should register a new user successfully', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
+      // Mock Transaction Implementation
       mockPrisma.$transaction.mockImplementation(async (callback) => {
         return callback(prisma);
       });
