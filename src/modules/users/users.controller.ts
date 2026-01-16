@@ -1,14 +1,15 @@
 import {
+  Body,
+  ClassSerializerInterceptor,
   Controller,
   Get,
   Param,
-  Query,
-  UseGuards,
   ParseIntPipe,
   Patch,
-  Body,
+  Post,
+  Query,
+  UseGuards,
   UseInterceptors,
-  ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import {
@@ -26,20 +27,57 @@ import { CurrentUser } from '../../common/decorators/current-user/current-user.d
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserPageOptionsDto } from './dto/user-page-options.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { AssignPropertyDto } from './dto/assign-property.dto';
 import { PageDto } from '../../common/dto/page.dto';
-import { UserResponseDto } from './dto/user-response.dto'; // [NEW]
+import { UserResponseDto } from './dto/user-response.dto';
 
 @ApiTags('Users Management')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@UseInterceptors(ClassSerializerInterceptor) // [BEST PRACTICE] Aktifkan Serialization
+@UseInterceptors(ClassSerializerInterceptor)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  // Phase 8.5 Endpoints
+
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Create new user (Admin Onboarding)' })
+  @ApiResponse({
+    status: 201,
+    description: 'User created successfully.',
+    type: UserResponseDto,
+  })
+  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
+    const user = await this.usersService.createUser(createUserDto);
+    return new UserResponseDto(user);
+  }
+
+  @Patch(':id/assign-property')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Assign Property to Operator' })
+  @ApiResponse({
+    status: 200,
+    description: 'Property assigned.',
+    type: UserResponseDto,
+  })
+  async assignProperty(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AssignPropertyDto,
+  ): Promise<UserResponseDto> {
+    const user = await this.usersService.assignProperty(id, dto);
+    return new UserResponseDto(user);
+  }
+
+  // Phase 8 Endpoints
+
   @Patch('profile')
   @ApiOperation({ summary: 'Update my profile' })
-  @ApiResponse({ type: UserResponseDto }) // Doc Swagger update
+  @ApiResponse({ type: UserResponseDto })
   async updateProfile(
     @CurrentUser() user: User,
     @Body() dto: UpdateProfileDto,
@@ -66,7 +104,7 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<UserResponseDto> {
     const result = await this.usersService.findOne(id);
-    return new UserResponseDto(result); // Transform ke DTO aman
+    return new UserResponseDto(result);
   }
 
   @Patch(':id/status')

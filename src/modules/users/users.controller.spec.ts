@@ -6,16 +6,20 @@ import { PageDto } from '../../common/dto/page.dto';
 import { PageMetaDto } from '../../common/dto/page-meta.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { User, Role } from '@prisma/client';
+import { UserResponseDto } from './dto/user-response.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { AssignPropertyDto } from './dto/assign-property.dto';
 
 describe('UsersController', () => {
   let controller: UsersController;
   let service: UsersService;
 
-  // Mock Service tanpa 'any'
   const mockUsersService = {
     findAll: jest.fn(),
     findOne: jest.fn(),
     updateProfile: jest.fn(),
+    createUser: jest.fn(), // [NEW]
+    assignProperty: jest.fn(), // [NEW]
   };
 
   const mockUser: User = {
@@ -25,9 +29,12 @@ describe('UsersController', () => {
     role: Role.ADVERTISER,
     phone: null,
     password: 'hash',
+    isActive: true,
+    passwordResetToken: null,
+    passwordResetExpires: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    propertyId: null, // [FIX] Ditambahkan agar sesuai tipe User Prisma
+    propertyId: null,
   };
 
   beforeEach(async () => {
@@ -39,6 +46,40 @@ describe('UsersController', () => {
     controller = module.get<UsersController>(UsersController);
     service = module.get<UsersService>(UsersService);
   });
+
+  // --- PHASE 8.5 TESTS ---
+
+  describe('create', () => {
+    it('should create new user', async () => {
+      const dto: CreateUserDto = {
+        email: 'test@mail.com',
+        password: 'pass',
+        name: 'Test',
+        role: Role.ADVERTISER,
+      };
+      mockUsersService.createUser.mockResolvedValue({ ...mockUser, ...dto });
+
+      const result = await controller.create(dto);
+      expect(service.createUser).toHaveBeenCalledWith(dto);
+      expect(result).toBeInstanceOf(UserResponseDto);
+    });
+  });
+
+  describe('assignProperty', () => {
+    it('should assign property', async () => {
+      const dto: AssignPropertyDto = { propertyId: 10 };
+      mockUsersService.assignProperty.mockResolvedValue({
+        ...mockUser,
+        propertyId: 10,
+      });
+
+      const result = await controller.assignProperty(1, dto);
+      expect(service.assignProperty).toHaveBeenCalledWith(1, dto);
+      expect(result.propertyId).toBe(10);
+    });
+  });
+
+  // --- EXISTING TESTS ---
 
   describe('findAll', () => {
     it('should return page dto', async () => {
@@ -57,19 +98,14 @@ describe('UsersController', () => {
 
   describe('findOne', () => {
     it('should return user detail', async () => {
-      // Mock return tanpa password (SafeUser)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password, ...safeUser } = mockUser;
-
-      mockUsersService.findOne.mockResolvedValue(safeUser);
+      mockUsersService.findOne.mockResolvedValue(mockUser);
 
       const result = await controller.findOne(1);
-      expect(result).toEqual(safeUser);
+      expect(result).toBeInstanceOf(UserResponseDto);
       expect(service.findOne).toHaveBeenCalledWith(1);
     });
   });
 
-  // [NEW TEST]
   describe('updateProfile', () => {
     it('should call service.updateProfile', async () => {
       const dto: UpdateProfileDto = { name: 'Updated Name' };

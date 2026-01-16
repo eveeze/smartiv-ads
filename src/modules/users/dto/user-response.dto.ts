@@ -1,6 +1,53 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Transform, Type } from 'class-transformer';
+
+// --- Sub-DTOs Definition ---
+// Mendefinisikan struktur object nested agar tidak menggunakan 'any'
+
+@Exclude()
+export class WalletResponseDto {
+  @ApiProperty()
+  @Expose()
+  id: number;
+
+  @ApiProperty({ example: 500000, description: 'Current active balance' })
+  @Expose()
+  @Transform(({ value }) => (typeof value === 'bigint' ? Number(value) : value)) // Handle BigInt
+  balance: number;
+
+  @ApiProperty({
+    example: 0,
+    description: 'Frozen balance for active campaigns',
+  })
+  @Expose()
+  @Transform(({ value }) => (typeof value === 'bigint' ? Number(value) : value)) // Handle BigInt
+  frozenBalance: number;
+}
+
+@Exclude()
+export class PropertySimpleDto {
+  @ApiProperty()
+  @Expose()
+  id: number;
+
+  @ApiProperty()
+  @Expose()
+  name: string;
+}
+
+@Exclude()
+export class UserCountDto {
+  @ApiProperty()
+  @Expose()
+  campaigns: number;
+
+  @ApiProperty()
+  @Expose()
+  media: number;
+}
+
+// --- Main User Response DTO ---
 
 @Exclude()
 export class UserResponseDto {
@@ -12,12 +59,10 @@ export class UserResponseDto {
   @Expose()
   email: string;
 
-  // [FIX] Tambahkan '| null' karena field ini nullable di DB
   @ApiProperty({ nullable: true })
   @Expose()
   name: string | null;
 
-  // [FIX] Tambahkan '| null'
   @ApiProperty({ nullable: true })
   @Expose()
   phone: string | null;
@@ -30,6 +75,10 @@ export class UserResponseDto {
   @Expose()
   isActive: boolean;
 
+  @ApiProperty({ nullable: true })
+  @Expose()
+  propertyId: number | null;
+
   @ApiProperty()
   @Expose()
   createdAt: Date;
@@ -38,17 +87,23 @@ export class UserResponseDto {
   @Expose()
   updatedAt: Date;
 
-  @ApiProperty({ required: false })
+  // [UPDATED] Menggunakan tipe spesifik WalletResponseDto
+  @ApiProperty({ required: false, type: WalletResponseDto })
   @Expose()
-  wallet?: any;
+  @Type(() => WalletResponseDto)
+  wallet?: WalletResponseDto;
 
-  @ApiProperty({ required: false })
+  // [UPDATED] Menggunakan tipe spesifik PropertySimpleDto
+  @ApiProperty({ required: false, type: PropertySimpleDto })
   @Expose()
-  property?: any;
+  @Type(() => PropertySimpleDto)
+  property?: PropertySimpleDto;
 
-  @ApiProperty({ required: false })
+  // [UPDATED] Menggunakan tipe spesifik UserCountDto
+  @ApiProperty({ required: false, type: UserCountDto })
   @Expose()
-  _count?: any; // Tambahkan ini untuk handle count relation
+  @Type(() => UserCountDto)
+  _count?: UserCountDto;
 
   constructor(partial: Partial<UserResponseDto>) {
     Object.assign(this, partial);

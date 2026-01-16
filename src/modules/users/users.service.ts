@@ -1,18 +1,110 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../providers/prisma/prisma.service';
-import { Prisma, User } from '@prisma/client';
+import { Prisma, Role, User } from '@prisma/client';
 import { PageMetaDto } from '../../common/dto/page-meta.dto';
 import { PageDto } from '../../common/dto/page.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserPageOptionsDto } from './dto/user-page-options.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
-import { UserResponseDto } from './dto/user-response.dto'; // [NEW]
+import { UserResponseDto } from './dto/user-response.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { AssignPropertyDto } from './dto/assign-property.dto';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Return PageDto<UserResponseDto> agar type-safe dengan Controller
+  // ==========================================
+  // PHASE 8.5: ADMIN MANAGED ONBOARDING
+  // ==========================================
+
+  async createUser(dto: CreateUserDto): Promise<User> {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email already registered');
+    }
+
+    if (dto.role === Role.PROPERTY_OPERATOR && dto.propertyId) {
+      const propertyExists = await this.prisma.property.findUnique({
+        where: { id: dto.propertyId },
+        select: { id: true },
+      });
+      if (!propertyExists) {
+        throw new BadRequestException('Property ID not found');
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    return this.prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          email: dto.email,
+          password: hashedPassword,
+          name: dto.name,
+          phone: dto.phone,
+          role: dto.role,
+          propertyId: dto.propertyId || null,
+          isActive: true,
+        },
+      });
+
+      await tx.wallet.create({
+        data: {
+          userId: newUser.id,
+          balance: 0,
+          frozenBalance: 0,
+        },
+      });
+
+      return newUser;
+    });
+  }
+
+  async assignProperty(userId: number, dto: AssignPropertyDto): Promise<User> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.role !== Role.PROPERTY_OPERATOR) {
+      throw new BadRequestException(
+        'Can only assign property to PROPERTY_OPERATOR role',
+      );
+    }
+
+    if (dto.propertyId) {
+      const propertyExists = await this.prisma.property.findUnique({
+        where: { id: dto.propertyId },
+        select: { id: true },
+      });
+      if (!propertyExists) {
+        throw new NotFoundException('Property not found');
+      }
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { propertyId: dto.propertyId },
+    });
+  }
+
+  // ==========================================
+  // EXISTING METHODS
+  // ==========================================
+
   async findAll(
     pageOptionsDto: UserPageOptionsDto,
   ): Promise<PageDto<UserResponseDto>> {
@@ -36,9 +128,6 @@ export class UsersService {
         skip,
         take,
         orderBy: { createdAt: order },
-        // Kita tidak perlu select manual disini kalau pakai Interceptor di Controller,
-        // TAPI untuk performa Query List, select manual tetap lebih baik.
-        // Password TIDAK kita ambil dari DB.
         select: {
           id: true,
           name: true,
@@ -48,6 +137,7 @@ export class UsersService {
           isActive: true,
           createdAt: true,
           updatedAt: true,
+          propertyId: true, // Pastikan propertyId di-select
           _count: {
             select: { campaigns: true, media: true },
           },
@@ -57,14 +147,11 @@ export class UsersService {
     ]);
 
     const pageMetaDto = new PageMetaDto({ itemCount, pageOptionsDto });
-
-    // Mapping manual ke DTO Response untuk List
     const data = users.map((user) => new UserResponseDto(user));
 
     return new PageDto(data, pageMetaDto);
   }
 
-  // Return User biasa (Prisma Type), nanti Controller yang wrap ke DTO
   async findOne(id: number): Promise<User> {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -107,22 +194,7 @@ export class UsersService {
     });
   }
 
-  // ==========================================
-  // BEST PRACTICE: HELPER METHODS
-  // ==========================================
-
-  /**
-   * Mengapa ini "Private" dan bukan "Common Util"?
-   * * 1. Domain Context: Logic pengecekan user sangat spesifik untuk entity User
-   * (menggunakan prisma.user.findUnique).
-   * 2. Type Safety: Membuat util generic untuk Prisma di NestJS cukup kompleks
-   * dan seringkali mengorbankan type safety (menggunakan 'any').
-   * 3. Encapsulation: Service ini bertanggung jawab penuh atas lifecycle User.
-   * * Jika logic ini dipakai di 10 service berbeda, baru kita refactor ke Common/BaseService.
-   * Untuk saat ini, private method adalah solusi paling rapi dan performan (O(1)).
-   */
   private async checkExistence(id: number) {
-    // Select ID only -> Query paling ringan (O(1))
     const exists = await this.prisma.user.findUnique({
       where: { id },
       select: { id: true },
