@@ -7,7 +7,7 @@
 
 ## 🎥 Phase 10: Advanced Media Architecture & Security (Status: ON PROGRESS 🚧)
 
-_Definition of Done: Implementasi standar streaming modern (ABR), keamanan konten (Signed URL), dan preview visual._
+_Definition of Done: Implementasi standar streaming (ABR), keamanan konten, dan kemudahan manajemen aset (Metadata)._
 
 - [x] **Step 1: Adaptive Bitrate (ABR) Pipeline**
   - [x] **Processor:** Transcoding HLS Multi-bitrate (240p, 360p, 480p, 720p) via FFmpeg.
@@ -30,6 +30,19 @@ _Definition of Done: Implementasi standar streaming modern (ABR), keamanan konte
   - [ ] **Access Control:**
     - Pastikan Bucket MinIO diset **Private** (bukan Public Read) agar user wajib lewat Signed URL.
     - Implementasi CORS Policy ketat (hanya izinkan domain dashboard & player).
+
+- [ ] **Step 4: Media Metadata & Advanced Search (Enterprise Standard)**
+  - [ ] **Schema Refinement (Normalized):**
+    - Buat model baru `MediaTag` (`id`, `name` unique).
+    - Relasikan Many-to-Many antara `Media` dan `MediaTag`.
+    - Tambahkan field `displayName` dan `description` di `Media`.
+  - [ ] **DTO & Logic Update:**
+    - Update `UploadMediaDto` terima input tags string (misal: "promo, food").
+    - Update `MediaService.create`: Gunakan Prisma `connectOrCreate` untuk menangani logika tag baru vs tag lama secara otomatis.
+    - Sanitasi Input: Paksa tag menjadi _lowercase_ dan _trim_ spasi sebelum disimpan.
+  - [ ] **Search Implementation:**
+    - Update `findAll`: Support filter `where: { tags: { some: { name: { contains: search } } } }`.
+    - Tambahkan endpoint `GET /media/tags` (untuk Autocomplete di Frontend).
 
 ---
 
