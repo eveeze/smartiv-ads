@@ -5,25 +5,22 @@ services:
   # 1. Aplikasi Backend (NestJS)
   # ---------------------------
   app:
-    # Nama container dinamis: smartiv-ads-api-prod / smartiv-ads-api-staging
     container_name: smartiv-ads-api-${ENV_NAME}
     image: ${APP_IMAGE}
     restart: unless-stopped
     env_file:
       - .env
-    # Port mapping dinamis (Port Luar : Port Dalam)
-    # Prod: 3000:3000 | Staging: 3001:3000
     ports:
       - '${APP_PORT}:3000'
     depends_on:
       - postgres
       - redis
     networks:
-      - smartiv-net # Network internal app ini (DB & Redis)
-      - shared_network # Network luar (Konek ke MinIO & Nginx Proxy Manager)
+      - smartiv-net
+      - shared_network # Konek ke MinIO & Nginx
 
   # ---------------------------
-  # 2. Database (PostgreSQL) - Dedicated per Environment
+  # 2. Database (PostgreSQL)
   # ---------------------------
   postgres:
     image: postgres:15-alpine
@@ -39,7 +36,7 @@ services:
       - smartiv-net
 
   # ---------------------------
-  # 3. Queue & Cache (Redis) - Dedicated per Environment
+  # 3. Queue & Cache (Redis)
   # ---------------------------
   redis:
     image: redis:alpine
@@ -48,15 +45,36 @@ services:
     networks:
       - smartiv-net
 
-# Volume Data (Agar data tidak hilang saat restart)
+  # ---------------------------
+  # 4. MinIO Bucket Creator (ROBOT)
+  # ---------------------------
+  createbuckets:
+    image: minio/mc
+    container_name: smartiv-ads-createbuckets-${ENV_NAME}
+    env_file:
+      - .env
+    # Script: Tunggu 5 detik -> Login MinIO -> Bikin Bucket -> Set Public -> Mati
+    entrypoint: >
+      /bin/sh -c "
+      echo '⏳ Waiting for MinIO...';
+      sleep 5;
+      /usr/bin/mc alias set myminio http://${MINIO_ENDPOINT}:${MINIO_PORT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+      /usr/bin/mc mb --ignore-existing myminio/${MINIO_BUCKET};
+      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET};
+      echo '✅ Bucket ready & public!';
+      exit 0;
+      "
+    networks:
+      - shared_network # Wajib satu network sama MinIO
+
+# Volume Data
 volumes:
   postgres_data_prod:
   postgres_data_staging:
 
-# Konfigurasi Network
+# Network
 networks:
   smartiv-net:
     driver: bridge
-  # Network ini WAJIB sudah ada di VPS (milik MinIO/Nginx kamu)
   shared_network:
     external: true

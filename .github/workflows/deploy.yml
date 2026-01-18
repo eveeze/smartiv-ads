@@ -92,12 +92,10 @@ jobs:
             echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
 
             # 2. REDIS (HARDCODED - Internal Docker)
-            # Backend akses redis via nama service 'redis'
             echo "REDIS_HOST=redis" >> .env
             echo "REDIS_PORT=6379" >> .env
 
             # 3. MINIO INTERNAL (HARDCODED - Jalur Dalam)
-            # Backend akses MinIO via nama container 'minio-server'
             echo "MINIO_ENDPOINT=minio-server" >> .env
             echo "MINIO_PORT=9000" >> .env
             echo "MINIO_USE_SSL=false" >> .env
@@ -106,15 +104,11 @@ jobs:
             echo "MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }}" >> .env
             echo "MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }}" >> .env
             echo "MINIO_BUCKET=${{ secrets.MINIO_BUCKET }}" >> .env
-            # URL Publik untuk Frontend (https://minio.xxx.sslip.io)
             echo "MINIO_PUBLIC_URL=${{ secrets.MINIO_PUBLIC_URL }}" >> .env
 
             # 5. INTEGRASI LAIN (Dari Secrets)
             echo "MAIL_HOST=${{ secrets.MAIL_HOST }}" >> .env
             echo "MAIL_USER=${{ secrets.MAIL_USER }}" >> .env
-            # Perhatikan nama secret MAIL_PASS vs MAIL_PASSWORD di github kamu
-            # Di list secret kamu tertulis MAIL_PASSWORD, tapi di env example MAIL_PASS
-            # Sesuaikan dengan kode app kamu. Asumsi kode pakai MAIL_PASSWORD:
             echo "MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}" >> .env
             echo "MAIL_PORT=${{ secrets.MAIL_PORT }}" >> .env
             echo "MAIL_FROM=${{ secrets.MAIL_FROM }}" >> .env
@@ -129,8 +123,8 @@ jobs:
             # Pass variabel ke docker compose
             ENV_NAME=$ENV_NAME APP_PORT=$APP_PORT APP_IMAGE=$APP_IMAGE POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} POSTGRES_DB=${{ secrets.POSTGRES_DB }} docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            echo "⏳ Waiting for DB..."
-            sleep 10
+            echo "⏳ Waiting for DB to be ready (30s)..."
+            sleep 30  # <--- INI YG PENTING, DIUBAH JADI 30 DETIK
 
             ENV_NAME=$ENV_NAME APP_PORT=$APP_PORT APP_IMAGE=$APP_IMAGE POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} POSTGRES_DB=${{ secrets.POSTGRES_DB }} docker compose -f docker-compose.prod.yml exec -T app npx prisma migrate deploy
 
