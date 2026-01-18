@@ -5,56 +5,58 @@ services:
   # 1. Aplikasi Backend (NestJS)
   # ---------------------------
   app:
-    container_name: smartiv-ads-api
-    # Image akan diisi otomatis oleh GitHub Actions
+    # Nama container dinamis: smartiv-ads-api-prod / smartiv-ads-api-staging
+    container_name: smartiv-ads-api-${ENV_NAME}
     image: ${APP_IMAGE}
     restart: unless-stopped
     env_file:
       - .env
-    # Expose port 3000 ke localhost VPS agar bisa diambil Nginx Proxy Manager
+    # Port mapping dinamis (Port Luar : Port Dalam)
+    # Prod: 3000:3000 | Staging: 3001:3000
     ports:
-      - '127.0.0.1:3000:3000'
+      - '${APP_PORT}:3000'
     depends_on:
       - postgres
       - redis
     networks:
-      - smartiv-net # Untuk konek ke DB & Redis sendiri
-      - shared_network # Untuk konek ke MinIO Teman & Nginx Proxy Manager
+      - smartiv-net # Network internal app ini (DB & Redis)
+      - shared_network # Network luar (Konek ke MinIO & Nginx Proxy Manager)
 
   # ---------------------------
-  # 2. Database (PostgreSQL) - Dedicated
+  # 2. Database (PostgreSQL) - Dedicated per Environment
   # ---------------------------
   postgres:
     image: postgres:15-alpine
-    container_name: smartiv-ads-postgres
+    container_name: smartiv-ads-postgres-${ENV_NAME}
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres_data_prod:/var/lib/postgresql/data
+      - postgres_data_${ENV_NAME}:/var/lib/postgresql/data
     networks:
       - smartiv-net
 
   # ---------------------------
-  # 3. Queue & Cache (Redis) - Dedicated
+  # 3. Queue & Cache (Redis) - Dedicated per Environment
   # ---------------------------
   redis:
     image: redis:alpine
-    container_name: smartiv-ads-redis
+    container_name: smartiv-ads-redis-${ENV_NAME}
     restart: unless-stopped
     networks:
       - smartiv-net
 
-# Volume agar data DB aman
+# Volume Data (Agar data tidak hilang saat restart)
 volumes:
   postgres_data_prod:
+  postgres_data_staging:
 
 # Konfigurasi Network
 networks:
   smartiv-net:
     driver: bridge
-  # Network ini WAJIB sudah ada di VPS (dibuat oleh Nginx Proxy Manager / MinIO)
+  # Network ini WAJIB sudah ada di VPS (milik MinIO/Nginx kamu)
   shared_network:
     external: true
