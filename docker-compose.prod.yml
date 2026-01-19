@@ -17,7 +17,7 @@ services:
       - redis
     networks:
       - smartiv-net
-      - shared_network # Konek ke MinIO & Nginx
+      - shared_network
 
   # ---------------------------
   # 2. Database (PostgreSQL)
@@ -46,26 +46,37 @@ services:
       - smartiv-net
 
   # ---------------------------
-  # 4. MinIO Bucket Creator (ROBOT)
+  # 4. MinIO Bucket Creator (ROBOT PINTAR)
   # ---------------------------
   createbuckets:
     image: minio/mc
     container_name: smartiv-ads-createbuckets-${ENV_NAME}
     env_file:
       - .env
-    # Script: Tunggu 5 detik -> Login MinIO -> Bikin Bucket -> Set Public -> Mati
+    # Script: Loop checking connection -> Create Bucket -> Set Public Policy
     entrypoint: >
       /bin/sh -c "
-      echo '⏳ Waiting for MinIO...';
-      sleep 5;
-      /usr/bin/mc alias set myminio http://${MINIO_ENDPOINT}:${MINIO_PORT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+      echo '🔍 Config: Host=${MINIO_ENDPOINT}, Port=${MINIO_PORT}, Bucket=${MINIO_BUCKET}';
+
+      # 1. Retry Connection Loop (Sampai MinIO siap)
+      until /usr/bin/mc alias set myminio http://${MINIO_ENDPOINT}:${MINIO_PORT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}; do
+        echo '⏳ MinIO belum siap... Menunggu 3 detik...';
+        sleep 3;
+      done;
+
+      echo '✅ MinIO Connected!';
+
+      # 2. Create Bucket (Abaikan jika sudah ada)
       /usr/bin/mc mb --ignore-existing myminio/${MINIO_BUCKET};
+
+      # 3. Set Public Policy (Download Only)
       /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET};
-      echo '✅ Bucket ready & public!';
+
+      echo '🎉 SUCCESS: Bucket ${MINIO_BUCKET} is ready & public!';
       exit 0;
       "
     networks:
-      - shared_network # Wajib satu network sama MinIO
+      - shared_network # Wajib satu network dengan 'minio-server'
 
 # Volume Data
 volumes:

@@ -82,14 +82,14 @@ jobs:
             echo "Generating .env file..."
 
             # -----------------------------------------------------------
-            # LOGIC PENTING: Bedakan Config Prod vs Staging di sini
+            # LOGIC PENTING: Bedakan Config Prod vs Staging
             # -----------------------------------------------------------
             if [ "$ENV_NAME" == "prod" ]; then
               echo "NODE_ENV=production" > .env
               echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
               
               # Otomatis pakai domain Production
-              echo "MINIO_PUBLIC_URL=https://minio.titozakisaputro.site" >> .env
+              echo "MINIO_PUBLIC_URL=https://smartiv-ads-minio.titozakisaputro.site" >> .env
               
               # Config Midtrans dari Secret
               echo "MIDTRANS_IS_PRODUCTION=${{ secrets.MIDTRANS_IS_PRODUCTION }}" >> .env
@@ -98,13 +98,13 @@ jobs:
               echo "FRONTEND_URL=${{ secrets.FRONTEND_URL_STAGING }}" >> .env
               
               # Otomatis pakai domain Staging
-              echo "MINIO_PUBLIC_URL=https://minio-staging.titozakisaputro.site" >> .env
+              echo "MINIO_PUBLIC_URL=https://smartiv-ads-minio-staging.titozakisaputro.site" >> .env
               
               # Staging WAJIB Sandbox
               echo "MIDTRANS_IS_PRODUCTION=false" >> .env
             fi
 
-            # 1. DATABASE & AUTH (Aman, Data terpisah oleh Volume Docker)
+            # 1. DATABASE & AUTH
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
             echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
             echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
@@ -116,7 +116,7 @@ jobs:
             echo "REDIS_HOST=redis" >> .env
             echo "REDIS_PORT=6379" >> .env
 
-            # 3. MINIO INTERNAL (Komunikasi antar Container)
+            # 3. MINIO INTERNAL (Container Name sesuai VPS kamu: minio-server)
             echo "MINIO_ENDPOINT=minio-server" >> .env
             echo "MINIO_PORT=9000" >> .env
             echo "MINIO_USE_SSL=false" >> .env
