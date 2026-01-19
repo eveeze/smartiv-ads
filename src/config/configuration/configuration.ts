@@ -3,14 +3,14 @@ import * as Joi from 'joi';
 // 1. Validasi Schema
 export const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
-    .valid('development', 'production', 'test', 'provision')
+    .valid('development', 'production', 'test', 'provision', 'staging')
     .default('development'),
   PORT: Joi.number().default(3000),
   DATABASE_URL: Joi.string().required(),
 
   // JWT
   JWT_SECRET: Joi.string().required(),
-  JWT_EXPIRES_IN: Joi.string().default('1d'), // Sesuai dengan .env baru
+  JWT_EXPIRES_IN: Joi.string().default('1d'),
 
   // MinIO Config
   MINIO_ENDPOINT: Joi.string().required(),
@@ -18,14 +18,13 @@ export const validationSchema = Joi.object({
   MINIO_ACCESS_KEY: Joi.string().required(),
   MINIO_SECRET_KEY: Joi.string().required(),
   MINIO_BUCKET: Joi.string().default('smartiv-media'),
-  // [NEW] Validasi Public URL
   MINIO_PUBLIC_URL: Joi.string().uri().optional(),
 
   // Redis Config
   REDIS_HOST: Joi.string().default('localhost'),
   REDIS_PORT: Joi.number().default(6379),
 
-  // [NEW] Midtrans Validation (Sebelumnya hilang)
+  // Midtrans Validation
   MIDTRANS_SERVER_KEY: Joi.string().required(),
   MIDTRANS_CLIENT_KEY: Joi.string().required(),
   MIDTRANS_IS_PRODUCTION: Joi.boolean().default(false),
@@ -33,6 +32,7 @@ export const validationSchema = Joi.object({
 
 // 2. Config Factory
 export default () => ({
+  environment: process.env.NODE_ENV,
   port: parseInt(process.env.PORT || '3000', 10),
   database: {
     url: process.env.DATABASE_URL,
@@ -47,7 +47,6 @@ export default () => ({
     accessKey: process.env.MINIO_ACCESS_KEY,
     secretKey: process.env.MINIO_SECRET_KEY,
     bucket: process.env.MINIO_BUCKET || 'smartiv-media',
-    // Logic fallback cerdas untuk Public URL
     publicUrl:
       process.env.MINIO_PUBLIC_URL ||
       `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${process.env.MINIO_BUCKET || 'smartiv-media'}`,
