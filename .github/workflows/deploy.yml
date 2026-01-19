@@ -147,8 +147,11 @@ jobs:
             echo "⏳ Waiting for DB to be ready (30s)..."
             sleep 30
 
-            # Migrasi Database
-            ENV_NAME=$ENV_NAME APP_PORT=$APP_PORT APP_IMAGE=$APP_IMAGE POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} POSTGRES_DB=${{ secrets.POSTGRES_DB }} docker compose -f docker-compose.prod.yml exec -T app ./node_modules/.bin/prisma migrate deploy
+            # 1. Migrasi Database (Gunakan pnpm)
+            docker compose -f docker-compose.prod.yml exec -T app pnpm prisma migrate deploy
+
+            # 2. Seeding Database
             echo "🌱 Running database seeding..."
-            docker compose -f docker-compose.prod.yml exec -T app npx prisma db seed
+            docker compose -f docker-compose.prod.yml exec -T app pnpm prisma db seed
+
             docker image prune -f
