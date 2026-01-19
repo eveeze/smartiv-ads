@@ -4,54 +4,53 @@ import * as bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting Idempotent Seeding...');
+  console.log('🌱 Starting Seeding...');
 
-  // 1. Definisikan Password (Sebaiknya gunakan env variable di produksi)
-  const defaultPassword = process.env.INITIAL_ADMIN_PASSWORD || 'password123';
-  const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+  // 1. Clean All Data (Urutan Penting: Child -> Parent)
+  await prisma.transaction.deleteMany();
+  await prisma.impressionLog.deleteMany();
+  await prisma.campaignItem.deleteMany();
+  await prisma.campaign.deleteMany();
+  await prisma.media.deleteMany();
+  await prisma.rateCard.deleteMany();
+  await prisma.screen.deleteMany();
+  await prisma.property.deleteMany();
+  await prisma.wallet.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.user.deleteMany();
 
-  // 2. Upsert Super Admin
-  // Menggunakan upsert agar jika email sudah ada, tidak akan error atau membuat duplikat
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@smartiv.com' },
-    update: {}, // Tidak mengubah apa pun jika user sudah ada
-    create: {
+  console.log('🧹 Database cleaned.');
+
+  // 2. Create Super Admin (Credentials cocok dengan Postman)
+  const adminPassword = await bcrypt.hash('password123', 10);
+  const admin = await prisma.user.create({
+    data: {
       email: 'admin@smartiv.com',
-      password: hashedPassword,
+      password: adminPassword,
       name: 'Super Admin',
       role: Role.SUPER_ADMIN,
-      isActive: true,
-      wallet: {
-        create: { balance: 0 },
-      },
+      wallet: { create: { balance: 0 } },
     },
   });
-  console.log(`✅ Admin Check: ${admin.email}`);
+  console.log(`✅ Admin Created: ${admin.email}`);
 
-  // 3. Upsert Advertiser (Hanya untuk keperluan testing awal/staging)
-  const advertiser = await prisma.user.upsert({
-    where: { email: 'advertiser@test.com' },
-    update: {},
-    create: {
+  // 3. Create Advertiser (Credentials cocok dengan Postman)
+  const advertiserPassword = await bcrypt.hash('password123', 10);
+  const advertiser = await prisma.user.create({
+    data: {
       email: 'advertiser@test.com',
-      password: hashedPassword,
+      password: advertiserPassword,
       name: 'PT Maju Mundur',
       phone: '081234567890',
       role: Role.ADVERTISER,
-      isActive: true,
-      wallet: {
-        create: { balance: 10000000 }, // 10 Juta
-      },
+      wallet: { create: { balance: 10000000 } }, // Saldo awal 10 Juta
     },
   });
-  console.log(`✅ Advertiser Check: ${advertiser.email}`);
+  console.log(`✅ Advertiser Created: ${advertiser.email}`);
 
-  // 4. Upsert Dummy Property (Opsional)
-  // Menggunakan smartivCode sebagai identifier unik sesuai skema prisma Anda
-  const property = await prisma.property.upsert({
-    where: { smartivCode: 'HMS-001' },
-    update: {},
-    create: {
+  // 4. (Optional) Create 1 Dummy Property
+  const property = await prisma.property.create({
+    data: {
       name: 'Hotel Mulia Senayan',
       type: 'HOTEL',
       classification: 'LUXURY',
@@ -60,14 +59,14 @@ async function main() {
       enabledSlots: [AdSlot.SCREENSAVER, AdSlot.INFO_SLIDER],
     },
   });
-  console.log(`✅ Property Check: ${property.name}`);
+  console.log(`✅ Property Created: ${property.name}`);
 
-  console.log('🚀 Seeding Finished Safely!');
+  console.log('🚀 Seeding Finished!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seeding Error:', e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {
