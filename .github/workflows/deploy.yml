@@ -148,10 +148,10 @@ jobs:
             sleep 30
 
             # 1. Migrasi Database (Gunakan pnpm)
-            docker compose -f docker-compose.prod.yml exec -T app pnpm prisma migrate deploy
+            docker compose -f docker-compose.prod.yml exec -T app pnpm exec prisma migrate deploy
 
             # 2. Seeding Database
             echo "🌱 Running database seeding..."
-            docker compose -f docker-compose.prod.yml exec -T app pnpm prisma db seed
+            docker compose -f docker-compose.prod.yml exec -T app pnpm exec prisma db seed
 
             docker image prune -f
