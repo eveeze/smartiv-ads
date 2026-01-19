@@ -2,31 +2,57 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../providers/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { MailService } from '../mail/mail.service'; // [NEW] Wajib Import
+import { MailService } from '../mail/mail.service';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 // 1. MOCK MODULE BCRYPTJS DI SINI
 jest.mock('bcryptjs');
 
+// [FIX] Interface Helper untuk Mock Prisma
+
+type MockFn = jest.Mock<any, any>;
+
+interface MockPrismaService {
+  user: {
+    findUnique: MockFn;
+    create: MockFn;
+    update: MockFn;
+  };
+  wallet: {
+    create: MockFn;
+  };
+  $transaction: MockFn;
+}
+
+interface MockJwtService {
+  signAsync: MockFn;
+}
+
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: PrismaService;
-  let jwtService: JwtService;
+  // [FIX] Hapus jwtService jika tidak digunakan langsung di 'it' block, atau gunakan jika perlu
 
+  // [FIX] Casting ke Interface agar aman di callback transaction
   const mockPrisma = {
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
-      update: jest.fn(), // Tambahkan ini jika dibutuhkan oleh forgotPassword
+      update: jest.fn(),
     },
     wallet: {
       create: jest.fn(),
     },
-    $transaction: jest.fn(),
-  };
+    // [FIX] Implementasi transaction yang Type Safe
+    $transaction: jest
+      .fn()
+      .mockImplementation((callback: (prisma: MockPrismaService) => unknown) =>
+        callback(mockPrisma as unknown as MockPrismaService),
+      ),
+  } as unknown as MockPrismaService;
 
-  const mockJwtService = {
+  const mockJwtService: MockJwtService = {
     signAsync: jest.fn(),
   };
 
@@ -47,7 +73,6 @@ describe('AuthService', () => {
           provide: JwtService,
           useValue: mockJwtService,
         },
-        // [FIX] Tambahkan Mock MailService agar tidak error dependency
         {
           provide: MailService,
           useValue: mockMailService,
@@ -57,7 +82,7 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     prisma = module.get<PrismaService>(PrismaService);
-    jwtService = module.get<JwtService>(JwtService);
+    // jwtService = module.get<JwtService>(JwtService); // Uncomment jika ingin dipakai
 
     jest.clearAllMocks();
   });
@@ -73,13 +98,7 @@ describe('AuthService', () => {
     it('should register a new user successfully', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      // Mock Transaction Implementation
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
-        return callback(prisma);
-      });
-
       const hashedPassword = 'hashed_password';
-      // 2. GUNAKAN IMPLEMENTASI MOCK LANGSUNG
       (bcrypt.hash as jest.Mock).mockResolvedValue(hashedPassword);
 
       mockPrisma.user.create.mockResolvedValue({
@@ -96,8 +115,9 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('id');
       expect(result).not.toHaveProperty('password');
       expect(result.email).toBe(registerDto.email);
-      expect(prisma.user.create).toHaveBeenCalled();
-      expect(prisma.wallet.create).toHaveBeenCalledWith({
+      // [FIX] Gunakan mockPrisma langsung untuk menghindari unbound method
+      expect(mockPrisma.user.create).toHaveBeenCalled();
+      expect(mockPrisma.wallet.create).toHaveBeenCalledWith({
         data: { userId: 1, balance: 0 },
       });
     });
@@ -130,7 +150,6 @@ describe('AuthService', () => {
 
     it('should return access token and user info if credentials are valid', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      // 3. GUNAKAN IMPLEMENTASI MOCK COMPARE
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       mockJwtService.signAsync.mockResolvedValue('mock_token');
 
@@ -149,7 +168,6 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException if password invalid', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      // 4. GUNAKAN IMPLEMENTASI MOCK COMPARE FALSE
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(service.login(loginDto)).rejects.toThrow(

@@ -5,16 +5,42 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { User, Role } from '@prisma/client';
 
+// ==========================================
+// 1. DEFINISI TYPE-SAFE MOCK INTERFACE
+// ==========================================
+
+type MockFn = jest.Mock<any, any>;
+
+interface MockAnalyticsService {
+  getAdvertiserSummary: MockFn;
+  getAdminSummary: MockFn;
+}
+
 describe('AnalyticsController', () => {
   let controller: AnalyticsController;
   let service: AnalyticsService;
 
-  const mockAnalyticsService = {
+  // Mock Service Type Safe
+  const mockAnalyticsService: MockAnalyticsService = {
     getAdvertiserSummary: jest.fn(),
     getAdminSummary: jest.fn(),
   };
 
-  const mockUser = { id: 1, role: Role.ADVERTISER } as User;
+  // Mock User Lengkap (Sesuai Schema Prisma)
+  const mockUser: User = {
+    id: 1,
+    role: Role.ADVERTISER,
+    email: 'test@test.com',
+    name: 'Test User',
+    password: 'hashed_password',
+    phone: null,
+    propertyId: null,
+    isActive: true,
+    passwordResetToken: null,
+    passwordResetExpires: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -54,7 +80,10 @@ describe('AnalyticsController', () => {
 
       const result = await controller.getAdvertiserSummary(mockUser);
 
-      expect(service.getAdvertiserSummary).toHaveBeenCalledWith(mockUser.id);
+      // [FIX] Gunakan mockAnalyticsService langsung untuk menghindari unbound method
+      expect(mockAnalyticsService.getAdvertiserSummary).toHaveBeenCalledWith(
+        mockUser.id,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -70,7 +99,8 @@ describe('AnalyticsController', () => {
 
       const result = await controller.getAdminSummary();
 
-      expect(service.getAdminSummary).toHaveBeenCalled();
+      // [FIX] Gunakan mockAnalyticsService langsung untuk menghindari unbound method
+      expect(mockAnalyticsService.getAdminSummary).toHaveBeenCalled();
       expect(result).toEqual(mockResult);
     });
   });
