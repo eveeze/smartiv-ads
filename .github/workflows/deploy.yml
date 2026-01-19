@@ -81,17 +81,26 @@ jobs:
             # --- GENERATE .ENV ---
             echo "Generating .env file..."
 
-            # Logic Pemisahan Environment
+            # -----------------------------------------------------------
+            # LOGIC PENTING: Bedakan Config Prod vs Staging di sini
+            # -----------------------------------------------------------
             if [ "$ENV_NAME" == "prod" ]; then
               echo "NODE_ENV=production" > .env
               echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
-              # Prod pakai settingan dari secrets (bisa True/False tergantung secret)
+              
+              # Otomatis pakai domain Production
+              echo "MINIO_PUBLIC_URL=https://minio.titozakisaputro.site" >> .env
+              
+              # Config Midtrans dari Secret
               echo "MIDTRANS_IS_PRODUCTION=${{ secrets.MIDTRANS_IS_PRODUCTION }}" >> .env
             else
               echo "NODE_ENV=staging" > .env
-              # Staging pakai URL Frontend khusus (jika ada, jika tidak kosongkan atau samakan)
               echo "FRONTEND_URL=${{ secrets.FRONTEND_URL_STAGING }}" >> .env
-              # Staging dipaksa FALSE (Sandbox) walaupun key-nya sama
+              
+              # Otomatis pakai domain Staging
+              echo "MINIO_PUBLIC_URL=https://minio-staging.titozakisaputro.site" >> .env
+              
+              # Staging WAJIB Sandbox
               echo "MIDTRANS_IS_PRODUCTION=false" >> .env
             fi
 
@@ -107,21 +116,19 @@ jobs:
             echo "REDIS_HOST=redis" >> .env
             echo "REDIS_PORT=6379" >> .env
 
-            # 3. MINIO INTERNAL
+            # 3. MINIO INTERNAL (Komunikasi antar Container)
             echo "MINIO_ENDPOINT=minio-server" >> .env
             echo "MINIO_PORT=9000" >> .env
             echo "MINIO_USE_SSL=false" >> .env
 
-            # 4. MINIO EXTERNAL & BUCKET ISOLATION
+            # 4. CREDENTIALS MINIO
             echo "MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }}" >> .env
             echo "MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }}" >> .env
-            echo "MINIO_PUBLIC_URL=${{ secrets.MINIO_PUBLIC_URL }}" >> .env
 
-            # [FITUR PENTING] Nama bucket otomatis ditambah akhiran -prod atau -staging
-            # Contoh: smartiv-media-prod / smartiv-media-staging
+            # 5. NAMA BUCKET OTOMATIS (smartiv-media-prod / smartiv-media-staging)
             echo "MINIO_BUCKET=${{ secrets.MINIO_BUCKET }}-${ENV_NAME}" >> .env
 
-            # 5. INTEGRASI LAIN (Pakai Key yg sama untuk sementara karena masih Sandbox)
+            # 6. INTEGRASI LAIN
             echo "MAIL_HOST=${{ secrets.MAIL_HOST }}" >> .env
             echo "MAIL_USER=${{ secrets.MAIL_USER }}" >> .env
             echo "MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}" >> .env
@@ -140,7 +147,7 @@ jobs:
             echo "⏳ Waiting for DB to be ready (30s)..."
             sleep 30
 
-            # Gunakan binary local agar versi Prisma aman
+            # Migrasi Database
             ENV_NAME=$ENV_NAME APP_PORT=$APP_PORT APP_IMAGE=$APP_IMAGE POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} POSTGRES_DB=${{ secrets.POSTGRES_DB }} docker compose -f docker-compose.prod.yml exec -T app ./node_modules/.bin/prisma migrate deploy
 
             docker image prune -f
