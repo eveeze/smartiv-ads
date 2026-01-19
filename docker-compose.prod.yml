@@ -46,38 +46,29 @@ services:
       - smartiv-net
 
   # ---------------------------
-  # 4. MinIO Bucket Creator (FIXED: Versi CPUv1)
+  # 4. MinIO Bucket Creator (FIXED: No Comments & Legacy CPU)
   # ---------------------------
   createbuckets:
-    # 👇 INI PERBAIKANNYA: Menggunakan image Client khusus CPU lama
     image: minio/mc:RELEASE.2024-01-16T16-06-34Z-cpuv1
     container_name: smartiv-ads-createbuckets-${ENV_NAME}
     env_file:
       - .env
-    # Script: Loop checking connection -> Create Bucket -> Set Public Policy
+    # Script: Clean version without comments to prevent syntax errors
     entrypoint: >
       /bin/sh -c "
       echo '🔍 Config: Host=${MINIO_ENDPOINT}, Port=${MINIO_PORT}, Bucket=${MINIO_BUCKET}';
-
-      # 1. Retry Connection Loop (Sampai MinIO siap)
       until /usr/bin/mc alias set myminio http://${MINIO_ENDPOINT}:${MINIO_PORT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}; do
-        echo '⏳ MinIO belum siap... Menunggu 3 detik...';
+        echo '⏳ MinIO not ready... waiting 3s...';
         sleep 3;
       done;
-
       echo '✅ MinIO Connected!';
-
-      # 2. Create Bucket (Abaikan jika sudah ada)
       /usr/bin/mc mb --ignore-existing myminio/${MINIO_BUCKET};
-
-      # 3. Set Public Policy (Download Only)
       /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET};
-
       echo '🎉 SUCCESS: Bucket ${MINIO_BUCKET} is ready & public!';
       exit 0;
       "
     networks:
-      - shared_network # Wajib satu network dengan 'minio-server'
+      - shared_network
 
 # Volume Data
 volumes:
