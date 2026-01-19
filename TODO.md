@@ -281,6 +281,39 @@ _Definition of Done: Pengolahan data telemetri menjadi laporan yang bisa dibaca 
 
 ---
 
+## 👥 Phase 8: User Management & Expansion (CMS Extras) (Status: COMPLETED ✅)
+
+_Definition of Done: Fitur tambahan untuk manajemen aktor lain sesuai spesifikasi._
+
+- [x] **Step 1: User Administration**
+  - [x] **Endpoint Admin:** `GET /users` (Search & Filter).
+  - [x] **Endpoint Admin:** `PATCH /users/:id/status` (Block/Unblock User).
+- [x] **Step 2: Property Operator Role (Multi-tenant Support)**
+  - [x] **Role:** Implementasi Role `PROPERTY_OPERATOR` (sebelumnya HOTEL_ADMIN).
+  - [x] **Permissions:** View Schedule Properti Sendiri, View Screen Status.
+  - [x] **Endpoint:** `GET /property/screens` (Tersedia via filter `findAllScreens` + Guard).
+
+## 👥 Phase 8.5: Admin-Managed Onboarding (Status: COMPLETED ✅)
+
+_Definition of Done: Admin bisa membuatkan akun untuk Operator Hotel dan langsung menyambungkannya ke properti._
+
+- [x] **Step 1: Create User by Admin (The "Onboarding" Endpoint)**
+  - [x] **Endpoint:** `POST /users` (Protected: Super Admin Only).
+  - [x] **DTO:** `CreateUserDto`
+    - Fields: `email`, `name`, `password`, `phone`, `role`, `propertyId?` (Optional).
+  - [x] **Logic Service:**
+    - Hash password.
+    - Cek email duplikat.
+    - **Validasi Role:** Jika `role` == `PROPERTY_OPERATOR`, pastikan `propertyId` dikirim dan valid (Exist di DB).
+    - **Create Wallet:** Otomatis buatkan wallet kosong untuk user baru (agar tidak error saat login).
+    - Return: User data (tanpa password).
+
+- [x] **Step 2: Re-Assignment (Jika salah assign)**
+  - [x] **Endpoint:** `PATCH /users/:id/assign-property`.
+  - [x] **Logic:** Update field `propertyId` pada user yang sudah ada. Hanya boleh jika role user adalah `PROPERTY_OPERATOR`.
+
+---
+
 ## 🔐 Phase 9: Account Security (Status: COMPLETED ✅)
 
 _Definition of Done: User bisa mengamankan akun dan melakukan pemulihan (Reset Password)._
@@ -298,38 +331,3 @@ _Definition of Done: User bisa mengamankan akun dan melakukan pemulihan (Reset P
     - **Logic:** Generate secure token, hash, simpan di DB dengan expiry time, kirim email real.
   - [x] **Endpoint:** `POST /auth/reset-password` (Input: Token, New Password).
     - **Logic:** Validasi token, cek expiry, update password, clear token.
-
----
-
-## 👥 Phase 8: User Management & Expansion (CMS Extras) (Status: NEXT UP - Prioritas Utama)
-
-_Definition of Done: Fitur tambahan untuk manajemen aktor lain sesuai spesifikasi._
-
-- [ ] **Step 1: User Administration**
-  - [ ] **Endpoint Admin:** `GET /users` (Search & Filter).
-  - [ ] **Endpoint Admin:** `PATCH /users/:id/status` (Block/Unblock User).
-- [ ] **Step 2: Property Operator Role (Multi-tenant Support)**
-  - [ ] **Role:** Implementasi Role `PROPERTY_OPERATOR` (sebelumnya HOTEL_ADMIN).
-  - [ ] **Permissions:** View Schedule Properti Sendiri, View Screen Status.
-  - [ ] **Endpoint:** `GET /property/screens` (Khusus Operator melihat status layar di propertinya sendiri).
-
-## 👥 Phase 8.5: Admin-Managed Onboarding (Pengganti Manual DB)
-
-_Definition of Done: Admin bisa membuatkan akun untuk Operator Hotel dan langsung menyambungkannya ke properti._
-
-- [ ] **Step 1: Create User by Admin (The "Onboarding" Endpoint)**
-  - [ ] **Endpoint:** `POST /users` (Protected: Super Admin Only).
-  - [ ] **DTO:** `CreateUserDto`
-    - Fields: `email`, `name`, `password`, `phone`, `role`, `propertyId?` (Optional).
-  - [ ] **Logic Service:**
-    - Hash password.
-    - Cek email duplikat.
-    - **Validasi Role:** Jika `role` == `PROPERTY_OPERATOR`, pastikan `propertyId` dikirim dan valid (Exist di DB).
-    - **Create Wallet:** Otomatis buatkan wallet kosong untuk user baru (agar tidak error saat login).
-    - Return: User data (tanpa password).
-
-- [ ] **Step 2: Re-Assignment (Jika salah assign)**
-  - [ ] **Endpoint:** `PATCH /users/:id/assign-property`.
-  - [ ] **Logic:** Update field `propertyId` pada user yang sudah ada. Hanya boleh jika role user adalah `PROPERTY_OPERATOR`.
-
----
