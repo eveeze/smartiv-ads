@@ -6,6 +6,42 @@ import { TransactionStatus, User, Role } from '@prisma/client';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { CalculateCostDto } from './dto/calculate-cost.dto';
 
+// ==========================================
+// 1. DEFINISI TYPE-SAFE MOCK INTERFACES
+// ==========================================
+
+type MockFn = jest.Mock<any, any>;
+
+interface MockPrismaService {
+  wallet: {
+    findUnique: MockFn;
+    create: MockFn;
+    update: MockFn;
+  };
+  transaction: {
+    create: MockFn;
+    update: MockFn;
+    findUnique: MockFn;
+    findMany: MockFn;
+    count: MockFn;
+  };
+  withdrawalRequest: {
+    create: MockFn;
+    findMany: MockFn;
+    findUnique: MockFn;
+    update: MockFn;
+  };
+  screen: {
+    findMany: MockFn;
+  };
+  $transaction: MockFn;
+}
+
+interface MockMidtransService {
+  createSnapTransaction: MockFn;
+  verifyNotification: MockFn;
+}
+
 // --- MOCK DEFINITIONS ---
 
 const mockPrisma = {
@@ -36,14 +72,15 @@ const mockPrisma = {
       return Promise.all(arg);
     }
     // Jika arg berupa function (interactive transaction), eksekusi dengan mockPrisma
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return arg(mockPrisma);
   }),
-};
+} as unknown as MockPrismaService;
 
 const mockMidtrans = {
   createSnapTransaction: jest.fn(),
   verifyNotification: jest.fn(),
-};
+} as unknown as MockMidtransService;
 
 const mockUser: User = {
   id: 1,
@@ -55,6 +92,9 @@ const mockUser: User = {
   propertyId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
+  isActive: true, // [FIX] Added missing field
+  passwordResetToken: null, // [FIX] Added missing field
+  passwordResetExpires: null, // [FIX] Added missing field
 };
 
 // --- TEST SUITE ---

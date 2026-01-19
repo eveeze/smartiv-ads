@@ -1,8 +1,9 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { RequestWithScreen } from '../../interfaces/request/request-with-screen.interface'; // 👈 Import dari folder 'request'
 
 export const CurrentScreen = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
+  (data: never, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest<RequestWithScreen>();
     return request.screen;
   },
 );

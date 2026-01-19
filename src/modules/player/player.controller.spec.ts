@@ -2,13 +2,25 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PlayerController } from './player.controller';
 import { PlayerService } from './player.service';
 import { HeartbeatDto } from './dto/heartbeat.dto';
-import { PlayerAuthGuard } from './guards/player-auth.guard'; // Import Guard asli
+import { PlayerAuthGuard } from './guards/player-auth.guard';
 import {
   Screen,
   ScreenOrientation,
   ScreenStatus,
   RoomCategory,
 } from '@prisma/client';
+
+// ==========================================
+// 1. DEFINISI TYPE-SAFE MOCK INTERFACE
+// ==========================================
+
+type MockFn = jest.Mock<any, any>;
+
+interface MockPlayerService {
+  getConfig: MockFn;
+  generatePlaylist: MockFn;
+  recordHeartbeat: MockFn;
+}
 
 describe('PlayerController', () => {
   let controller: PlayerController;
@@ -31,7 +43,8 @@ describe('PlayerController', () => {
     updatedAt: new Date(),
   };
 
-  const mockPlayerService = {
+  // [FIX] Gunakan Interface agar type-safe dan autocomplete jalan
+  const mockPlayerService: MockPlayerService = {
     getConfig: jest.fn(),
     generatePlaylist: jest.fn(),
     recordHeartbeat: jest.fn(),
@@ -47,7 +60,7 @@ describe('PlayerController', () => {
         },
       ],
     })
-      .overrideGuard(PlayerAuthGuard) // [FIX] Override Guard agar tidak butuh PrismaService
+      .overrideGuard(PlayerAuthGuard) // Override Guard agar tidak butuh PrismaService
       .useValue({ canActivate: jest.fn(() => true) })
       .compile();
 
@@ -68,7 +81,8 @@ describe('PlayerController', () => {
 
       const result = await controller.getConfig(mockScreen);
 
-      expect(service.getConfig).toHaveBeenCalledWith(mockScreen.id);
+      // [FIX] Gunakan mockPlayerService langsung untuk menghindari unbound method
+      expect(mockPlayerService.getConfig).toHaveBeenCalledWith(mockScreen.id);
       expect(result).toEqual(expectedResult);
     });
   });
@@ -80,7 +94,9 @@ describe('PlayerController', () => {
 
       const result = await controller.getPlaylist(mockScreen);
 
-      expect(service.generatePlaylist).toHaveBeenCalledWith(mockScreen.id);
+      expect(mockPlayerService.generatePlaylist).toHaveBeenCalledWith(
+        mockScreen.id,
+      );
       expect(result).toEqual(expectedResult);
     });
   });
@@ -93,7 +109,10 @@ describe('PlayerController', () => {
 
       const result = await controller.heartbeat(mockScreen, dto);
 
-      expect(service.recordHeartbeat).toHaveBeenCalledWith(mockScreen.id, dto);
+      expect(mockPlayerService.recordHeartbeat).toHaveBeenCalledWith(
+        mockScreen.id,
+        dto,
+      );
       expect(result).toEqual(expectedResult);
     });
   });

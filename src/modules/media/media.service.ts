@@ -12,9 +12,10 @@ import {
   MediaType,
   Role,
   User,
+  Media,
+  Prisma, // [FIX] Import namespace Prisma untuk Type Definition query
 } from '@prisma/client';
 import { ReviewMediaDto } from './dto/review-media.dto';
-// [FIX] Import Class MediaUtils, bukan fungsi terpisah
 import { MediaUtils } from '../../common/utils/media.utils';
 import { createReadStream, ReadStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
@@ -44,14 +45,10 @@ export class MediaService {
     let filename = file.filename;
 
     if (file.path) {
-      // Skenario: Disk Storage (Production)
       content = createReadStream(file.path);
-      // Jika filename kosong (jarang terjadi di disk), ambil dari basename
       if (!filename) filename = path.basename(file.path);
     } else if (file.buffer) {
-      // Skenario: Memory Storage (Testing / E2E)
       content = file.buffer;
-      // Jika filename kosong, generate UUID + Extensi Asli
       if (!filename) {
         const ext = path.extname(file.originalname) || '.bin';
         filename = `${uuidv4()}${ext}`;
@@ -64,7 +61,7 @@ export class MediaService {
     const mimeType = file.mimetype;
     const isVideo = mimeType.startsWith('video/');
 
-    // 3. Upload ke Storage (MinIO/S3)
+    // 3. Upload ke Storage
     const url = await this.storageService.uploadFile(key, content, mimeType);
 
     // 4. Simpan ke Database
@@ -90,7 +87,8 @@ export class MediaService {
   }
 
   async findAll(user: User) {
-    const where: any = {};
+    const where: Prisma.MediaWhereInput = {};
+
     if (user.role === Role.ADVERTISER) {
       where.uploaderId = user.id;
     }
@@ -174,18 +172,16 @@ export class MediaService {
     return await this.prisma.media.delete({ where: { id } });
   }
 
-  private transformMediaUrl(media: any) {
+  private transformMediaUrl<T extends Media>(media: T) {
     return {
       ...media,
       hlsUrl:
         media.type === MediaType.VIDEO && media.isTranscoded
-          ? // [FIX] Panggil static method dari Class MediaUtils
-            MediaUtils.getHlsUrl(media.id)
+          ? MediaUtils.getHlsUrl(media.id)
           : null,
       thumbnailUrl:
         media.type === MediaType.VIDEO && media.isTranscoded
-          ? // [FIX] Panggil static method dari Class MediaUtils
-            MediaUtils.getThumbnailUrl(media.id)
+          ? MediaUtils.getThumbnailUrl(media.id)
           : null,
     };
   }

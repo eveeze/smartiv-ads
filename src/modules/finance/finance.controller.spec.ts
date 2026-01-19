@@ -13,7 +13,6 @@ import { User, Role } from '@prisma/client';
 
 describe('FinanceController', () => {
   let controller: FinanceController;
-  let service: FinanceService;
 
   // Mock Data User
   const mockUser: User = {
@@ -26,6 +25,9 @@ describe('FinanceController', () => {
     propertyId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+    isActive: true,
+    passwordResetToken: null,
+    passwordResetExpires: null,
   };
 
   const mockAdmin: User = {
@@ -58,8 +60,6 @@ describe('FinanceController', () => {
     }).compile();
 
     controller = module.get<FinanceController>(FinanceController);
-    service = module.get<FinanceService>(FinanceService);
-
     jest.clearAllMocks();
   });
 
@@ -88,7 +88,10 @@ describe('FinanceController', () => {
 
       const result = await controller.calculateCost(dto);
 
-      expect(service.calculateCampaignCost).toHaveBeenCalledWith(dto);
+      // [FIX] Gunakan mockFinanceService langsung untuk menghindari unbound method
+      expect(mockFinanceService.calculateCampaignCost).toHaveBeenCalledWith(
+        dto,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -109,7 +112,7 @@ describe('FinanceController', () => {
 
       const result = await controller.getMyWallet(mockUser);
 
-      expect(service.getMyWallet).toHaveBeenCalledWith(mockUser.id);
+      expect(mockFinanceService.getMyWallet).toHaveBeenCalledWith(mockUser.id);
       expect(result).toEqual(mockWallet);
     });
   });
@@ -127,7 +130,10 @@ describe('FinanceController', () => {
 
       const result = await controller.requestTopup(mockUser, dto);
 
-      expect(service.requestTopup).toHaveBeenCalledWith(mockUser, dto);
+      expect(mockFinanceService.requestTopup).toHaveBeenCalledWith(
+        mockUser,
+        dto,
+      );
       expect(result).toEqual(mockResponse);
     });
   });
@@ -145,7 +151,10 @@ describe('FinanceController', () => {
 
       const result = await controller.requestWithdrawal(mockUser, dto);
 
-      expect(service.requestWithdrawal).toHaveBeenCalledWith(mockUser, dto);
+      expect(mockFinanceService.requestWithdrawal).toHaveBeenCalledWith(
+        mockUser,
+        dto,
+      );
       expect(result).toEqual(mockResponse);
     });
   });
@@ -164,9 +173,9 @@ describe('FinanceController', () => {
 
       const result = await controller.handleMidtransWebhook(mockNotification);
 
-      expect(service.handleMidtransNotification).toHaveBeenCalledWith(
-        mockNotification,
-      );
+      expect(
+        mockFinanceService.handleMidtransNotification,
+      ).toHaveBeenCalledWith(mockNotification);
       expect(result).toEqual({ status: 'ok' });
     });
   });
@@ -180,7 +189,7 @@ describe('FinanceController', () => {
         page: 1,
         take: 10,
         order: Order.DESC,
-        skip: 0, // 'skip' is a getter in the class, but we provide value for the interface contract
+        skip: 0,
         search: undefined,
         type: undefined,
       };
@@ -196,7 +205,7 @@ describe('FinanceController', () => {
 
       const result = await controller.getAllTransactions(query);
 
-      expect(service.getAllTransactions).toHaveBeenCalledWith(query);
+      expect(mockFinanceService.getAllTransactions).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResponse);
     });
   });
@@ -208,7 +217,7 @@ describe('FinanceController', () => {
 
       const result = await controller.getPendingWithdrawals();
 
-      expect(service.getPendingWithdrawals).toHaveBeenCalled();
+      expect(mockFinanceService.getPendingWithdrawals).toHaveBeenCalled();
       expect(result).toEqual(mockList);
     });
   });
@@ -221,7 +230,7 @@ describe('FinanceController', () => {
 
       const result = await controller.reviewWithdrawal(1, dto, mockAdmin);
 
-      expect(service.reviewWithdrawal).toHaveBeenCalledWith(
+      expect(mockFinanceService.reviewWithdrawal).toHaveBeenCalledWith(
         1,
         dto,
         mockAdmin.id,

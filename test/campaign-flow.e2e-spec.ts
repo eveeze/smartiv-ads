@@ -4,15 +4,26 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/providers/prisma/prisma.service';
 import { AuthService } from '../src/modules/auth/auth.service';
-import { AuthModule } from '../src/modules/auth/auth.module'; // Wajib import ini
+import { AuthModule } from '../src/modules/auth/auth.module';
 import { ApprovalStatus, CampaignStatus, Role } from '@prisma/client';
 import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
 import { applyBigIntSerializers } from '../src/common/utils/bigint.util';
+import { Server } from 'http';
+
+// [FIX] 1. Definisi Interface untuk Response Type Safety
+interface CampaignItem {
+  id: number;
+}
+
+interface ApiResponse<T> {
+  data: T;
+}
 
 describe('Campaign Flow (E2E)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let authService: AuthService;
+  let httpServer: Server; // [FIX] Deklarasi tipe server
 
   let advertiserToken: string;
   let adminToken: string;
@@ -20,7 +31,7 @@ describe('Campaign Flow (E2E)', () => {
   let adminId: number;
   let propertyId: number;
   let screenId1: number;
-  let screenId2: number;
+  // [FIX] Removed unused 'screenId2'
   let mediaId: number;
   let campaignId: number;
 
@@ -41,6 +52,8 @@ describe('Campaign Flow (E2E)', () => {
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     await app.init();
 
+    // [FIX] Casting ke Server
+    httpServer = app.getHttpServer() as Server;
     prisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);
 
@@ -103,7 +116,7 @@ describe('Campaign Flow (E2E)', () => {
     });
     screenId1 = s1.id;
 
-    const s2 = await prisma.screen.create({
+    await prisma.screen.create({
       data: {
         propertyId: property.id,
         name: 'S2',
@@ -112,7 +125,7 @@ describe('Campaign Flow (E2E)', () => {
         status: 'ONLINE',
       },
     });
-    screenId2 = s2.id;
+    // screenId2 = s2.id; // Not used
 
     // 3. Setup Approved Media
     const media = await prisma.media.create({
@@ -131,7 +144,7 @@ describe('Campaign Flow (E2E)', () => {
   });
 
   afterAll(async () => {
-    // [FIX] Teardown Aman (Cek jika variable sudah terisi)
+    // Teardown Aman (Cek jika variable sudah terisi)
     if (advertiserId) {
       await prisma.campaignItem.deleteMany({
         where: { campaign: { advertiserId } },
@@ -164,7 +177,7 @@ describe('Campaign Flow (E2E)', () => {
 
   describe('1. Validation Flow', () => {
     it('Should fail if balance insufficient', async () => {
-      await request(app.getHttpServer())
+      await request(httpServer)
         .post('/campaigns')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
@@ -187,7 +200,7 @@ describe('Campaign Flow (E2E)', () => {
     });
 
     it('Should create campaign for 1 screen', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .post('/campaigns')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
@@ -199,7 +212,10 @@ describe('Campaign Flow (E2E)', () => {
         })
         .expect(201);
 
-      campaignId = res.body.data.id;
+      // [FIX] Type assertion
+      const body = res.body as ApiResponse<CampaignItem>;
+      campaignId = body.data.id;
+
       const wallet = await prisma.wallet.findUnique({
         where: { userId: advertiserId },
       });
@@ -209,7 +225,7 @@ describe('Campaign Flow (E2E)', () => {
     });
 
     it('Admin approves -> Deduct frozen', async () => {
-      await request(app.getHttpServer())
+      await request(httpServer)
         .patch(`/campaigns/${campaignId}/review`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ approved: true })
@@ -229,7 +245,7 @@ describe('Campaign Flow (E2E)', () => {
     let cancelCampaignId: number;
 
     it('Should create another campaign to cancel', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .post('/campaigns')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
@@ -241,7 +257,9 @@ describe('Campaign Flow (E2E)', () => {
         })
         .expect(201);
 
-      cancelCampaignId = res.body.data.id;
+      // [FIX] Type assertion
+      const body = res.body as ApiResponse<CampaignItem>;
+      cancelCampaignId = body.data.id;
 
       const wallet = await prisma.wallet.findUnique({
         where: { userId: advertiserId },
@@ -251,7 +269,7 @@ describe('Campaign Flow (E2E)', () => {
     });
 
     it('Should Cancel PENDING campaign -> Refund Frozen Balance', async () => {
-      await request(app.getHttpServer())
+      await request(httpServer)
         .patch(`/campaigns/${cancelCampaignId}/cancel`)
         .set('Authorization', `Bearer ${advertiserToken}`)
         .expect(200);
@@ -273,7 +291,7 @@ describe('Campaign Flow (E2E)', () => {
     let draftId: number;
 
     it('Should create a campaign as DRAFT (Status: DRAFT, No Frozen)', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .post('/campaigns')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
@@ -286,7 +304,9 @@ describe('Campaign Flow (E2E)', () => {
         })
         .expect(201);
 
-      draftId = res.body.data.id;
+      // [FIX] Type assertion
+      const body = res.body as ApiResponse<CampaignItem>;
+      draftId = body.data.id;
 
       const campaign = await prisma.campaign.findUnique({
         where: { id: draftId },
@@ -300,7 +320,7 @@ describe('Campaign Flow (E2E)', () => {
     });
 
     it('Should update DRAFT campaign name & dates', async () => {
-      await request(app.getHttpServer())
+      await request(httpServer)
         .patch(`/campaigns/${draftId}`)
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
@@ -311,7 +331,7 @@ describe('Campaign Flow (E2E)', () => {
     });
 
     it('Should SUBMIT draft -> Become PENDING & Freeze Balance', async () => {
-      await request(app.getHttpServer())
+      await request(httpServer)
         .patch(`/campaigns/${draftId}/submit`)
         .set('Authorization', `Bearer ${advertiserToken}`)
         .expect(200);
@@ -328,7 +348,7 @@ describe('Campaign Flow (E2E)', () => {
     });
 
     it('Should fail updating if status is NOT DRAFT', async () => {
-      await request(app.getHttpServer())
+      await request(httpServer)
         .patch(`/campaigns/${draftId}`)
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({ name: 'Hacking Attempt' })
@@ -336,7 +356,7 @@ describe('Campaign Flow (E2E)', () => {
     });
 
     it('Should delete DRAFT campaign', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .post('/campaigns')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
@@ -349,9 +369,11 @@ describe('Campaign Flow (E2E)', () => {
         })
         .expect(201);
 
-      const deleteId = res.body.data.id;
+      // [FIX] Type assertion
+      const body = res.body as ApiResponse<CampaignItem>;
+      const deleteId = body.data.id;
 
-      await request(app.getHttpServer())
+      await request(httpServer)
         .delete(`/campaigns/${deleteId}`)
         .set('Authorization', `Bearer ${advertiserToken}`)
         .expect(200);

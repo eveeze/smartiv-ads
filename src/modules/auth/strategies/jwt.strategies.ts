@@ -7,6 +7,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../providers/prisma/prisma.service';
+// 👇 Import Interface yang baru kita buat
+import { JwtPayload } from '../interfaces/jwt-payload/jwt-payload.interface';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -17,12 +19,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      // [FIX] Tambahkan tanda '!' di akhir untuk memaksa tipe string
       secretOrKey: configService.get<string>('JWT_SECRET')!,
     });
   }
 
-  async validate(payload: any) {
+  // 👇 Ganti 'payload: any' menjadi 'payload: JwtPayload'
+  async validate(payload: JwtPayload) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
@@ -39,6 +41,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = user;
+
     return result;
   }
 }

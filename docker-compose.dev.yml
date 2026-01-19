@@ -2,31 +2,54 @@ version: '3.8'
 
 services:
   app:
-    # Build menggunakan target 'builder' yang punya devDependencies
     build:
       context: .
       target: builder
 
-    # -------------------------------------------------------
-    # MAGIC SAUCE: Jalankan migrate DB dulu, baru start dev watch
-    # -------------------------------------------------------
+    # Command dev dengan Prisma Push
     command: sh -c "pnpm prisma db push && pnpm run start:dev"
 
-    # Environment khusus dev
     environment:
       - NODE_ENV=development
-      # Pastikan URL DB mengarah ke service 'postgres'
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/smartiv_db?schema=public
+      # [FIX DB] Gunakan nama container 'smartiv-postgres' agar konsisten
+      - DATABASE_URL=postgresql://postgres:postgres@smartiv-postgres:5432/smartiv_db?schema=public
+
+      # [FIX REDIS] Tambahkan ini agar tidak error ECONNREFUSED 127.0.0.1
+      - REDIS_HOST=smartiv-redis
+      - REDIS_PORT=6379
+
+      # [FIX MINIO] Config MinIO (sudah benar)
+      - MINIO_ENDPOINT=smartiv-minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=smartiv-media
 
     user: '${UID:-1000}:${GID:-1000}'
 
-    # Mount volume agar Hot Reload jalan
     volumes:
       - .:/app
-      # PENTING: Jangan biarkan node_modules lokal menimpa container
       - /app/node_modules
 
-    # Port Debugger (Opsional) & API
     ports:
       - '3000:3000'
       - '9229:9229'
+
+    # [FIX UTAMA] Urutan startup yang benar
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+      # App MENUNGGU sampai bucket selesai dibuat
+      createbuckets:
+        condition: service_completed_successfully
+
+    networks:
+      - smartiv-network
+
+networks:
+  smartiv-network:
+    driver: bridge
