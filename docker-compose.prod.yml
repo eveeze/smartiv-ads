@@ -46,10 +46,11 @@ services:
       - smartiv-net
 
   # ---------------------------
-  # 4. MinIO Bucket Creator (ROBOT PINTAR)
+  # 4. MinIO Bucket Creator (FIXED: Versi CPUv1)
   # ---------------------------
   createbuckets:
-    image: minio/mc
+    # 👇 INI PERBAIKANNYA: Menggunakan image Client khusus CPU lama
+    image: minio/mc:RELEASE.2024-01-16T16-06-34Z-cpuv1
     container_name: smartiv-ads-createbuckets-${ENV_NAME}
     env_file:
       - .env
