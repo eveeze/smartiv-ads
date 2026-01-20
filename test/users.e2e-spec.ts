@@ -7,6 +7,18 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
 import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
+import { Server } from 'http'; // [FIX] Import Server type
+
+// [FIX] Interface untuk Type Safety Response Body
+interface UserResponse {
+  data: {
+    id: number;
+    name: string;
+    phone: string;
+    email: string;
+    role: Role;
+  };
+}
 
 describe('UsersModule (E2E)', () => {
   let app: INestApplication;
@@ -80,14 +92,16 @@ describe('UsersModule (E2E)', () => {
 
   describe('GET /users', () => {
     it('Admin should be able to get list', async () => {
-      await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      await request(app.getHttpServer() as Server)
         .get('/users')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
     });
 
     it('Advertiser should be Forbidden', async () => {
-      await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      await request(app.getHttpServer() as Server)
         .get('/users')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .expect(403);
@@ -96,15 +110,20 @@ describe('UsersModule (E2E)', () => {
 
   describe('GET /users/:id', () => {
     it('Admin should see user detail', async () => {
-      const res = await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      const res = await request(app.getHttpServer() as Server)
         .get(`/users/${advertiserId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
-      expect(res.body.data.id).toBe(advertiserId);
+
+      // [FIX] Explicit Type Assertion
+      const body = res.body as UserResponse;
+      expect(body.data.id).toBe(advertiserId);
     });
 
     it('Advertiser should be Forbidden', async () => {
-      await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      await request(app.getHttpServer() as Server)
         .get(`/users/${advertiserId}`)
         .set('Authorization', `Bearer ${advertiserToken}`)
         .expect(403);
@@ -117,7 +136,8 @@ describe('UsersModule (E2E)', () => {
       const newName = 'Advertiser Updated';
       const newPhone = '081234567890';
 
-      await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      await request(app.getHttpServer() as Server)
         .patch('/users/profile')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
@@ -126,8 +146,10 @@ describe('UsersModule (E2E)', () => {
         })
         .expect(200)
         .expect((res) => {
-          expect(res.body.data.name).toBe(newName);
-          expect(res.body.data.phone).toBe(newPhone);
+          // [FIX] Explicit Type Assertion
+          const body = res.body as UserResponse;
+          expect(body.data.name).toBe(newName);
+          expect(body.data.phone).toBe(newPhone);
         });
 
       // Verify DB persistence
@@ -143,7 +165,8 @@ describe('UsersModule (E2E)', () => {
         where: { id: advertiserId },
       });
 
-      await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      await request(app.getHttpServer() as Server)
         .patch('/users/profile')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
@@ -168,7 +191,8 @@ describe('UsersModule (E2E)', () => {
     });
 
     it('Should fail if phone number format is invalid', async () => {
-      await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      await request(app.getHttpServer() as Server)
         .patch('/users/profile')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
