@@ -8,6 +8,14 @@ import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
+import { Server } from 'http'; // [FIX] Import type Server for explicit casting
+
+// [FIX] Interface untuk Type Safety Response Body
+interface CreateEntityResponse {
+  data: {
+    id: number;
+  };
+}
 
 describe('InventoryModule (e2e)', () => {
   let app: INestApplication;
@@ -52,7 +60,6 @@ describe('InventoryModule (e2e)', () => {
   let screenId: number;
 
   afterAll(async () => {
-    // [FIX] Targeted Cleanup
     if (screenId) await prisma.screen.delete({ where: { id: screenId } });
     if (propertyId) await prisma.property.delete({ where: { id: propertyId } });
     if (adminId) await prisma.user.delete({ where: { id: adminId } });
@@ -61,7 +68,8 @@ describe('InventoryModule (e2e)', () => {
 
   describe('Properties', () => {
     it('POST /inventory/properties - Create Success', async () => {
-      const res = await request(app.getHttpServer())
+      // [FIX] Cast httpServer to Server type
+      const res = await request(app.getHttpServer() as Server)
         .post('/inventory/properties')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -73,18 +81,23 @@ describe('InventoryModule (e2e)', () => {
           enabledSlots: [AdSlot.SCREENSAVER],
         })
         .expect(201);
-      propertyId = res.body.data.id;
+
+      // [FIX] Explicit casting to avoid accessing 'any'
+      const body = res.body as CreateEntityResponse;
+      propertyId = body.data.id;
     });
 
     it('GET /inventory/properties - List Pagination', async () => {
-      await request(app.getHttpServer())
+      // [FIX] Cast httpServer
+      await request(app.getHttpServer() as Server)
         .get('/inventory/properties?page=1&take=10')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
     });
 
     it('GET /inventory/properties/list - Dropdown', async () => {
-      await request(app.getHttpServer())
+      // [FIX] Cast httpServer
+      await request(app.getHttpServer() as Server)
         .get('/inventory/properties/list')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
@@ -94,7 +107,8 @@ describe('InventoryModule (e2e)', () => {
   describe('Screens', () => {
     it('POST /inventory/screens - Create Success', async () => {
       if (!propertyId) throw new Error('Property setup failed');
-      const res = await request(app.getHttpServer())
+      // [FIX] Cast httpServer
+      const res = await request(app.getHttpServer() as Server)
         .post('/inventory/screens')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -105,12 +119,16 @@ describe('InventoryModule (e2e)', () => {
           roomCategory: RoomCategory.LOBBY,
         })
         .expect(201);
-      screenId = res.body.data.id;
+
+      // [FIX] Explicit casting to avoid accessing 'any'
+      const body = res.body as CreateEntityResponse;
+      screenId = body.data.id;
     });
 
     it('GET /inventory/screens/list - Dropdown Filtered', async () => {
       if (!propertyId) return;
-      await request(app.getHttpServer())
+      // [FIX] Cast httpServer
+      await request(app.getHttpServer() as Server)
         .get(`/inventory/screens/list?propertyId=${propertyId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);

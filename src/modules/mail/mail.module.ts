@@ -13,7 +13,7 @@ import { join } from 'path';
         transport: {
           host: config.get('MAIL_HOST'),
           port: config.get('MAIL_PORT'),
-          secure: false, // true for 465, false for other ports
+          secure: false,
           auth: {
             user: config.get('MAIL_USER'),
             pass: config.get('MAIL_PASSWORD'),
@@ -23,7 +23,7 @@ import { join } from 'path';
           from: config.get('MAIL_FROM'),
         },
         template: {
-          dir: join(process.cwd(), 'src/modules/mail/templates'),
+          dir: join(__dirname, 'templates'),
           adapter: new HandlebarsAdapter(),
           options: {
             strict: true,
@@ -34,6 +34,6 @@ import { join } from 'path';
     }),
   ],
   providers: [MailService],
-  exports: [MailService], // Export agar bisa dipakai AuthModule
+  exports: [MailService],
 })
 export class MailModule {}

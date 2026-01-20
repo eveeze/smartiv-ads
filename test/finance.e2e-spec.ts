@@ -9,6 +9,26 @@ import { MidtransService } from '../src/providers/payment/midtrans.service';
 import { ConfigService } from '@nestjs/config';
 import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
 import { applyBigIntSerializers } from '../src/common/utils/bigint.util';
+import { Server } from 'http';
+
+// [FIX] Interface Definitions for Type Safety
+interface CostCalculationResponse {
+  data: {
+    totalCost: number;
+  };
+}
+
+interface WalletResponse {
+  data: {
+    balance: number;
+  };
+}
+
+interface TransactionsResponse {
+  data: {
+    data: unknown[];
+  };
+}
 
 describe('FinanceModule (E2E)', () => {
   let app: INestApplication;
@@ -131,7 +151,8 @@ describe('FinanceModule (E2E)', () => {
 
   describe('Calculator Flow', () => {
     it('POST /finance/calculate-cost', async () => {
-      const res = await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      const res = await request(app.getHttpServer() as Server)
         .post('/finance/calculate-cost')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
@@ -140,13 +161,17 @@ describe('FinanceModule (E2E)', () => {
           endDate: '2025-01-03',
         })
         .expect(201);
-      expect(res.body.data.totalCost).toBe(100000);
+
+      // [FIX] Explicit Type Assertion
+      const body = res.body as CostCalculationResponse;
+      expect(body.data.totalCost).toBe(100000);
     });
   });
 
   describe('Topup Flow', () => {
     it('POST /finance/topup', async () => {
-      await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      await request(app.getHttpServer() as Server)
         .post('/finance/topup')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({ amount: 100000 })
@@ -154,21 +179,29 @@ describe('FinanceModule (E2E)', () => {
     });
 
     it('GET /finance/wallet', async () => {
-      const res = await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      const res = await request(app.getHttpServer() as Server)
         .get('/finance/wallet')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .expect(200);
-      expect(res.body.data.balance).toBe(0);
+
+      // [FIX] Explicit Type Assertion
+      const body = res.body as WalletResponse;
+      expect(body.data.balance).toBe(0);
     });
   });
 
   describe('Admin Transactions Flow', () => {
     it('GET /finance/admin/transactions', async () => {
-      const res = await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      const res = await request(app.getHttpServer() as Server)
         .get('/finance/admin/transactions')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
-      expect(Array.isArray(res.body.data.data)).toBeTruthy();
+
+      // [FIX] Explicit Type Assertion
+      const body = res.body as TransactionsResponse;
+      expect(Array.isArray(body.data.data)).toBeTruthy();
     });
   });
 });

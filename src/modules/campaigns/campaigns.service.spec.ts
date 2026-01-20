@@ -23,37 +23,54 @@ import {
 } from '@prisma/client';
 
 // ==========================================
-// 1. DEFINISI TYPE-SAFE MOCK INTERFACES
+// 1. STRICT TYPE-SAFE MOCK DEFINITIONS
 // ==========================================
 
-type MockFn = jest.Mock<any, any>;
+// Helper type: Mock function yang return Promise<T> (Async)
+type MockAsync<T> = jest.Mock<Promise<T>>;
 
 interface MockPrismaService {
-  media: { findUnique: MockFn };
-  property: { count: MockFn };
-  screen: { findMany: MockFn };
-  campaign: {
-    create: MockFn;
-    findMany: MockFn;
-    count: MockFn;
-    findUnique: MockFn;
-    update: MockFn;
-    delete: MockFn;
+  media: {
+    findUnique: MockAsync<Media | null>;
   };
-  campaignItem: { create: MockFn };
-  auditLog: { create: MockFn };
-  $transaction: MockFn;
+  property: {
+    count: MockAsync<number>;
+  };
+  screen: {
+    findMany: MockAsync<Screen[]>;
+  };
+  campaign: {
+    create: MockAsync<Campaign>;
+    findMany: MockAsync<Campaign[]>;
+    count: MockAsync<number>;
+    findUnique: MockAsync<Campaign | null>;
+    update: MockAsync<Campaign>;
+    delete: MockAsync<Campaign>;
+  };
+  campaignItem: {
+    create: MockAsync<void>;
+  };
+  auditLog: {
+    create: MockAsync<void>;
+  };
+  // [FIX] Transaction Mock Generic Definition
+  $transaction: jest.Mock;
 }
 
 interface MockFinanceService {
-  calculateCampaignCost: MockFn;
-  freezeBalanceForCampaign: MockFn;
-  commitFrozenBalance: MockFn;
-  releaseFrozenBalance: MockFn;
+  calculateCampaignCost: MockAsync<{
+    totalCost: number;
+    durationDays: number;
+    screenCount: number;
+    breakdown: unknown[];
+  }>;
+  freezeBalanceForCampaign: MockAsync<void>;
+  commitFrozenBalance: MockAsync<void>;
+  releaseFrozenBalance: MockAsync<void>;
 }
 
 // ==========================================
-// 2. MOCK DATA (Typed)
+// 2. MOCK DATA (Fully Typed)
 // ==========================================
 const mockUser: User = {
   id: 1,
@@ -112,7 +129,6 @@ const mockScreenB: Screen = {
   name: 'Screen B',
 };
 
-// [FIX] Base mock campaign agar properti wajib selalu ada (rejectionReason ditambahkan)
 const mockCampaign: Campaign = {
   id: 1,
   advertiserId: 1,
@@ -124,11 +140,11 @@ const mockCampaign: Campaign = {
   propertyId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
-  rejectionReason: null, // [FIX] Added this field
+  rejectionReason: null,
 };
 
 // ==========================================
-// 3. INIT DEPENDENCIES
+// 3. INIT DEPENDENCIES & MOCK IMPL
 // ==========================================
 
 const mockPrisma = {
@@ -145,9 +161,13 @@ const mockPrisma = {
   },
   campaignItem: { create: jest.fn() },
   auditLog: { create: jest.fn() },
+  // [FIX] Typed Transaction Mock Implementation
   $transaction: jest
     .fn()
-    .mockImplementation((callback) => callback(mockPrisma)),
+    .mockImplementation(
+      (callback: (tx: MockPrismaService) => Promise<unknown>) =>
+        callback(mockPrisma as unknown as MockPrismaService),
+    ),
 } as unknown as MockPrismaService;
 
 const mockFinance = {
@@ -219,13 +239,17 @@ describe('CampaignsService', () => {
 
       mockFinance.calculateCampaignCost.mockResolvedValue({
         totalCost: 500000,
+        durationDays: 5,
+        screenCount: 1,
+        breakdown: [],
       });
       mockPrisma.campaign.create.mockResolvedValue({
         ...mockCampaign,
         status: CampaignStatus.PENDING_REVIEW,
       });
 
-      const result = await service.create(mockUser, dto);
+      // [FIX] Explicit Type for Result
+      const result: Campaign = await service.create(mockUser, dto);
 
       expect(mockFinance.calculateCampaignCost).toHaveBeenCalled();
       expect(mockFinance.freezeBalanceForCampaign).toHaveBeenCalled();
@@ -239,6 +263,9 @@ describe('CampaignsService', () => {
       mockPrisma.screen.findMany.mockResolvedValue([mockScreenA]);
       mockFinance.calculateCampaignCost.mockResolvedValue({
         totalCost: 500000,
+        durationDays: 5,
+        screenCount: 1,
+        breakdown: [],
       });
 
       mockPrisma.campaign.create.mockResolvedValue({
@@ -246,7 +273,8 @@ describe('CampaignsService', () => {
         status: CampaignStatus.DRAFT,
       });
 
-      const result = await service.create(mockUser, draftDto);
+      // [FIX] Explicit Type for Result + Casting result
+      const result: Campaign = await service.create(mockUser, draftDto);
 
       expect(mockFinance.calculateCampaignCost).toHaveBeenCalled();
       expect(mockFinance.freezeBalanceForCampaign).not.toHaveBeenCalled();
@@ -265,6 +293,9 @@ describe('CampaignsService', () => {
       mockPrisma.screen.findMany.mockResolvedValue([mockScreenA, mockScreenB]);
       mockFinance.calculateCampaignCost.mockResolvedValue({
         totalCost: 1000000,
+        durationDays: 5,
+        screenCount: 2,
+        breakdown: [],
       });
       mockPrisma.campaign.create.mockResolvedValue({
         ...mockCampaign,
@@ -400,26 +431,36 @@ describe('CampaignsService', () => {
     const updateDto: UpdateCampaignDto = { name: 'Updated Draft Name' };
 
     it('should throw Forbidden if user is not owner', async () => {
-      mockPrisma.campaign.findUnique.mockResolvedValue({
+      const existing = {
         ...mockCampaign,
         id: campaignId,
         advertiserId: 999,
         status: CampaignStatus.DRAFT,
-        screens: [], // Mock relation
-      });
+        screens: [],
+      };
+      // [FIX] Double casting to satisfy type checker and linter
+      mockPrisma.campaign.findUnique.mockResolvedValue(
+        existing as unknown as Campaign,
+      );
+
       await expect(
         service.update(campaignId, mockUser.id, updateDto),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw BadRequest if campaign is not DRAFT', async () => {
-      mockPrisma.campaign.findUnique.mockResolvedValue({
+      const existing = {
         ...mockCampaign,
         id: campaignId,
         advertiserId: mockUser.id,
         status: CampaignStatus.PENDING_REVIEW,
-        screens: [], // Mock relation
-      });
+        screens: [],
+      };
+      // [FIX] Double casting
+      mockPrisma.campaign.findUnique.mockResolvedValue(
+        existing as unknown as Campaign,
+      );
+
       await expect(
         service.update(campaignId, mockUser.id, updateDto),
       ).rejects.toThrow(BadRequestException);
@@ -433,25 +474,39 @@ describe('CampaignsService', () => {
         status: CampaignStatus.DRAFT,
         startDate: new Date(getFutureDate(5)),
         endDate: new Date(getFutureDate(10)),
-        screens: [mockScreenA], // Mock relation agar map tidak error
+        screens: [mockScreenA],
       };
 
-      mockPrisma.campaign.findUnique.mockResolvedValue(existingCampaign);
-      mockFinance.calculateCampaignCost.mockResolvedValue({ totalCost: 60000 });
+      // [FIX] Double casting (as unknown as Campaign) allows extra props 'screens' without lint error
+      mockPrisma.campaign.findUnique.mockResolvedValue(
+        existingCampaign as unknown as Campaign,
+      );
+
+      mockFinance.calculateCampaignCost.mockResolvedValue({
+        totalCost: 60000,
+        durationDays: 5,
+        screenCount: 1,
+        breakdown: [],
+      });
       mockPrisma.campaign.update.mockResolvedValue({
         ...existingCampaign,
-        name: updateDto.name,
+        name: updateDto.name!, // [FIX] Non-null assertion
       });
 
-      const result = await service.update(campaignId, mockUser.id, updateDto);
+      // [FIX] Explicit Variable Type
+      const result: Campaign = await service.update(
+        campaignId,
+        mockUser.id,
+        updateDto,
+      );
 
       expect(mockPrisma.campaign.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: campaignId },
-          data: expect.objectContaining({ name: updateDto.name }),
+          data: expect.objectContaining({ name: updateDto.name! }),
         }),
       );
-      expect(result.name).toBe(updateDto.name);
+      expect(result.name).toBe(updateDto.name!);
     });
   });
 

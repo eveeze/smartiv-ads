@@ -7,23 +7,56 @@ import {
   ScreenStatus,
   AdSlot,
   MediaType,
-  // [FIX] Hapus ApprovalStatus jika tidak dipakai, atau gunakan jika perlu
+  Screen,
+  Prisma,
 } from '@prisma/client';
 import { HeartbeatDto } from './dto/heartbeat.dto';
+import { PlaylistResponseDto } from './dto/playlist.dto';
 
-// --- Mock Data ---
+// ==========================================
+// 1. STRICT TYPE-SAFE MOCK DEFINITIONS
+// ==========================================
+
+interface MockPrismaService {
+  screen: {
+    findUnique: jest.Mock<
+      Promise<Screen | null>,
+      [Prisma.ScreenFindUniqueArgs]
+    >;
+    update: jest.Mock<Promise<Screen>, [Prisma.ScreenUpdateArgs]>;
+  };
+  campaign: {
+    findMany: jest.Mock<Promise<unknown[]>, [Prisma.CampaignFindManyArgs]>;
+  };
+}
+
+// ==========================================
+// 2. MOCK DATA
+// ==========================================
 const mockScreenId = 1;
+
+// Mock Data casting is necessary here because we are simulating a DB result with relations
 const mockScreen = {
   id: mockScreenId,
   name: 'Lobby TV',
   orientation: 'LANDSCAPE',
+  status: ScreenStatus.ONLINE,
+  propertyId: 100,
+  resolution: '1920x1080',
+  ipAddress: null,
+  lastPing: null,
+  code: 'SCR-001',
+  roomCategory: 'LOBBY',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  priceOverride: null,
   property: {
     name: 'Grand Hotel',
     logoUrl: 'logo.png',
     address: 'Jl. Sudirman',
     city: 'Jakarta',
   },
-};
+} as unknown as Screen;
 
 const mockCampaigns = [
   {
@@ -37,27 +70,32 @@ const mockCampaigns = [
           type: MediaType.VIDEO,
         },
         durationSec: 30,
-        // [FIX] Gunakan AdSlot yang valid (SCREENSAVER)
         targetSlot: AdSlot.SCREENSAVER,
       },
     ],
   },
 ];
 
-// --- Mock Prisma ---
-const mockPrisma = {
+// ==========================================
+// 3. INIT DEPENDENCIES & MOCK IMPL
+// ==========================================
+
+// [FIX] Initialize mocks with explicit Generics to avoid 'any' return type
+const mockPrisma: MockPrismaService = {
   screen: {
-    findUnique: jest.fn(),
-    update: jest.fn(),
+    findUnique: jest.fn<
+      Promise<Screen | null>,
+      [Prisma.ScreenFindUniqueArgs]
+    >(),
+    update: jest.fn<Promise<Screen>, [Prisma.ScreenUpdateArgs]>(),
   },
   campaign: {
-    findMany: jest.fn(),
+    findMany: jest.fn<Promise<unknown[]>, [Prisma.CampaignFindManyArgs]>(),
   },
 };
 
 describe('PlayerService', () => {
   let service: PlayerService;
-  let prisma: PrismaService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -68,8 +106,6 @@ describe('PlayerService', () => {
     }).compile();
 
     service = module.get<PlayerService>(PlayerService);
-    prisma = module.get<PrismaService>(PrismaService);
-
     jest.clearAllMocks();
   });
 
@@ -86,13 +122,26 @@ describe('PlayerService', () => {
 
       const result = await service.getConfig(mockScreenId);
 
-      expect(prisma.screen.findUnique).toHaveBeenCalledWith({
+      expect(mockPrisma.screen.findUnique).toHaveBeenCalledWith({
         where: { id: mockScreenId },
-        select: expect.any(Object),
+        // [FIX] Casting 'expect.any' to the specific Prisma type to satisfy linter
+        select: expect.any(Object) as Prisma.ScreenSelect,
       });
+
+      // Assertions on the result
+
       expect(result.screenName).toBe(mockScreen.name);
-      expect(result.propertyName).toBe(mockScreen.property.name);
-      expect(result.propertyAddress).toContain('Jakarta'); // Cek gabungan address
+
+      expect(result.propertyName).toBe(
+        (
+          mockScreen as unknown as {
+            property: { name: string };
+          }
+        ).property.name,
+      );
+
+      expect(result.propertyAddress).toContain('Jakarta');
+
       expect(result.refreshInterval).toBeDefined();
     });
 
@@ -110,16 +159,17 @@ describe('PlayerService', () => {
     it('should return mapped playlist items', async () => {
       mockPrisma.campaign.findMany.mockResolvedValue(mockCampaigns);
 
-      const result = await service.generatePlaylist(mockScreenId);
+      const result: PlaylistResponseDto =
+        await service.generatePlaylist(mockScreenId);
 
-      // Verify Prisma Query
-      expect(prisma.campaign.findMany).toHaveBeenCalledWith(
+      expect(mockPrisma.campaign.findMany).toHaveBeenCalledWith(
+        // [FIX] Casting the matcher to Prisma Arguments type
         expect.objectContaining({
           where: expect.objectContaining({
             status: CampaignStatus.ACTIVE,
             screens: { some: { id: mockScreenId } },
-          }),
-        }),
+          }) as Prisma.CampaignWhereInput,
+        }) as Prisma.CampaignFindManyArgs,
       );
 
       // Verify Result Structure
@@ -128,7 +178,6 @@ describe('PlayerService', () => {
       expect(item.campaignId).toBe(101);
       expect(item.type).toBe(MediaType.VIDEO);
       expect(item.duration).toBe(30);
-      // [FIX] Validasi sesuai enum AdSlot.SCREENSAVER
       expect(item.slot).toBe(AdSlot.SCREENSAVER);
       expect(typeof item.url).toBe('string');
     });
@@ -136,7 +185,8 @@ describe('PlayerService', () => {
     it('should return empty playlist if no active campaigns found', async () => {
       mockPrisma.campaign.findMany.mockResolvedValue([]);
 
-      const result = await service.generatePlaylist(mockScreenId);
+      const result: PlaylistResponseDto =
+        await service.generatePlaylist(mockScreenId);
 
       expect(result.totalItems).toBe(0);
       expect(result.items).toEqual([]);
@@ -149,24 +199,36 @@ describe('PlayerService', () => {
   describe('recordHeartbeat', () => {
     it('should update screen status and timestamp', async () => {
       const dto: HeartbeatDto = { ipAddress: '192.168.1.100' };
-      const mockUpdatedScreen = {
+      const mockUpdatedScreen: Screen = {
         id: mockScreenId,
+        name: 'Lobby TV',
+        orientation: 'LANDSCAPE',
         status: ScreenStatus.ONLINE,
+        propertyId: 100,
+        resolution: '1920x1080',
+        ipAddress: dto.ipAddress!,
         lastPing: new Date(),
-        ipAddress: dto.ipAddress,
+        code: 'SCR-001',
+        roomCategory: 'LOBBY',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        priceOverride: null,
       };
 
       mockPrisma.screen.update.mockResolvedValue(mockUpdatedScreen);
 
-      const result = await service.recordHeartbeat(mockScreenId, dto);
+      // [FIX] Gunakan Pick type untuk menyesuaikan dengan return value partial dari service
+      // Ini mengatasi error TS2740: Type is missing properties
+      const result: Pick<Screen, 'id' | 'status' | 'ipAddress' | 'lastPing'> =
+        await service.recordHeartbeat(mockScreenId, dto);
 
-      expect(prisma.screen.update).toHaveBeenCalledWith({
+      expect(mockPrisma.screen.update).toHaveBeenCalledWith({
         where: { id: mockScreenId },
         data: expect.objectContaining({
           status: ScreenStatus.ONLINE,
           ipAddress: dto.ipAddress,
-        }),
-        select: expect.any(Object),
+        }) as Prisma.ScreenUpdateInput,
+        select: expect.any(Object) as Prisma.ScreenSelect,
       });
 
       expect(result.status).toBe(ScreenStatus.ONLINE);
