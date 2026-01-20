@@ -53,18 +53,29 @@ services:
     container_name: smartiv-ads-createbuckets-${ENV_NAME}
     env_file:
       - .env
-    # Script: Clean version without comments to prevent syntax errors
     entrypoint: >
       /bin/sh -c "
       echo '🔍 Config: Host=${MINIO_ENDPOINT}, Port=${MINIO_PORT}, Bucket=${MINIO_BUCKET}';
+
+      # 1. Tunggu koneksi ke MinIO
       until /usr/bin/mc alias set myminio http://${MINIO_ENDPOINT}:${MINIO_PORT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}; do
         echo '⏳ MinIO not ready... waiting 3s...';
         sleep 3;
       done;
+
       echo '✅ MinIO Connected!';
+
+      # 2. Buat Bucket (abaikan error jika sudah ada)
       /usr/bin/mc mb --ignore-existing myminio/${MINIO_BUCKET};
+
+      # 3. SET POLICY PUBLIC (DOWNLOAD) - Force Recursive
+      # Ini akan membuat link m3u8 dan ts bisa diakses tanpa presigned URL
+      /usr/bin/mc policy set download myminio/${MINIO_BUCKET};
+
+      # (Opsional) Set explicit anonymous rule untuk memastikan subfolder kena
       /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET};
-      echo '🎉 SUCCESS: Bucket ${MINIO_BUCKET} is ready & public!';
+
+      echo '🎉 SUCCESS: Bucket ${MINIO_BUCKET} is now PUBLIC READ!';
       exit 0;
       "
     networks:
