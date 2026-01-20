@@ -14,8 +14,6 @@ async function main() {
   await prisma.user.upsert({
     where: { email: 'admin@smartiv.com' },
     update: {
-      // [BARU] Paksa update password & status setiap kali seed jalan
-      // Ini memastikan jika ada sisa hash $2b$ akan tertimpa $2a$
       password: hashedPassword,
       isActive: true,
     },
