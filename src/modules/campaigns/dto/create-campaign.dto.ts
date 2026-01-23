@@ -1,9 +1,10 @@
+// src/modules/campaigns/dto/create-campaign.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AdSlot, DurationPackage } from '@prisma/client';
 import {
-  ArrayMinSize,
-  IsArray,
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -13,46 +14,51 @@ import {
 } from 'class-validator';
 
 export class CreateCampaignDto {
-  @ApiProperty({ example: 'Ramadhan Promo 2025' })
+  @ApiProperty({ example: 'Promo Lebaran 2026' })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: '2025-05-01' })
+  @ApiProperty({ description: 'ID Properti yang ditarget', example: 1 })
+  @IsInt()
+  @Min(1)
+  propertyId: number;
+
+  @ApiProperty({
+    description: 'Slot Iklan yang dipilih',
+    enum: AdSlot,
+    example: AdSlot.SCREENSAVER,
+  })
+  @IsEnum(AdSlot)
+  targetSlot: AdSlot;
+
+  @ApiProperty({
+    description: 'Paket Durasi',
+    enum: DurationPackage,
+    example: DurationPackage.WEEKLY,
+  })
+  @IsEnum(DurationPackage)
+  durationPackage: DurationPackage;
+
+  @ApiProperty({ description: 'Tanggal Mulai Tayang', example: '2026-05-01' })
   @IsDateString()
   startDate: string;
 
-  @ApiProperty({ example: '2025-05-07' })
+  @ApiPropertyOptional({
+    description: 'Tanggal Selesai (Wajib jika paket CUSTOM)',
+    example: '2026-05-10',
+  })
+  @ValidateIf((o) => o.durationPackage === DurationPackage.CUSTOM)
   @IsDateString()
-  endDate: string;
+  endDate?: string;
 
-  @ApiProperty({ description: 'ID Media yang sudah Approved', example: 1 })
+  @ApiProperty({ description: 'ID Media Content (Video/Image)', example: 10 })
   @IsInt()
   @Min(1)
   mediaId: number;
 
   @ApiPropertyOptional({
-    description: 'List ID Screen yang ditarget. Wajib jika propertyId kosong.',
-    example: [1, 2],
-  })
-  @ValidateIf((o) => !o.propertyId)
-  @IsArray()
-  @ArrayMinSize(1)
-  @IsInt({ each: true })
-  screenIds?: number[];
-
-  @ApiPropertyOptional({
-    description:
-      'ID Property untuk target seluruh layar. Wajib jika screenIds kosong.',
-    example: 5,
-  })
-  @ValidateIf((o) => !o.screenIds)
-  @IsInt()
-  @IsOptional()
-  propertyId?: number;
-
-  @ApiPropertyOptional({
-    description: 'Jika true, simpan sebagai DRAFT tanpa memotong saldo.',
+    description: 'Simpan sebagai draft tanpa potong saldo',
     default: false,
   })
   @IsOptional()

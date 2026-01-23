@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   # ---------------------------
-  # 1. Aplikasi Backend (NestJS)
+  # 1. Backend Application (NestJS)
   # ---------------------------
   app:
     container_name: smartiv-ads-api-${ENV_NAME}
@@ -31,6 +31,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
+      # Use dynamic volume name based on ENV_NAME (prod/staging)
       - postgres_data_${ENV_NAME}:/var/lib/postgresql/data
     networks:
       - smartiv-net
@@ -46,19 +47,21 @@ services:
       - smartiv-net
 
   # ---------------------------
-  # 4. MinIO Bucket Creator (FIXED: No Comments & Legacy CPU)
+  # 4. MinIO Bucket Creator
   # ---------------------------
   createbuckets:
     image: minio/mc:RELEASE.2024-01-16T16-06-34Z-cpuv1
     container_name: smartiv-ads-createbuckets-${ENV_NAME}
     env_file:
       - .env
-    # [FIX] Gunakan '|' agar newline terjaga, dan pastikan syntax loop shell benar
+    # [FIX] Use '|' to preserve newlines for the shell script
     entrypoint: |
       /bin/sh -c '
       echo "🔍 Config: Host=${MINIO_ENDPOINT}, Port=${MINIO_PORT}, Bucket=${MINIO_BUCKET}"
 
-      # 1. Loop Tunggu Koneksi
+      # 1. Loop Wait for Connection
+      # Using "minio-server" hostname assuming it exists in shared_network or external config
+      # If MinIO is external, ensure MINIO_ENDPOINT is reachable
       until /usr/bin/mc alias set myminio http://${MINIO_ENDPOINT}:${MINIO_PORT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}; do
         echo "⏳ MinIO not ready... waiting 3s..."
         sleep 3
@@ -66,7 +69,7 @@ services:
 
       echo "✅ MinIO Connected!"
 
-      # 2. Buat Bucket & Set Policy
+      # 2. Create Bucket & Set Policy
       /usr/bin/mc mb --ignore-existing myminio/${MINIO_BUCKET}
       /usr/bin/mc policy set download myminio/${MINIO_BUCKET}
       /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET}

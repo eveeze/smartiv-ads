@@ -1,47 +1,50 @@
+// src/modules/inventory/dto/create-rate-card.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AdSlot, PropertyClass } from '@prisma/client';
 import {
   IsEnum,
-  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsPositive,
   Min,
-  ValidateIf,
 } from 'class-validator';
+import { AdSlot, PropertyClass } from '@prisma/client';
 
 export class CreateRateCardDto {
   @ApiPropertyOptional({
-    enum: PropertyClass,
-    description: 'Klasifikasi properti (Wajib jika propertyId kosong)',
+    description: 'ID Property (Opsional jika Rate Card Umum)',
   })
-  @ValidateIf((o) => !o.propertyId)
-  @IsNotEmpty({
-    message: 'classification is required when propertyId is missing',
-  })
-  @IsEnum(PropertyClass)
-  classification?: PropertyClass;
-
-  @ApiPropertyOptional({
-    description: 'ID Properti spesifik (Wajib jika classification kosong)',
-  })
-  @ValidateIf((o) => !o.classification)
-  @IsNotEmpty({
-    message: 'propertyId is required when classification is missing',
-  })
-  @IsInt()
+  @IsOptional()
+  @IsNumber()
   propertyId?: number;
 
   @ApiPropertyOptional({
-    enum: AdSlot,
-    description: 'Slot iklan spesifik (opsional, jika kosong berlaku umum)',
+    enum: PropertyClass,
+    description: 'Kelas Properti (Jika base rate umum)',
   })
   @IsOptional()
-  @IsEnum(AdSlot)
-  targetSlot?: AdSlot;
+  @IsEnum(PropertyClass)
+  classification?: PropertyClass;
 
-  @ApiProperty({ description: 'Harga per hari dalam Rupiah', minimum: 1 })
+  @ApiProperty({ enum: AdSlot, description: 'Slot Iklan yang dijual' })
+  @IsEnum(AdSlot)
+  @IsNotEmpty()
+  targetSlot: AdSlot;
+
+  @ApiProperty({ description: 'Harga Harian (Base)', example: 100000 })
   @IsNumber()
-  @Min(1)
+  @Min(0)
   pricePerDay: number;
+
+  @ApiPropertyOptional({ description: 'Harga Paket Mingguan', example: 650000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  pricePerWeek?: number;
+
+  @ApiPropertyOptional({ description: 'Harga Paket Bulanan', example: 2500000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  pricePerMonth?: number;
 }

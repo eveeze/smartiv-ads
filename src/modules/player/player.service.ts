@@ -1,37 +1,55 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+// src/modules/player/player.service.ts
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../providers/prisma/prisma.service';
-import { CampaignStatus, ScreenStatus } from '@prisma/client';
-import { MediaUtils } from '../../common/utils/media.utils';
+// [FIX] Gunakan 'import type' untuk interface yang hanya dipakai sebagai tipe parameter
+import type { Screen } from '@prisma/client';
+import { ScreenStatus, CampaignStatus, AdSlot } from '@prisma/client';
 import { HeartbeatDto } from './dto/heartbeat.dto';
-// [FIX] Import DTO yang sudah modular
-import { PlaylistResponseDto, PlaylistItemDto } from './dto/playlist.dto';
+import { GetPlaylistDto, PlaylistResponseDto } from './dto/playlist.dto';
+import { MediaUtils } from '../../common/utils/media.utils';
 
 @Injectable()
 export class PlayerService {
+  private readonly logger = new Logger(PlayerService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
-  // ... (Method getConfig tetap sama) ...
-  async getConfig(screenId: number) {
-    const screen = await this.prisma.screen.findUnique({
-      where: { id: screenId },
-      select: {
-        id: true,
-        name: true,
-        orientation: true,
-        property: {
-          select: {
-            name: true,
-            logoUrl: true,
-            address: true,
-            city: true,
-          },
-        },
+  // =================================================================
+  // 1. HEARTBEAT (Ping Status)
+  // =================================================================
+  async heartbeat(screen: Screen, dto: HeartbeatDto) {
+    await this.prisma.screen.update({
+      where: { id: screen.id },
+      data: {
+        status: ScreenStatus.ONLINE,
+        lastPing: new Date(),
+        ipAddress: dto.ipAddress,
       },
     });
 
-    if (!screen) throw new NotFoundException('Screen not found');
+    return { status: 'ok', serverTime: new Date() };
+  }
 
-    const fullAddress = [screen.property?.address, screen.property?.city]
+  // =================================================================
+  // 2. GET CONFIG (Timezone & Basic Settings)
+  // =================================================================
+  async getConfig(screen: Screen) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: screen.propertyId },
+      select: {
+        id: true,
+        name: true,
+        timezone: true,
+        logoUrl: true,
+        baseColor: true,
+        address: true,
+        city: true,
+      },
+    });
+
+    if (!property) throw new NotFoundException('Property info not found');
+
+    const fullAddress = [property.address, property.city]
       .filter(Boolean)
       .join(', ');
 
@@ -39,80 +57,88 @@ export class PlayerService {
       screenId: screen.id,
       screenName: screen.name,
       orientation: screen.orientation,
-      propertyName: screen.property?.name,
-      propertyAddress: fullAddress || null,
-      propertyLogo: MediaUtils.getFullUrl(screen.property?.logoUrl),
-      refreshInterval: 900,
-      serverTime: new Date().toISOString(),
+      property: {
+        name: property.name,
+        address: fullAddress,
+        timezone: property.timezone,
+        logo: MediaUtils.getFullUrl(property.logoUrl),
+        themeColor: property.baseColor,
+      },
+      refreshInterval: 60,
     };
   }
 
-  // ==========================================
-  // 2. PLAYLIST GENERATION
-  // ==========================================
-  // [FIX] Explicit Return Type untuk Type Safety & Documentation
-  async generatePlaylist(screenId: number): Promise<PlaylistResponseDto> {
-    const today = new Date();
+  // =================================================================
+  // 3. GET PLAYLIST (Smart Slot Based)
+  // =================================================================
+  async getPlaylist(
+    screen: Screen,
+    dto: GetPlaylistDto,
+  ): Promise<PlaylistResponseDto> {
+    const targetSlot = dto.slot || AdSlot.SCREENSAVER;
+    const now = new Date();
 
     const campaigns = await this.prisma.campaign.findMany({
       where: {
         status: CampaignStatus.ACTIVE,
-        startDate: { lte: today },
-        endDate: { gte: today },
+        targetSlot: targetSlot,
         screens: {
-          some: { id: screenId },
+          some: { id: screen.id },
         },
+        startDate: { lte: now },
+        endDate: { gte: now },
       },
-      select: {
-        id: true,
-        name: true,
+      include: {
         items: {
-          include: {
-            media: true,
-          },
+          include: { media: true },
         },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
-    // [FIX] Gunakan DTO Class, bukan interface lokal
-    const playlist: PlaylistItemDto[] = [];
+    // Mapping Data ke DTO yang bersih
+    const playlistItems = campaigns.flatMap((campaign) =>
+      campaign.items.map((item) => {
+        // [LOGIC] Tentukan URL (HLS untuk Video, Direct untuk Image)
+        const rawUrl =
+          item.media.type === 'VIDEO'
+            ? MediaUtils.getHlsUrl(item.media.id)
+            : MediaUtils.getFullUrl(item.media.url);
 
-    for (const campaign of campaigns) {
-      for (const item of campaign.items) {
-        playlist.push({
+        // [FIX] TS2322: Pastikan string tidak null (fallback ke empty string)
+        const finalUrl = rawUrl ?? '';
+
+        // [FIX] Action URL priority. Gunakan undefined untuk optional field, bukan null
+        const finalActionUrl =
+          item.actionUrl || item.media.actionUrl || undefined;
+
+        return {
           campaignId: campaign.id,
           campaignName: campaign.name,
           mediaId: item.media.id,
           type: item.media.type,
-          url: MediaUtils.getFullUrl(item.media.url) || '',
+          mediaUrl: finalUrl,
           duration: item.durationSec,
-          slot: item.targetSlot,
-        });
-      }
-    }
+          slot: targetSlot,
+          actionUrl: finalActionUrl,
+        };
+      }),
+    );
+
+    const totalDuration = playlistItems.reduce(
+      (acc, curr) => acc + curr.duration,
+      0,
+    );
+
+    this.logger.log(
+      `Screen #${screen.id} req playlist for ${targetSlot}. Found ${playlistItems.length} items.`,
+    );
 
     return {
-      generatedAt: new Date(),
-      totalItems: playlist.length,
-      items: playlist,
+      slot: targetSlot,
+      generatedAt: now,
+      totalDuration,
+      items: playlistItems,
     };
-  }
-
-  // ... (Method recordHeartbeat tetap sama) ...
-  async recordHeartbeat(screenId: number, dto: HeartbeatDto) {
-    return this.prisma.screen.update({
-      where: { id: screenId },
-      data: {
-        status: ScreenStatus.ONLINE,
-        lastPing: new Date(),
-        ipAddress: dto.ipAddress,
-      },
-      select: {
-        id: true,
-        status: true,
-        lastPing: true,
-        ipAddress: true,
-      },
-    });
   }
 }

@@ -1,52 +1,45 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+// src/modules/player/player.controller.ts
+import { Controller, Get, UseGuards, Query, Post, Body } from '@nestjs/common';
 import { PlayerService } from './player.service';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiHeader,
-  ApiOkResponse,
-} from '@nestjs/swagger';
 import { PlayerAuthGuard } from './guards/player-auth.guard';
 import { CurrentScreen } from '../../common/decorators/current-screen/current-screen.decorator';
-import { HeartbeatDto } from './dto/heartbeat.dto';
-// [FIX] Import DTO response
-import { PlaylistResponseDto } from './dto/playlist.dto';
+// [FIX] Gunakan 'import type' untuk interface Prisma agar TS tidak error pada decorator metadata
 import type { Screen } from '@prisma/client';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
+import { GetPlaylistDto, PlaylistResponseDto } from './dto/playlist.dto';
+import { HeartbeatDto } from './dto/heartbeat.dto';
 
-@ApiTags('Player API (Device)')
-@ApiHeader({
-  name: 'X-Device-ID',
-  description: 'Unique Device Identifier (MAC Address/Serial)',
-  required: true,
-})
+@ApiTags('Player / Device API')
+@ApiBearerAuth('screen-token')
 @UseGuards(PlayerAuthGuard)
 @Controller('player')
 export class PlayerController {
   constructor(private readonly playerService: PlayerService) {}
 
+  @Post('heartbeat')
+  @ApiOperation({ summary: 'Ping server & update status online' })
+  async heartbeat(@CurrentScreen() screen: Screen, @Body() dto: HeartbeatDto) {
+    return this.playerService.heartbeat(screen, dto);
+  }
+
   @Get('config')
-  @ApiOperation({
-    summary: 'Get player configuration (Orientation, Logo, etc)',
-  })
-  getConfig(@CurrentScreen() screen: Screen) {
-    return this.playerService.getConfig(screen.id);
+  @ApiOperation({ summary: 'Get device configuration (Timezone, Orientation)' })
+  async getConfig(@CurrentScreen() screen: Screen) {
+    return this.playerService.getConfig(screen);
   }
 
   @Get('playlist')
-  @ApiOperation({ summary: 'Get active playlist content for this device' })
-  // [FIX] Dokumentasikan Return Type untuk Swagger
-  @ApiOkResponse({
-    description: 'Active playlist for current screen',
-    type: PlaylistResponseDto,
-  })
-  getPlaylist(@CurrentScreen() screen: Screen) {
-    return this.playerService.generatePlaylist(screen.id);
-  }
-
-  @Post('heartbeat')
-  @ApiOperation({ summary: 'Ping server to report ONLINE status' })
-  @ApiOkResponse({ description: 'Status acknowledged' })
-  heartbeat(@CurrentScreen() screen: Screen, @Body() dto: HeartbeatDto) {
-    return this.playerService.recordHeartbeat(screen.id, dto);
+  @ApiOperation({ summary: 'Get active campaign playlist filtered by Slot' })
+  @ApiResponse({ type: PlaylistResponseDto })
+  async getPlaylist(
+    @CurrentScreen() screen: Screen,
+    @Query() query: GetPlaylistDto,
+  ) {
+    return this.playerService.getPlaylist(screen, query);
   }
 }

@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/providers/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from '@prisma/client';
+import { AdSlot, DurationPackage, Role } from '@prisma/client';
 import { MidtransService } from '../src/providers/payment/midtrans.service';
 import { ConfigService } from '@nestjs/config';
 import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
@@ -40,7 +40,6 @@ describe('FinanceModule (E2E)', () => {
   // Track IDs
   let advertiserId: number;
   let adminId: number;
-  let screenId: number;
   let propertyId: number;
   let rateCardId: number;
 
@@ -110,36 +109,52 @@ describe('FinanceModule (E2E)', () => {
     });
     propertyId = property.id;
 
+    // Rate Card Base: 50.000
     const rateCard = await prisma.rateCard.create({
       data: {
         propertyId: property.id,
         classification: 'PREMIUM',
+        targetSlot: AdSlot.SCREENSAVER, // [FIX] Wajib ada slot
         pricePerDay: BigInt(50000),
+        isActive: true,
       },
     });
     rateCardId = rateCard.id;
 
-    const screen = await prisma.screen.create({
+    // Screen (agar dihitung quantity-nya)
+    await prisma.screen.create({
       data: {
         propertyId: property.id,
-        name: 'Fin Screen',
-        code: `FS-${Date.now()}`,
+        name: 'Fin Screen 1',
+        code: `FS1-${Date.now()}`,
+        status: 'ONLINE', // [FIX] Wajib ONLINE agar dihitung
       },
     });
-    screenId = screen.id;
+
+    // Screen 2
+    await prisma.screen.create({
+      data: {
+        propertyId: property.id,
+        name: 'Fin Screen 2',
+        code: `FS2-${Date.now()}`,
+        status: 'ONLINE',
+      },
+    });
   });
 
   afterAll(async () => {
     // [FIX] Targeted Cleanup
-    await prisma.transaction.deleteMany({
-      where: { wallet: { userId: advertiserId } },
-    });
-    await prisma.withdrawalRequest.deleteMany({
-      where: { wallet: { userId: advertiserId } },
-    });
-    await prisma.wallet.deleteMany({ where: { userId: advertiserId } });
+    if (advertiserId) {
+      await prisma.transaction.deleteMany({
+        where: { wallet: { userId: advertiserId } },
+      });
+      await prisma.withdrawalRequest.deleteMany({
+        where: { wallet: { userId: advertiserId } },
+      });
+      await prisma.wallet.deleteMany({ where: { userId: advertiserId } });
+    }
 
-    await prisma.screen.deleteMany({ where: { id: screenId } });
+    await prisma.screen.deleteMany({ where: { propertyId: propertyId } });
     await prisma.rateCard.deleteMany({ where: { id: rateCardId } });
     await prisma.property.deleteMany({ where: { id: propertyId } });
 
@@ -156,13 +171,17 @@ describe('FinanceModule (E2E)', () => {
         .post('/finance/calculate-cost')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({
-          screenIds: [screenId],
+          // [FIX] Payload Baru (Sesuai Revisi Phase 2)
+          propertyId: propertyId,
+          targetSlot: AdSlot.SCREENSAVER,
+          durationPackage: DurationPackage.CUSTOM,
           startDate: '2025-01-01',
-          endDate: '2025-01-03',
+          endDate: '2025-01-02', // 1 Hari
         })
         .expect(201);
 
       // [FIX] Explicit Type Assertion
+      // Hitungan: 50.000 (Harga) x 2 (Screen) x 1 (Hari) = 100.000
       const body = res.body as CostCalculationResponse;
       expect(body.data.totalCost).toBe(100000);
     });
@@ -170,7 +189,6 @@ describe('FinanceModule (E2E)', () => {
 
   describe('Topup Flow', () => {
     it('POST /finance/topup', async () => {
-      // [FIX] Cast to Server
       await request(app.getHttpServer() as Server)
         .post('/finance/topup')
         .set('Authorization', `Bearer ${advertiserToken}`)
@@ -179,13 +197,11 @@ describe('FinanceModule (E2E)', () => {
     });
 
     it('GET /finance/wallet', async () => {
-      // [FIX] Cast to Server
       const res = await request(app.getHttpServer() as Server)
         .get('/finance/wallet')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .expect(200);
 
-      // [FIX] Explicit Type Assertion
       const body = res.body as WalletResponse;
       expect(body.data.balance).toBe(0);
     });
@@ -193,13 +209,11 @@ describe('FinanceModule (E2E)', () => {
 
   describe('Admin Transactions Flow', () => {
     it('GET /finance/admin/transactions', async () => {
-      // [FIX] Cast to Server
       const res = await request(app.getHttpServer() as Server)
         .get('/finance/admin/transactions')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      // [FIX] Explicit Type Assertion
       const body = res.body as TransactionsResponse;
       expect(Array.isArray(body.data.data)).toBeTruthy();
     });
