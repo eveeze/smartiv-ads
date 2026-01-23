@@ -8,11 +8,28 @@ import { AuthModule } from '../src/modules/auth/auth.module';
 import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
 import { applyBigIntSerializers } from '../src/common/utils/bigint.util';
 import { Role, CampaignStatus, ScreenStatus } from '@prisma/client';
+import { Server } from 'http';
+
+// [FIX] Definisi Interface untuk Response Type Safety
+interface AdvertiserSummary {
+  activeCampaigns: number;
+  totalSpent: string;
+}
+
+interface AdminSummary {
+  totalRevenue: string;
+  totalScreens: number;
+}
+
+interface ApiResponse<T> {
+  data: T;
+}
 
 describe('Analytics Module (E2E)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let authService: AuthService;
+  let httpServer: Server; // [FIX] Deklarasi Tipe Server
 
   let advertiserToken: string;
   let adminToken: string;
@@ -32,6 +49,8 @@ describe('Analytics Module (E2E)', () => {
     app.useGlobalInterceptors(new TransformInterceptor());
     await app.init();
 
+    // [FIX] Casting ke Server
+    httpServer = app.getHttpServer() as Server;
     prisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);
 
@@ -133,18 +152,21 @@ describe('Analytics Module (E2E)', () => {
 
   describe('GET /analytics/advertiser/summary', () => {
     it('should return correct summary for advertiser', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .get('/analytics/advertiser/summary')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .expect(200);
 
-      const data = res.body.data;
+      // [FIX] Type Assertion
+      const body = res.body as ApiResponse<AdvertiserSummary>;
+      const data = body.data;
+
       expect(data.activeCampaigns).toBe(1);
       expect(data.totalSpent).toBe('1000000');
     });
 
     it('should return 403 for Admin role', async () => {
-      await request(app.getHttpServer())
+      await request(httpServer)
         .get('/analytics/advertiser/summary')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(403);
@@ -153,16 +175,16 @@ describe('Analytics Module (E2E)', () => {
 
   describe('GET /analytics/admin/summary', () => {
     it('should return global summary for admin', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .get('/analytics/admin/summary')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      const data = res.body.data;
+      // [FIX] Type Assertion
+      const body = res.body as ApiResponse<AdminSummary>;
+      const data = body.data;
 
-      // [FIX] Gunakan GreaterThanOrEqual agar tidak fail jika ada campaign lain dari test parallel
       expect(Number(data.totalRevenue)).toBeGreaterThanOrEqual(1000000);
-
       expect(data.totalScreens).toBeGreaterThanOrEqual(1);
     });
   });

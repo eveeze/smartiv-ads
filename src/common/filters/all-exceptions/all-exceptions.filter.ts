@@ -33,7 +33,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message: Array.isArray(message) ? message[0] : message,
       error,
       timestamp: new Date().toISOString(),
-      path: httpAdapter.getRequestUrl(ctx.getRequest()),
+      // 👇 PERBAIKAN: Gunakan 'as string' untuk memberitahu TS bahwa ini pasti string
+      // Ini aman karena URL path HTTP selalu berbentuk string.
+      path: httpAdapter.getRequestUrl(ctx.getRequest()) as string,
     };
 
     httpAdapter.reply(ctx.getResponse(), responseBody, statusCode);
@@ -92,7 +94,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private handleUnknownException(exception: unknown): ErrorResponse {
     this.logger.error('Unhandled Exception:', exception);
 
-    // Force return generic message agar sesuai Test dan aman untuk Production
     return {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       message: 'Internal server error',

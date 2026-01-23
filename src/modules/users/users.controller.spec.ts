@@ -18,8 +18,8 @@ describe('UsersController', () => {
     findAll: jest.fn(),
     findOne: jest.fn(),
     updateProfile: jest.fn(),
-    createUser: jest.fn(), // [NEW]
-    assignProperty: jest.fn(), // [NEW]
+    createUser: jest.fn(),
+    assignProperty: jest.fn(),
   };
 
   const mockUser: User = {
@@ -60,7 +60,8 @@ describe('UsersController', () => {
       mockUsersService.createUser.mockResolvedValue({ ...mockUser, ...dto });
 
       const result = await controller.create(dto);
-      expect(service.createUser).toHaveBeenCalledWith(dto);
+      // [FIX] Gunakan mockUsersService langsung untuk menghindari error unbound method
+      expect(mockUsersService.createUser).toHaveBeenCalledWith(dto);
       expect(result).toBeInstanceOf(UserResponseDto);
     });
   });
@@ -74,7 +75,7 @@ describe('UsersController', () => {
       });
 
       const result = await controller.assignProperty(1, dto);
-      expect(service.assignProperty).toHaveBeenCalledWith(1, dto);
+      expect(mockUsersService.assignProperty).toHaveBeenCalledWith(1, dto);
       expect(result.propertyId).toBe(10);
     });
   });
@@ -92,7 +93,7 @@ describe('UsersController', () => {
 
       const result = await controller.findAll(new PageOptionsDto());
       expect(result).toBe(mockResult);
-      expect(service.findAll).toHaveBeenCalled();
+      expect(mockUsersService.findAll).toHaveBeenCalled();
     });
   });
 
@@ -102,7 +103,7 @@ describe('UsersController', () => {
 
       const result = await controller.findOne(1);
       expect(result).toBeInstanceOf(UserResponseDto);
-      expect(service.findOne).toHaveBeenCalledWith(1);
+      expect(mockUsersService.findOne).toHaveBeenCalledWith(1);
     });
   });
 
@@ -115,7 +116,10 @@ describe('UsersController', () => {
 
       const result = await controller.updateProfile(mockUser, dto);
 
-      expect(service.updateProfile).toHaveBeenCalledWith(mockUser.id, dto);
+      expect(mockUsersService.updateProfile).toHaveBeenCalledWith(
+        mockUser.id,
+        dto,
+      );
       expect(result.name).toBe('Updated Name');
     });
   });

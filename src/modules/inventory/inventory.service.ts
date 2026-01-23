@@ -12,7 +12,7 @@ import { PageMetaDto } from '../../common/dto/page-meta.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { CreateScreenDto } from './dto/create-screen.dto';
 import { UpdateScreenDto } from './dto/update-screen.dto';
-import { Property, Screen } from '@prisma/client';
+import { Property, Screen, Prisma } from '@prisma/client'; // [FIX] Import Prisma namespace
 import { CreateRateCardDto } from './dto/create-rate-card.dto';
 import { UpdateRateCardDto } from './dto/update-rate-card.dto';
 
@@ -111,7 +111,8 @@ export class InventoryService {
     // [FIX] Default value untuk menghindari 'undefined'
     const { page = 1, take = 10, order } = pageOptionsDto;
 
-    const where: any = {};
+    // [FIX] Menggunakan Type Safe Prisma Where Input, bukan 'any'
+    const where: Prisma.ScreenWhereInput = {};
     if (propertyId) where.propertyId = propertyId;
 
     const [data, total] = await Promise.all([
@@ -130,7 +131,8 @@ export class InventoryService {
   }
 
   async findScreensList(propertyId?: number) {
-    const where: any = {};
+    // [FIX] Menggunakan Type Safe Prisma Where Input, bukan 'any'
+    const where: Prisma.ScreenWhereInput = {};
     if (propertyId) where.propertyId = propertyId;
 
     return this.prisma.screen.findMany({

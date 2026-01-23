@@ -1,10 +1,15 @@
 import { AllExceptionsFilter } from './all-exceptions.filter';
-import { HttpException, HttpStatus } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Logger,
+  ArgumentsHost,
+} from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
-// Mock Response Object (Agar tidak undefined)
+// Mock Response Object
 const mockResponseObject = { headersSent: false };
 
 // Mock Object untuk ArgumentsHost
@@ -24,6 +29,9 @@ describe('AllExceptionsFilter', () => {
   let filter: AllExceptionsFilter;
 
   beforeEach(async () => {
+    // [FIX] Bungkam Logger agar tidak print error ke console saat test dijalankan
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AllExceptionsFilter,
@@ -38,7 +46,7 @@ describe('AllExceptionsFilter', () => {
 
     jest.clearAllMocks();
 
-    // Setup Mock agar getResponse me-return object (Fix untuk expect.anything())
+    // Setup Mock agar getResponse me-return object
     mockArgumentsHost.switchToHttp.mockReturnValue({
       getRequest: jest.fn(),
       getResponse: jest.fn().mockReturnValue(mockResponseObject),
@@ -51,10 +59,10 @@ describe('AllExceptionsFilter', () => {
       HttpStatus.FORBIDDEN,
     );
 
-    filter.catch(exception, mockArgumentsHost as any);
+    filter.catch(exception, mockArgumentsHost as unknown as ArgumentsHost);
 
     expect(mockHttpAdapter.reply).toHaveBeenCalledWith(
-      expect.anything(), // Sekarang ini akan PASS karena mockResponseObject != undefined
+      expect.anything(),
       expect.objectContaining({
         statusCode: 403,
         success: false,
@@ -71,7 +79,7 @@ describe('AllExceptionsFilter', () => {
       { code: 'P2002', clientVersion: '6.0.0', meta: { target: ['email'] } },
     );
 
-    filter.catch(exception, mockArgumentsHost as any);
+    filter.catch(exception, mockArgumentsHost as unknown as ArgumentsHost);
 
     expect(mockHttpAdapter.reply).toHaveBeenCalledWith(
       expect.anything(),
@@ -88,7 +96,8 @@ describe('AllExceptionsFilter', () => {
   it('should catch Unknown Error and return 500', () => {
     const exception = new Error('Something exploded');
 
-    filter.catch(exception, mockArgumentsHost as any);
+    // [INFO] Logger.error akan dipanggil di sini, tapi karena sudah di-mock, console akan tetap bersih.
+    filter.catch(exception, mockArgumentsHost as unknown as ArgumentsHost);
 
     expect(mockHttpAdapter.reply).toHaveBeenCalledWith(
       expect.anything(),

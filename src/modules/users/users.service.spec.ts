@@ -12,6 +12,29 @@ import { UserPageOptionsDto } from './dto/user-page-options.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcryptjs';
 
+// ==========================================
+// 1. DEFINISI TYPE-SAFE MOCK INTERFACES
+// ==========================================
+
+type MockFn = jest.Mock<any, any>;
+
+interface MockPrismaService {
+  user: {
+    findMany: MockFn;
+    count: MockFn;
+    findUnique: MockFn;
+    create: MockFn;
+    update: MockFn;
+  };
+  property: {
+    findUnique: MockFn;
+  };
+  wallet: {
+    create: MockFn;
+  };
+  $transaction: MockFn;
+}
+
 // Mock bcrypt
 jest.mock('bcryptjs', () => ({
   hash: jest.fn(),
@@ -36,8 +59,13 @@ describe('UsersService', () => {
     wallet: {
       create: jest.fn(),
     },
-    $transaction: jest.fn(),
-  };
+    // [FIX] Transaction mock yang meneruskan mockPrisma itu sendiri ke callback
+    $transaction: jest
+      .fn()
+      .mockImplementation((callback: (prisma: MockPrismaService) => unknown) =>
+        callback(mockPrisma as unknown as MockPrismaService),
+      ),
+  } as unknown as MockPrismaService;
 
   const mockUser: User = {
     id: 1,
@@ -52,6 +80,7 @@ describe('UsersService', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     propertyId: null,
+    // [FIX] 'lastLogin' dihapus karena tidak ada di schema User saat ini
   };
 
   beforeEach(async () => {
@@ -87,23 +116,19 @@ describe('UsersService', () => {
       mockPrisma.property.findUnique.mockResolvedValue({ id: 1 }); // Property exist
       (bcrypt.hash as jest.Mock).mockResolvedValue('hashed_pwd');
 
-      // Mock Transaction
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
-        // Simulasi context transaction (menggunakan mockPrisma biasa di test ini)
-        return callback(prisma);
-      });
       mockPrisma.user.create.mockResolvedValue({ ...mockUser, id: 2 });
       mockPrisma.wallet.create.mockResolvedValue({ id: 1 });
 
       const result = await service.createUser(createDto);
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      // [FIX] Gunakan mockPrisma langsung untuk menghindari error unbound method pada 'expect(prisma...)'
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
         where: { email: createDto.email },
         select: { id: true },
       });
-      expect(prisma.property.findUnique).toHaveBeenCalled();
-      expect(prisma.user.create).toHaveBeenCalled();
-      expect(prisma.wallet.create).toHaveBeenCalled();
+      expect(mockPrisma.property.findUnique).toHaveBeenCalled();
+      expect(mockPrisma.user.create).toHaveBeenCalled();
+      expect(mockPrisma.wallet.create).toHaveBeenCalled();
       expect(result.id).toBe(2);
     });
 
@@ -138,7 +163,7 @@ describe('UsersService', () => {
 
       const result = await service.assignProperty(userId, dto);
 
-      expect(prisma.user.update).toHaveBeenCalledWith({
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: userId },
         data: { propertyId: 10 },
       });
@@ -168,7 +193,7 @@ describe('UsersService', () => {
       const pageOptions = new UserPageOptionsDto();
       const result = await service.findAll(pageOptions);
 
-      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(result.data[0].email).toEqual(usersData[0].email);
       expect(result.meta.itemCount).toBe(1);
     });
@@ -179,7 +204,7 @@ describe('UsersService', () => {
 
       mockPrisma.$transaction.mockResolvedValue([[], 0]);
       await service.findAll(pageOptions);
-      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
     });
   });
 
@@ -216,7 +241,7 @@ describe('UsersService', () => {
 
       const result = await service.updateProfile(userId, dto);
 
-      expect(prisma.user.update).toHaveBeenCalledWith({
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: userId },
         data: { name: dto.name, phone: dto.phone },
       });

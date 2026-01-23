@@ -12,10 +12,36 @@ import {
   Role,
 } from '@prisma/client';
 import { applyBigIntSerializers } from '../src/common/utils/bigint.util';
+import { Server } from 'http';
+
+// [FIX] 1. Definisi Interface untuk Response Type Safety
+interface PlayerConfig {
+  screenId: number;
+  propertyName: string;
+  refreshInterval: number;
+}
+
+interface PlaylistItem {
+  campaignId: number;
+  mediaId: number;
+  duration: number;
+}
+
+interface PlaylistResponse {
+  totalItems: number;
+  items: PlaylistItem[];
+}
+
+// Wrapper generic untuk response standard { data: T }
+interface ApiResponse<T> {
+  data: T;
+}
 
 describe('PlayerModule (E2E)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  // [FIX] 2. Deklarasikan httpServer dengan tipe jelas
+  let httpServer: Server;
 
   // Data IDs
   let propertyId: number;
@@ -37,6 +63,8 @@ describe('PlayerModule (E2E)', () => {
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     await app.init();
 
+    // [FIX] 3. Explicit Casting 'as Server' untuk menghilangkan error unsafe assignment
+    httpServer = app.getHttpServer() as Server;
     prisma = app.get<PrismaService>(PrismaService);
 
     // --- SEED DATA ---
@@ -127,11 +155,12 @@ describe('PlayerModule (E2E)', () => {
 
   describe('Security & Auth', () => {
     it('should return 401 if X-Device-ID is missing', async () => {
-      await request(app.getHttpServer()).get('/player/config').expect(401);
+      // [FIX] Gunakan httpServer yang sudah ditiping
+      await request(httpServer).get('/player/config').expect(401);
     });
 
     it('should return 401 if X-Device-ID is invalid', async () => {
-      await request(app.getHttpServer())
+      await request(httpServer)
         .get('/player/config')
         .set('X-Device-ID', 'WRONG-CODE')
         .expect(401);
@@ -140,12 +169,15 @@ describe('PlayerModule (E2E)', () => {
 
   describe('GET /player/config', () => {
     it('should return config for valid device', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .get('/player/config')
         .set('X-Device-ID', deviceCode)
         .expect(200);
 
-      const data = res.body.data;
+      // [FIX] 4. Type Casting response body agar member access aman
+      const body = res.body as ApiResponse<PlayerConfig>;
+      const data = body.data;
+
       expect(data.screenId).toBe(screenId);
       expect(data.propertyName).toBe('Player Test Hotel');
       expect(data.refreshInterval).toBe(900);
@@ -154,13 +186,17 @@ describe('PlayerModule (E2E)', () => {
 
   describe('GET /player/playlist', () => {
     it('should return active playlist items', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .get('/player/playlist')
         .set('X-Device-ID', deviceCode)
         .expect(200);
 
-      const data = res.body.data;
+      // [FIX] 5. Type Casting response body untuk playlist
+      const body = res.body as ApiResponse<PlaylistResponse>;
+      const data = body.data;
+
       expect(data.totalItems).toBe(1);
+      // Akses array item juga aman karena sudah ditiping di interface
       expect(data.items[0].campaignId).toBe(campaignId);
       expect(data.items[0].mediaId).toBe(mediaId);
       expect(data.items[0].duration).toBe(15);
@@ -173,7 +209,7 @@ describe('PlayerModule (E2E)', () => {
       // We skip manual check here to keep test clean, assuming create worked.
 
       // 2. Send Heartbeat
-      await request(app.getHttpServer())
+      await request(httpServer)
         .post('/player/heartbeat')
         .set('X-Device-ID', deviceCode)
         .send({

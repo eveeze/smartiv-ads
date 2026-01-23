@@ -75,10 +75,6 @@ export class InventoryController {
     );
   }
 
-  // ... (Method CRUD Property, Screens, RateCards biarkan seperti sebelumnya) ...
-  // Pastikan Anda menyalin sisa method dari file sebelumnya jika belum ada di sini.
-  // Tapi error utamanya hanya pada import di atas.
-
   @Post('properties')
   @Roles(Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create new property' })

@@ -13,14 +13,26 @@ import { CalculateCostDto } from './dto/calculate-cost.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { PageDto } from '../../common/dto/page.dto';
 import { PageMetaDto } from '../../common/dto/page-meta.dto';
-import { FinanceUtils } from '../../common/utils/finance.utils'; // [NEW] Import Utils
+import { FinanceUtils } from '../../common/utils/finance.utils';
 import {
   TransactionType,
   TransactionStatus,
   WithdrawalStatus,
   Prisma,
   User,
+  Wallet,
+  Transaction,
 } from '@prisma/client';
+
+// [FIX] Interface Helper untuk response Midtrans
+interface MidtransNotification {
+  order_id: string;
+  transaction_status: string;
+  fraud_status?: string;
+}
+
+// [FIX] Helper Type untuk Wallet yang di-include transactions
+type WalletWithTransactions = Wallet & { transactions: Transaction[] };
 
 @Injectable()
 export class FinanceService {
@@ -48,13 +60,16 @@ export class FinanceService {
         data: { userId },
         include: { transactions: true },
       });
-      return this.formatWallet(newWallet);
+      // [FIX] Assert type agar sesuai
+      return this.formatWallet(newWallet as WalletWithTransactions);
     }
 
-    return this.formatWallet(wallet);
+    // [FIX] Assert type
+    return this.formatWallet(wallet as WalletWithTransactions);
   }
 
-  private formatWallet(wallet: any) {
+  // [FIX] Mengganti 'any' dengan Type yang spesifik
+  private formatWallet(wallet: WalletWithTransactions) {
     return {
       ...wallet,
       balance: Number(wallet.balance),
@@ -228,7 +243,11 @@ export class FinanceService {
 
   // --- WEBHOOK HANDLER ---
   async handleMidtransNotification(notification: unknown) {
-    const statusResponse = await this.midtrans.verifyNotification(notification);
+    // [FIX] Casting result ke Interface MidtransNotification
+    const statusResponse = (await this.midtrans.verifyNotification(
+      notification,
+    )) as MidtransNotification;
+
     const orderId = statusResponse.order_id;
     const transactionStatus = statusResponse.transaction_status;
     const fraudStatus = statusResponse.fraud_status;

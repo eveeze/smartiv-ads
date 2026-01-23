@@ -57,20 +57,12 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy package.json (penting untuk referensi)
-COPY package.json ./
-
-# Copy Node Modules dari prod-deps
+# Copy semua yang dibutuhkan untuk running & seeding
+COPY package.json pnpm-lock.yaml ./
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/prisma ./prisma
-
-# Copy Hasil Build dari builder (INTI MASALAHNYA DI SINI)
 COPY --from=builder /app/dist ./dist
 
-# Pastikan folder dist ada (Debug purpose, opsional)
-# RUN ls -la ./dist
-
+# EXPOSE dan CMD tetap sama
 EXPOSE 3000
-
-# Jalankan aplikasi
 CMD ["node", "dist/src/main"]

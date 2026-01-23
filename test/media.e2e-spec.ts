@@ -14,6 +14,21 @@ import {
   CreateBucketCommand,
   HeadBucketCommand,
 } from '@aws-sdk/client-s3';
+import { Server } from 'http';
+
+// [FIX] Definisi Interface untuk Response Type Safety
+interface MediaItem {
+  id: number;
+  status: ApprovalStatus;
+}
+
+interface UploadResponse {
+  data: MediaItem;
+}
+
+interface PendingListResponse {
+  data: MediaItem[];
+}
 
 describe('MediaModule (e2e) - Moderation', () => {
   let app: INestApplication;
@@ -22,6 +37,7 @@ describe('MediaModule (e2e) - Moderation', () => {
   let configService: ConfigService;
   let advertiserToken: string;
   let adminToken: string;
+  let httpServer: Server; // [FIX] Deklarasi server dengan tipe yang benar
 
   // Track IDs for targeted cleanup
   let advertiserId: number;
@@ -45,20 +61,32 @@ describe('MediaModule (e2e) - Moderation', () => {
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     await app.init();
 
+    // [FIX] Casting server agar aman digunakan di supertest
+    httpServer = app.getHttpServer() as Server;
+
     prisma = app.get<PrismaService>(PrismaService);
     jwtService = app.get<JwtService>(JwtService);
     configService = app.get<ConfigService>(ConfigService);
 
     // Setup S3 (Mock/MinIO)
-    const endpoint = configService.get('minio.endpoint') ?? 'localhost';
-    const port = configService.get('minio.port') ?? 9000;
-    const bucketName = configService.get('minio.bucket') ?? 'test-bucket';
+    // [FIX] Menggunakan generics untuk configService.get agar return typenya aman
+    const endpoint = configService.get<string>('minio.endpoint') ?? 'localhost';
+    const port = configService.get<number>('minio.port') ?? 9000;
+    const bucketName =
+      configService.get<string>('minio.bucket') ?? 'test-bucket';
+
+    // [FIX] Casting accessKey dan secretKey sebagai string karena .get bisa return undefined
+    const accessKeyId =
+      configService.get<string>('minio.accessKey') ?? 'minioadmin';
+    const secretAccessKey =
+      configService.get<string>('minio.secretKey') ?? 'minioadmin';
+
     const s3 = new S3Client({
       endpoint: `http://${endpoint}:${port}`,
       region: 'us-east-1',
       credentials: {
-        accessKeyId: configService.get('minio.accessKey') ?? 'minioadmin',
-        secretAccessKey: configService.get('minio.secretKey') ?? 'minioadmin',
+        accessKeyId,
+        secretAccessKey,
       },
       forcePathStyle: true,
     });
@@ -103,7 +131,7 @@ describe('MediaModule (e2e) - Moderation', () => {
   });
 
   afterAll(async () => {
-    // [FIX] Targeted Cleanup Only
+    // Targeted Cleanup Only
     if (mediaId) await prisma.media.deleteMany({ where: { id: mediaId } });
     if (advertiserId) {
       await prisma.wallet.deleteMany({ where: { userId: advertiserId } });
@@ -119,38 +147,43 @@ describe('MediaModule (e2e) - Moderation', () => {
 
   describe('Workflow: Upload -> Pending -> Admin Approve', () => {
     it('1. Advertiser uploads media', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .post('/media/upload')
         .set('Authorization', `Bearer ${advertiserToken}`)
         .attach('file', testImage)
         .expect(201);
 
-      expect(res.body.data.status).toBe(ApprovalStatus.PENDING);
-      mediaId = res.body.data.id;
+      // [FIX] Type assertion menggunakan 'as UploadResponse'
+      const body = res.body as UploadResponse;
+      expect(body.data.status).toBe(ApprovalStatus.PENDING);
+      mediaId = body.data.id;
     });
 
     it('2. Admin checks pending queue', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .get('/media/pending')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      const found = res.body.data.find((m) => m.id === mediaId);
+      // [FIX] Type assertion menggunakan 'as PendingListResponse'
+      const body = res.body as PendingListResponse;
+      const found = body.data.find((m) => m.id === mediaId);
       expect(found).toBeDefined();
     });
 
     it('3. Admin Approves the media', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .patch(`/media/${mediaId}/review`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: ApprovalStatus.APPROVED })
         .expect(200);
 
-      expect(res.body.data.status).toBe(ApprovalStatus.APPROVED);
+      const body = res.body as UploadResponse;
+      expect(body.data.status).toBe(ApprovalStatus.APPROVED);
     });
 
     it('4. Admin Rejects media (Fail Validation)', async () => {
-      await request(app.getHttpServer())
+      await request(httpServer)
         .patch(`/media/${mediaId}/review`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: ApprovalStatus.REJECTED })
@@ -158,17 +191,18 @@ describe('MediaModule (e2e) - Moderation', () => {
     });
 
     it('5. Admin Rejects media (Success)', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .patch(`/media/${mediaId}/review`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: ApprovalStatus.REJECTED, rejectionReason: 'Policy' })
         .expect(200);
 
-      expect(res.body.data.status).toBe(ApprovalStatus.REJECTED);
+      const body = res.body as UploadResponse;
+      expect(body.data.status).toBe(ApprovalStatus.REJECTED);
     });
 
     it('6. Advertiser tries to moderate (Fail)', async () => {
-      await request(app.getHttpServer())
+      await request(httpServer)
         .patch(`/media/${mediaId}/review`)
         .set('Authorization', `Bearer ${advertiserToken}`)
         .send({ status: ApprovalStatus.APPROVED })

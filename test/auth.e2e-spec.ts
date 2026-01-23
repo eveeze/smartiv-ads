@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import request from 'supertest'; // [FIX] Ganti import * as menjadi import default
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/providers/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -8,6 +8,20 @@ import { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
+import { Server } from 'http'; // [FIX] Import Server type for casting
+
+// [FIX] Define Interfaces for Type Safety
+interface LoginResponse {
+  data: {
+    accessToken: string;
+  };
+}
+
+interface ProfileResponse {
+  data: {
+    email: string;
+  };
+}
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
@@ -78,7 +92,8 @@ describe('AuthController (e2e)', () => {
 
   describe('/auth/register (POST)', () => {
     it('should register a new user', () => {
-      return request(app.getHttpServer())
+      // [FIX] Cast to Server
+      return request(app.getHttpServer() as Server)
         .post('/auth/register')
         .send({
           email: registerUserEmail,
@@ -92,17 +107,21 @@ describe('AuthController (e2e)', () => {
 
   describe('/auth/login (POST)', () => {
     it('should login and return jwt token', () => {
-      return request(app.getHttpServer())
+      // [FIX] Cast to Server
+      return request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({ email: testUserEmail, password: 'password123' })
-        .expect(200) // Expect 200 OK
+        .expect(200)
         .expect((res) => {
-          expect(res.body.data.accessToken).toBeDefined();
+          // [FIX] Explicit Type Assertion
+          const body = res.body as LoginResponse;
+          expect(body.data.accessToken).toBeDefined();
         });
     });
 
     it('should fail with wrong password', () => {
-      return request(app.getHttpServer())
+      // [FIX] Cast to Server
+      return request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({ email: testUserEmail, password: 'wrongpassword' })
         .expect(401);
@@ -111,17 +130,23 @@ describe('AuthController (e2e)', () => {
 
   describe('/auth/me (GET)', () => {
     it('should get profile with valid token', () => {
-      return request(app.getHttpServer())
+      // [FIX] Cast to Server
+      return request(app.getHttpServer() as Server)
         .get('/auth/me')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200)
         .expect((res) => {
-          expect(res.body.data.email).toEqual(testUserEmail);
+          // [FIX] Explicit Type Assertion
+          const body = res.body as ProfileResponse;
+          expect(body.data.email).toEqual(testUserEmail);
         });
     });
 
     it('should fail without token', () => {
-      return request(app.getHttpServer()).get('/auth/me').expect(401);
+      // [FIX] Cast to Server
+      return request(app.getHttpServer() as Server)
+        .get('/auth/me')
+        .expect(401);
     });
   });
 });

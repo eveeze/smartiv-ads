@@ -6,9 +6,41 @@ import { QueueService } from '../../providers/queue/queue.service';
 import { BadRequestException } from '@nestjs/common';
 import { MediaType, User, Role } from '@prisma/client';
 
-// Mock fs.createReadStream karena digunakan di service
+// ==========================================
+// 1. DEFINISI TYPE-SAFE MOCK INTERFACES
+// ==========================================
+
+type MockFn = jest.Mock<any, any>;
+
+interface MockPrismaService {
+  media: {
+    create: MockFn;
+    findMany: MockFn;
+    findUnique: MockFn;
+    delete: MockFn;
+    update: MockFn;
+  };
+  campaign: { count: MockFn };
+}
+
+interface MockStorageService {
+  uploadFile: MockFn;
+  delete: MockFn;
+}
+
+interface MockQueueService {
+  addTranscodeJob: MockFn;
+}
+
+// ==========================================
+// 2. MOCK IMPLEMENTATIONS
+// ==========================================
+
+// Mock fs.createReadStream
 jest.mock('fs', () => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const originalFs = jest.requireActual('fs');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return {
     ...originalFs,
     createReadStream: jest.fn().mockReturnValue('mock-stream'),
@@ -17,9 +49,6 @@ jest.mock('fs', () => {
 
 describe('MediaService', () => {
   let service: MediaService;
-  let prisma: PrismaService;
-  let storage: StorageService;
-  let queue: QueueService;
 
   const mockUser: User = {
     id: 1,
@@ -31,6 +60,9 @@ describe('MediaService', () => {
     propertyId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+    isActive: true, // [FIX] Added missing field
+    passwordResetToken: null, // [FIX] Added missing field
+    passwordResetExpires: null, // [FIX] Added missing field
   };
 
   const mockFile = {
@@ -49,15 +81,16 @@ describe('MediaService', () => {
       update: jest.fn(),
     },
     campaign: { count: jest.fn() },
-  };
+  } as unknown as MockPrismaService;
 
-  // [FIX] Tambahkan .mockResolvedValue(undefined) agar return Promise
   const mockStorage = {
     uploadFile: jest.fn(),
     delete: jest.fn().mockResolvedValue(undefined),
-  };
+  } as unknown as MockStorageService;
 
-  const mockQueue = { addTranscodeJob: jest.fn() };
+  const mockQueue = {
+    addTranscodeJob: jest.fn(),
+  } as unknown as MockQueueService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -70,9 +103,6 @@ describe('MediaService', () => {
     }).compile();
 
     service = module.get<MediaService>(MediaService);
-    prisma = module.get<PrismaService>(PrismaService);
-    storage = module.get<StorageService>(StorageService);
-    queue = module.get<QueueService>(QueueService);
 
     jest.clearAllMocks();
   });
@@ -87,13 +117,14 @@ describe('MediaService', () => {
 
       await service.upload(mockFile, mockUser);
 
-      expect(storage.uploadFile).toHaveBeenCalledWith(
+      // [FIX] Gunakan mockStorage langsung agar tidak kena error unbound method
+      expect(mockStorage.uploadFile).toHaveBeenCalledWith(
         expect.any(String),
         'mock-stream',
         expect.any(String),
       );
-      expect(prisma.media.create).toHaveBeenCalled();
-      expect(queue.addTranscodeJob).not.toHaveBeenCalled();
+      expect(mockPrisma.media.create).toHaveBeenCalled();
+      expect(mockQueue.addTranscodeJob).not.toHaveBeenCalled();
     });
 
     it('should upload video and trigger transcode', async () => {
@@ -106,7 +137,7 @@ describe('MediaService', () => {
 
       await service.upload(videoFile, mockUser);
 
-      expect(queue.addTranscodeJob).toHaveBeenCalledWith(2);
+      expect(mockQueue.addTranscodeJob).toHaveBeenCalledWith(2);
     });
 
     it('should throw error for unsupported file type', async () => {
@@ -116,8 +147,8 @@ describe('MediaService', () => {
         BadRequestException,
       );
 
-      expect(storage.uploadFile).not.toHaveBeenCalled();
-      expect(prisma.media.create).not.toHaveBeenCalled();
+      expect(mockStorage.uploadFile).not.toHaveBeenCalled();
+      expect(mockPrisma.media.create).not.toHaveBeenCalled();
     });
   });
 
@@ -135,8 +166,8 @@ describe('MediaService', () => {
 
       await service.remove(mediaId, mockUser);
 
-      expect(storage.delete).toHaveBeenCalledWith('raw/test.jpg');
-      expect(prisma.media.delete).toHaveBeenCalledWith({
+      expect(mockStorage.delete).toHaveBeenCalledWith('raw/test.jpg');
+      expect(mockPrisma.media.delete).toHaveBeenCalledWith({
         where: { id: mediaId },
       });
     });
@@ -149,7 +180,7 @@ describe('MediaService', () => {
         BadRequestException,
       );
       // Storage delete tidak boleh dipanggil jika validasi gagal
-      expect(storage.delete).not.toHaveBeenCalled();
+      expect(mockStorage.delete).not.toHaveBeenCalled();
     });
   });
 });

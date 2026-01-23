@@ -7,11 +7,28 @@ import { ReviewCampaignDto } from './dto/review-campaign.dto';
 import { CampaignQueryDto } from './dto/campaign-query.dto';
 import { Role, User, CampaignStatus } from '@prisma/client';
 
+// ==========================================
+// 1. DEFINISI TYPE-SAFE MOCK INTERFACE
+// ==========================================
+
+type MockFn = jest.Mock<any, any>;
+
+interface MockCampaignsService {
+  create: MockFn;
+  findAll: MockFn;
+  findOne: MockFn;
+  review: MockFn;
+  update: MockFn;
+  remove: MockFn;
+  cancel: MockFn;
+  submit: MockFn;
+}
+
 describe('CampaignsController', () => {
   let controller: CampaignsController;
   let service: CampaignsService;
 
-  // Mock User Data
+  // Mock User Data [FIX: Added missing properties]
   const mockUser: User = {
     id: 1,
     email: 'advertiser@test.com',
@@ -22,6 +39,9 @@ describe('CampaignsController', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     propertyId: null,
+    isActive: true, // [FIX]
+    passwordResetToken: null, // [FIX]
+    passwordResetExpires: null, // [FIX]
   };
 
   const mockAdmin: User = {
@@ -34,10 +54,13 @@ describe('CampaignsController', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     propertyId: null,
+    isActive: true, // [FIX]
+    passwordResetToken: null, // [FIX]
+    passwordResetExpires: null, // [FIX]
   };
 
-  // Mock Service
-  const mockCampaignsService = {
+  // Mock Service [FIX: Typed]
+  const mockCampaignsService: MockCampaignsService = {
     create: jest.fn(),
     findAll: jest.fn(),
     findOne: jest.fn(),
@@ -45,7 +68,7 @@ describe('CampaignsController', () => {
     update: jest.fn(),
     remove: jest.fn(),
     cancel: jest.fn(),
-    submit: jest.fn(), // [NEW] Mock submit method
+    submit: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -84,7 +107,8 @@ describe('CampaignsController', () => {
 
       const result = await controller.create(mockUser, dto);
 
-      expect(service.create).toHaveBeenCalledWith(mockUser, dto);
+      // [FIX] Use mock object directly to avoid unbound-method error
+      expect(mockCampaignsService.create).toHaveBeenCalledWith(mockUser, dto);
       expect(result).toEqual(expectedResult);
     });
   });
@@ -98,7 +122,10 @@ describe('CampaignsController', () => {
 
       const result = await controller.findAll(mockUser, query);
 
-      expect(service.findAll).toHaveBeenCalledWith(mockUser, query);
+      expect(mockCampaignsService.findAll).toHaveBeenCalledWith(
+        mockUser,
+        query,
+      );
       expect(result).toEqual(expectedResult);
     });
   });
@@ -110,7 +137,7 @@ describe('CampaignsController', () => {
 
       await controller.findPending(mockUser, query);
 
-      expect(service.findAll).toHaveBeenCalledWith(
+      expect(mockCampaignsService.findAll).toHaveBeenCalledWith(
         mockUser,
         expect.objectContaining({ status: CampaignStatus.PENDING_REVIEW }),
       );
@@ -126,7 +153,10 @@ describe('CampaignsController', () => {
 
       const result = await controller.findOne(campaignId, mockUser);
 
-      expect(service.findOne).toHaveBeenCalledWith(campaignId, mockUser);
+      expect(mockCampaignsService.findOne).toHaveBeenCalledWith(
+        campaignId,
+        mockUser,
+      );
       expect(result).toEqual(expectedResult);
     });
   });
@@ -141,7 +171,7 @@ describe('CampaignsController', () => {
 
       const result = await controller.review(campaignId, dto, mockAdmin);
 
-      expect(service.review).toHaveBeenCalledWith(
+      expect(mockCampaignsService.review).toHaveBeenCalledWith(
         campaignId,
         dto,
         mockAdmin.id,
@@ -161,7 +191,11 @@ describe('CampaignsController', () => {
 
       const result = await controller.update(campaignId, mockUser, dto);
 
-      expect(service.update).toHaveBeenCalledWith(campaignId, mockUser.id, dto);
+      expect(mockCampaignsService.update).toHaveBeenCalledWith(
+        campaignId,
+        mockUser.id,
+        dto,
+      );
       expect(result).toEqual(expectedResult);
     });
   });
@@ -176,7 +210,10 @@ describe('CampaignsController', () => {
 
       const result = await controller.remove(campaignId, mockUser);
 
-      expect(service.remove).toHaveBeenCalledWith(campaignId, mockUser.id);
+      expect(mockCampaignsService.remove).toHaveBeenCalledWith(
+        campaignId,
+        mockUser.id,
+      );
       expect(result).toEqual(expectedResult);
     });
   });
@@ -194,7 +231,10 @@ describe('CampaignsController', () => {
 
       const result = await controller.submit(campaignId, mockUser);
 
-      expect(service.submit).toHaveBeenCalledWith(campaignId, mockUser.id);
+      expect(mockCampaignsService.submit).toHaveBeenCalledWith(
+        campaignId,
+        mockUser.id,
+      );
       expect(result).toEqual(expectedResult);
     });
   });
@@ -212,7 +252,10 @@ describe('CampaignsController', () => {
 
       const result = await controller.cancel(campaignId, mockUser);
 
-      expect(service.cancel).toHaveBeenCalledWith(campaignId, mockUser);
+      expect(mockCampaignsService.cancel).toHaveBeenCalledWith(
+        campaignId,
+        mockUser,
+      );
       expect(result).toEqual(expectedResult);
     });
   });

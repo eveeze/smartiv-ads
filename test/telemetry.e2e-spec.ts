@@ -4,8 +4,17 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/providers/prisma/prisma.service';
 import { QueueService } from '../src/providers/queue/queue.service';
-import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor'; // [FIX] Import Interceptor
+import { TransformInterceptor } from '../src/common/interceptors/transform/transform.interceptor';
 import { applyBigIntSerializers } from '../src/common/utils/bigint.util';
+import { Server } from 'http';
+
+// [FIX] Interface for Type Safety
+interface TelemetryResponse {
+  data: {
+    success: boolean;
+    queued: number;
+  };
+}
 
 describe('Telemetry Module (E2E)', () => {
   let app: INestApplication;
@@ -30,7 +39,7 @@ describe('Telemetry Module (E2E)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
-    app.useGlobalInterceptors(new TransformInterceptor()); // [FIX] Gunakan Interceptor
+    app.useGlobalInterceptors(new TransformInterceptor());
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
@@ -67,7 +76,8 @@ describe('Telemetry Module (E2E)', () => {
 
   describe('POST /telemetry/impression', () => {
     it('should return 401 if X-Device-ID header is missing', async () => {
-      await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      await request(app.getHttpServer() as Server)
         .post('/telemetry/impression')
         .send({ impressions: [] })
         .expect(401);
@@ -89,20 +99,23 @@ describe('Telemetry Module (E2E)', () => {
         ],
       };
 
-      const response = await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      const response = await request(app.getHttpServer() as Server)
         .post('/telemetry/impression')
         .set('X-Device-ID', deviceId) // Header Auth Player
         .send(payload)
         .expect(202); // Expect Accepted
 
-      // Verifikasi Response (Sekarang ada .data karena Interceptor)
-      expect(response.body.data.success).toBe(true);
-      expect(response.body.data.queued).toBe(2);
+      // [FIX] Explicit Type Assertion
+      const body = response.body as TelemetryResponse;
+      expect(body.data.success).toBe(true);
+      expect(body.data.queued).toBe(2);
 
       // Verifikasi Queue Service dipanggil
       expect(mockQueueService.addImpressionJob).toHaveBeenCalledWith(
         expect.objectContaining({
           screenId: screenId,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           impressions: expect.arrayContaining([
             expect.objectContaining({ campaignId: 101 }),
           ]),
@@ -111,7 +124,8 @@ describe('Telemetry Module (E2E)', () => {
     });
 
     it('should return 400 for invalid payload', async () => {
-      await request(app.getHttpServer())
+      // [FIX] Cast to Server
+      await request(app.getHttpServer() as Server)
         .post('/telemetry/impression')
         .set('X-Device-ID', deviceId)
         .send({ impressions: 'not-an-array' })
