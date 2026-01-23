@@ -1,4 +1,3 @@
-// src/modules/campaigns/campaigns.service.ts
 import {
   BadRequestException,
   ForbiddenException,
@@ -365,14 +364,13 @@ export class CampaignsService {
     return this.prisma.campaign.delete({ where: { id } });
   }
 
-  // [FIX] Error TypeScript: Argument of type 'CampaignStatus' is not assignable...
+  // [UPDATED] Handle Refund on Cancel
   async cancel(id: number, user: User) {
     const campaign = await this.prisma.campaign.findUnique({ where: { id } });
     if (!campaign) throw new NotFoundException('Campaign not found');
     if (campaign.advertiserId !== user.id)
       throw new ForbiddenException('Ownership error');
 
-    // Definisikan tipe array secara eksplisit agar TypeScript tidak komplain
     const allowedStatuses: CampaignStatus[] = [
       CampaignStatus.PENDING_REVIEW,
       CampaignStatus.ACTIVE,
@@ -385,10 +383,19 @@ export class CampaignsService {
     }
 
     return await this.prisma.$transaction(async (tx) => {
+      // Logic Baru: Refund atau Release Frozen
       if (campaign.status === CampaignStatus.PENDING_REVIEW) {
+        // Uang masih Frozen -> Release
         await this.financeService.releaseFrozenBalance(
           user.id,
           campaign.totalCost,
+          tx,
+        );
+      } else if (campaign.status === CampaignStatus.ACTIVE) {
+        await this.financeService.processRefund(
+          user.id,
+          campaign.totalCost,
+          campaign.id,
           tx,
         );
       }

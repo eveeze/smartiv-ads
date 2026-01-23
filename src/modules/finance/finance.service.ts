@@ -204,7 +204,7 @@ export class FinanceService {
     };
   }
 
-  // --- ADMIN DASHBOARD (No Changes needed currently) ---
+  // --- ADMIN DASHBOARD ---
   async getAllTransactions(query: TransactionQueryDto) {
     const { type, page = 1, take = 10, order = 'desc' } = query;
     const where: Prisma.TransactionWhereInput = {};
@@ -459,5 +459,36 @@ export class FinanceService {
     tx: Prisma.TransactionClient,
   ) {
     return FinanceUtils.releaseFrozenBalance(tx, userId, amount);
+  }
+
+  // [NEW] Helper untuk proses Refund jika Campaign di-cancel setelah Active
+  async processRefund(
+    userId: number,
+    amount: bigint,
+    campaignId: number,
+    tx: Prisma.TransactionClient,
+  ) {
+    const wallet = await tx.wallet.findUnique({ where: { userId } });
+    if (!wallet) throw new NotFoundException('Wallet not found');
+
+    // 1. Kembalikan Saldo (Increment)
+    await tx.wallet.update({
+      where: { id: wallet.id },
+      data: {
+        balance: { increment: amount },
+      },
+    });
+
+    // 2. Catat Transaksi REFUND
+    await tx.transaction.create({
+      data: {
+        walletId: wallet.id,
+        amount: amount,
+        type: TransactionType.REFUND,
+        status: TransactionStatus.SUCCESS,
+        referenceCode: `REFUND-CAMP-${campaignId}-${Date.now()}`,
+        description: `Refund for Cancelled Campaign #${campaignId}`,
+      },
+    });
   }
 }
