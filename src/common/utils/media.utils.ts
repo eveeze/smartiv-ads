@@ -7,7 +7,8 @@ export class MediaUtils {
   static async hasAudioStream(filePath: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
       Ffmpeg.ffprobe(filePath, (err, metadata) => {
-        if (err) return reject(err);
+        if (err)
+          return reject(err instanceof Error ? err : new Error(String(err)));
 
         // Best Practice: Optional Chaining & Array Check
         const streams = metadata?.streams || [];

@@ -44,7 +44,7 @@ interface MockInventoryService {
 
 describe('InventoryController', () => {
   let controller: InventoryController;
-  let service: InventoryService;
+  // let service: InventoryService;
 
   // Mock Service dengan nama method yang BENAR dan Type Safe
   const mockInventoryService: MockInventoryService = {
@@ -81,6 +81,8 @@ describe('InventoryController', () => {
     logoUrl: null,
     address: 'Jl. Test',
     city: 'Jakarta',
+    timezone: 'Asia/Jakarta',
+    region: 'ID-JKT',
     enabledSlots: [AdSlot.SCREENSAVER],
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -95,6 +97,7 @@ describe('InventoryController', () => {
     orientation: ScreenOrientation.LANDSCAPE,
     ipAddress: null,
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     roomCategory: 'LOBBY' as any,
     status: ScreenStatus.ONLINE,
     lastPing: null,
@@ -115,7 +118,7 @@ describe('InventoryController', () => {
     }).compile();
 
     controller = module.get<InventoryController>(InventoryController);
-    service = module.get<InventoryService>(InventoryService);
+    // service = module.get<InventoryService>(InventoryService);
 
     jest.clearAllMocks();
   });
@@ -206,6 +209,7 @@ describe('InventoryController', () => {
         name: 'Name',
         orientation: ScreenOrientation.LANDSCAPE,
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         roomCategory: 'LOBBY' as any,
       };
       mockInventoryService.createScreen.mockResolvedValue(mockScreen);
@@ -272,6 +276,7 @@ describe('InventoryController', () => {
       const dto: CreateRateCardDto = {
         classification: PropertyClass.PREMIUM,
         pricePerDay: 500000,
+        targetSlot: AdSlot.SCREENSAVER,
       };
       // [FIX] Ensure return type includes id to match expected behavior
       mockInventoryService.createRateCard.mockResolvedValue({ id: 1, ...dto });

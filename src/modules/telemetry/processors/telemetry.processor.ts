@@ -58,7 +58,8 @@ export class TelemetryProcessor extends WorkerHost {
         `✅ Processed ${impressions.length} logs for Screen ${screenId}`,
       );
     } catch (error) {
-      this.logger.error(`Failed to process telemetry: ${error.message}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to process telemetry: ${msg}`);
       throw error; // Biarkan BullMQ menghandle retry
     }
   }

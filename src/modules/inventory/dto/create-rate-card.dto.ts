@@ -1,13 +1,6 @@
 // src/modules/inventory/dto/create-rate-card.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsPositive,
-  Min,
-} from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, Min } from 'class-validator';
 import { AdSlot, PropertyClass } from '@prisma/client';
 
 export class CreateRateCardDto {

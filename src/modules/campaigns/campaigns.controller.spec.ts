@@ -26,7 +26,7 @@ interface MockCampaignsService {
 
 describe('CampaignsController', () => {
   let controller: CampaignsController;
-  let service: CampaignsService;
+  // let service: CampaignsService;
 
   // Mock User Data [FIX: Added missing properties]
   const mockUser: User = {
@@ -44,20 +44,20 @@ describe('CampaignsController', () => {
     passwordResetExpires: null, // [FIX]
   };
 
-  const mockAdmin: User = {
-    id: 99,
-    email: 'admin@test.com',
-    role: Role.SUPER_ADMIN,
-    name: 'Test Admin',
-    password: 'hashed',
-    phone: '08123456789',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    propertyId: null,
-    isActive: true, // [FIX]
-    passwordResetToken: null, // [FIX]
-    passwordResetExpires: null, // [FIX]
-  };
+  // const mockAdmin: User = {
+  //   id: 99,
+  //   email: 'admin@test.com',
+  //   role: Role.SUPER_ADMIN,
+  //   name: 'Test Admin',
+  //   password: 'hashed',
+  //   phone: '08123456789',
+  //   createdAt: new Date(),
+  //   updatedAt: new Date(),
+  //   propertyId: null,
+  //   isActive: true, // [FIX]
+  //   passwordResetToken: null, // [FIX]
+  //   passwordResetExpires: null, // [FIX]
+  // };
 
   // Mock Service [FIX: Typed]
   const mockCampaignsService: MockCampaignsService = {
@@ -83,7 +83,7 @@ describe('CampaignsController', () => {
     }).compile();
 
     controller = module.get<CampaignsController>(CampaignsController);
-    service = module.get<CampaignsService>(CampaignsService);
+    // service = module.get<CampaignsService>(CampaignsService);
 
     jest.clearAllMocks();
   });
@@ -97,9 +97,12 @@ describe('CampaignsController', () => {
       const dto: CreateCampaignDto = {
         name: 'Test Campaign',
         startDate: '2025-01-01',
-        endDate: '2025-01-05',
         mediaId: 1,
-        screenIds: [1, 2],
+        propertyId: 1,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        targetSlot: 'SCREENSAVER' as any,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        durationPackage: 'WEEKLY' as any,
       };
       const expectedResult = { id: 1, ...dto };
 
@@ -169,13 +172,9 @@ describe('CampaignsController', () => {
 
       mockCampaignsService.review.mockResolvedValue(expectedResult);
 
-      const result = await controller.review(campaignId, dto, mockAdmin);
+      const result = await controller.review(campaignId, dto);
 
-      expect(mockCampaignsService.review).toHaveBeenCalledWith(
-        campaignId,
-        dto,
-        mockAdmin.id,
-      );
+      expect(mockCampaignsService.review).toHaveBeenCalledWith(campaignId, dto);
       expect(result).toEqual(expectedResult);
     });
   });

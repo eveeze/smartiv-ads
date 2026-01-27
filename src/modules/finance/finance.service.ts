@@ -24,7 +24,6 @@ import {
   Transaction,
   DurationPackage,
   ScreenStatus,
-  RateCard,
 } from '@prisma/client';
 
 // Helper Type
@@ -160,7 +159,6 @@ export class FinanceService {
 
     // 4. Hitung Harga Satuan Berdasarkan Paket
     let unitPrice = BigInt(0);
-    let appliedPackage = durationPackage;
 
     switch (durationPackage) {
       case DurationPackage.WEEKLY:
@@ -181,7 +179,7 @@ export class FinanceService {
       case DurationPackage.CUSTOM:
       default:
         unitPrice = selectedRateCard.pricePerDay * BigInt(durationDays);
-        appliedPackage = DurationPackage.CUSTOM; // Fallback untuk logika display
+        // appliedPackage = DurationPackage.CUSTOM; // Fallback untuk logika display (removed unused)
         break;
     }
 

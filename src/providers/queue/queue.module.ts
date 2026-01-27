@@ -11,7 +11,7 @@ import {
   imports: [
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (config: ConfigService) => ({
+      useFactory: (config: ConfigService) => ({
         connection: {
           host: config.get('redis.host'),
           port: config.get('redis.port'),

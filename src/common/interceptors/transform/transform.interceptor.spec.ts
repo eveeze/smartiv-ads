@@ -37,6 +37,7 @@ describe('TransformInterceptor', () => {
         });
         done();
       },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       error: (err) => done(err),
     });
   });

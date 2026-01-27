@@ -93,14 +93,17 @@ const mockCampaigns = [
 
 const mockPrisma: MockPrismaService = {
   screen: {
-    findUnique: jest.fn(),
-    update: jest.fn(),
+    findUnique: jest.fn<
+      Promise<Screen | null>,
+      [Prisma.ScreenFindUniqueArgs]
+    >(),
+    update: jest.fn<Promise<Screen>, [Prisma.ScreenUpdateArgs]>(),
   },
   campaign: {
-    findMany: jest.fn(),
+    findMany: jest.fn<Promise<unknown[]>, [Prisma.CampaignFindManyArgs]>(),
   },
   property: {
-    findUnique: jest.fn(),
+    findUnique: jest.fn<Promise<unknown>, [Prisma.PropertyFindUniqueArgs]>(),
   },
 };
 
@@ -170,6 +173,7 @@ describe('PlayerService', () => {
 
       expect(mockPrisma.campaign.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           where: expect.objectContaining({
             status: CampaignStatus.ACTIVE,
             targetSlot: AdSlot.SCREENSAVER, // Pastikan filter slot aktif
@@ -229,6 +233,7 @@ describe('PlayerService', () => {
 
       expect(mockPrisma.screen.update).toHaveBeenCalledWith({
         where: { id: mockScreen.id },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         data: expect.objectContaining({
           status: ScreenStatus.ONLINE,
           ipAddress: dto.ipAddress,

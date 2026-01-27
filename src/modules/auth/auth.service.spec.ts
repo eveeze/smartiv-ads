@@ -31,7 +31,7 @@ interface MockJwtService {
 
 describe('AuthService', () => {
   let service: AuthService;
-  let prisma: PrismaService;
+  // let prisma: PrismaService;
   // [FIX] Hapus jwtService jika tidak digunakan langsung di 'it' block, atau gunakan jika perlu
 
   // [FIX] Casting ke Interface agar aman di callback transaction
@@ -81,7 +81,7 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    prisma = module.get<PrismaService>(PrismaService);
+    // prisma = module.get<PrismaService>(PrismaService);
     // jwtService = module.get<JwtService>(JwtService); // Uncomment jika ingin dipakai
 
     jest.clearAllMocks();

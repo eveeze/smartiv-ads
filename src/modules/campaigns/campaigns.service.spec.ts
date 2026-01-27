@@ -28,7 +28,7 @@ import {
 // 1. STRICT TYPE-SAFE MOCK DEFINITIONS
 // ==========================================
 
-type MockAsync<T> = jest.Mock<Promise<T>>;
+// type MockAsync<T> = jest.Mock<Promise<T>>;
 
 // ==========================================
 // 2. MOCK DATA (Fully Typed)
@@ -109,21 +109,41 @@ const mockCampaign: Campaign = {
 // 3. INIT DEPENDENCIES & MOCK IMPL
 // ==========================================
 
-const mockPrisma = {
+// Define Mock Interface
+interface MockPrismaService {
+  media: { findUnique: jest.Mock<any, any> };
+  property: { count: jest.Mock<any, any>; findUnique: jest.Mock<any, any> };
+  screen: { findMany: jest.Mock<any, any> };
+  campaign: {
+    create: jest.Mock<any, any>;
+    findUnique: jest.Mock<any, any>;
+    findMany: jest.Mock<any, any>;
+    count: jest.Mock<any, any>;
+    update: jest.Mock<any, any>;
+    delete: jest.Mock<any, any>;
+  };
+  campaignItem: { create: jest.Mock<any, any> };
+  auditLog: { create: jest.Mock<any, any> };
+  $transaction: jest.Mock<any, any>;
+}
+
+const mockPrisma: MockPrismaService = {
   media: { findUnique: jest.fn() },
-  property: { count: jest.fn(), findUnique: jest.fn() }, // [FIX] Added findUnique
+  property: { count: jest.fn(), findUnique: jest.fn() },
   screen: { findMany: jest.fn() },
   campaign: {
     create: jest.fn(),
+    findUnique: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
-    findUnique: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
   },
   campaignItem: { create: jest.fn() },
   auditLog: { create: jest.fn() },
-  $transaction: jest.fn((callback) => callback(mockPrisma)),
+  $transaction: jest.fn((callback: (prisma: MockPrismaService) => unknown) =>
+    callback(mockPrisma),
+  ),
 };
 
 const mockFinance = {
@@ -310,7 +330,7 @@ describe('CampaignsService', () => {
         status: CampaignStatus.ACTIVE,
       });
 
-      await service.review(1, { approved: true }, 99);
+      await service.review(1, { approved: true });
 
       expect(mockFinance.commitFrozenBalance).toHaveBeenCalled();
     });

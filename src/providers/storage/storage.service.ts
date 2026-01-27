@@ -8,7 +8,6 @@ import {
 } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
 import * as fs from 'fs';
-import * as path from 'path';
 
 @Injectable()
 export class StorageService {
@@ -52,7 +51,8 @@ export class StorageService {
       );
       return this.getFileUrl(key);
     } catch (error) {
-      this.logger.error(`Upload failed for ${key}: ${error.message}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Upload failed for ${key}: ${msg}`);
       throw error;
     }
   }
@@ -68,7 +68,8 @@ export class StorageService {
       );
       this.logger.log(`File deleted successfully from storage: ${key}`);
     } catch (error) {
-      this.logger.error(`Delete failed for ${key}: ${error.message}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Delete failed for ${key}: ${msg}`);
       // Kita throw error agar service pemanggil tahu kalau gagal hapus fisik
       throw error;
     }

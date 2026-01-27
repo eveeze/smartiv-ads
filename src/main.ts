@@ -63,4 +63,4 @@ async function bootstrap() {
     `📚 API Reference (Scalar) at: http://localhost:${port}/reference`,
   );
 }
-bootstrap();
+void bootstrap();

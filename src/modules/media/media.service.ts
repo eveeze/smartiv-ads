@@ -16,6 +16,7 @@ import {
   Prisma, // [FIX] Import namespace Prisma untuk Type Definition query
 } from '@prisma/client';
 import { ReviewMediaDto } from './dto/review-media.dto';
+import { UpdateMediaDto } from './dto/update-media.dto';
 import { MediaUtils } from '../../common/utils/media.utils';
 import { createReadStream, ReadStream } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
@@ -137,6 +138,23 @@ export class MediaService {
           dto.status === ApprovalStatus.REJECTED ? dto.rejectionReason : null,
         reviewedBy: adminId,
         reviewedAt: new Date(),
+      },
+    });
+  }
+
+  async update(id: number, dto: UpdateMediaDto, user: User) {
+    const media = await this.prisma.media.findUnique({ where: { id } });
+
+    if (!media) throw new NotFoundException('Media not found');
+    if (media.uploaderId !== user.id)
+      throw new BadRequestException('You can only update your own media');
+
+    return this.prisma.media.update({
+      where: { id },
+      data: {
+        title: dto.title,
+        description: dto.description,
+        actionUrl: dto.actionUrl,
       },
     });
   }

@@ -16,9 +16,10 @@ import { AUTH_SERVICE } from './interfaces/auth-service/auth-service.interface';
     MailModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           expiresIn: configService.get<string>('JWT_EXPIRES_IN') as any,
         },
       }),

@@ -6,7 +6,7 @@ import { CreateImpressionLogDto } from './dto/create-impression.dto';
 
 describe('TelemetryService', () => {
   let service: TelemetryService;
-  let queueService: QueueService;
+  // let queueService: QueueService;
 
   const mockQueueService = {
     addImpressionJob: jest.fn(),
@@ -24,7 +24,7 @@ describe('TelemetryService', () => {
     }).compile();
 
     service = module.get<TelemetryService>(TelemetryService);
-    queueService = module.get<QueueService>(QueueService);
+    // queueService = module.get<QueueService>(QueueService);
   });
 
   it('should be defined', () => {
@@ -42,7 +42,7 @@ describe('TelemetryService', () => {
 
       await service.ingestImpressions(screenId, dto);
 
-      expect(queueService.addImpressionJob).toHaveBeenCalledWith(
+      expect(mockQueueService.addImpressionJob).toHaveBeenCalledWith(
         expect.objectContaining({
           screenId,
           impressions: dto.impressions,

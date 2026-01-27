@@ -26,7 +26,7 @@ interface MockPlayerService {
 
 describe('PlayerController', () => {
   let controller: PlayerController;
-  let service: PlayerService;
+  // let service: PlayerService;
 
   // Mock Screen Object (Simulasi hasil dari @CurrentScreen)
   const mockScreen: Screen = {
@@ -67,7 +67,7 @@ describe('PlayerController', () => {
       .compile();
 
     controller = module.get<PlayerController>(PlayerController);
-    service = module.get<PlayerService>(PlayerService);
+    // service = module.get<PlayerService>(PlayerService);
 
     jest.clearAllMocks();
   });

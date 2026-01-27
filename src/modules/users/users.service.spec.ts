@@ -42,7 +42,7 @@ jest.mock('bcryptjs', () => ({
 
 describe('UsersService', () => {
   let service: UsersService;
-  let prisma: PrismaService;
+  // let prisma: PrismaService;
 
   // Mock Prisma dengan typing yang aman
   const mockPrisma = {
@@ -92,7 +92,7 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    prisma = module.get<PrismaService>(PrismaService);
+    // prisma = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {

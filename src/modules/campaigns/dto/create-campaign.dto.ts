@@ -48,7 +48,9 @@ export class CreateCampaignDto {
     description: 'Tanggal Selesai (Wajib jika paket CUSTOM)',
     example: '2026-05-10',
   })
-  @ValidateIf((o) => o.durationPackage === DurationPackage.CUSTOM)
+  @ValidateIf(
+    (o: CreateCampaignDto) => o.durationPackage === DurationPackage.CUSTOM,
+  )
   @IsDateString()
   endDate?: string;
 

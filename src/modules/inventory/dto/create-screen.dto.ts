@@ -6,7 +6,7 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { RoomCategory, ScreenOrientation } from '@prisma/client';
+import { RoomCategory, ScreenOrientation, ScreenStatus } from '@prisma/client';
 
 export class CreateScreenDto {
   @ApiProperty({ example: 1, description: 'ID of the Property' })
@@ -36,4 +36,9 @@ export class CreateScreenDto {
   @IsOptional()
   @IsEnum(RoomCategory)
   roomCategory?: RoomCategory;
+
+  @ApiPropertyOptional({ enum: ScreenStatus, example: 'ONLINE' })
+  @IsOptional()
+  @IsEnum(ScreenStatus)
+  status?: ScreenStatus;
 }

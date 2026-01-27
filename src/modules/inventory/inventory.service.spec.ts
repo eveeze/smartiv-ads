@@ -9,7 +9,7 @@ import { AdSlot, PropertyClass } from '@prisma/client';
 
 describe('InventoryService', () => {
   let service: InventoryService;
-  let prisma: PrismaService;
+  // let prisma: PrismaService;
 
   const mockPrisma = {
     property: {
@@ -47,7 +47,7 @@ describe('InventoryService', () => {
     }).compile();
 
     service = module.get<InventoryService>(InventoryService);
-    prisma = module.get<PrismaService>(PrismaService);
+    // prisma = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -99,6 +99,7 @@ describe('InventoryService', () => {
       const dto: CreateRateCardDto = {
         classification: PropertyClass.PREMIUM,
         pricePerDay: 500000,
+        targetSlot: AdSlot.SCREENSAVER,
       };
 
       // 1. Mock Check Uniqueness (findFirst -> null)
@@ -118,6 +119,7 @@ describe('InventoryService', () => {
 
       // [FIX] Tambahkan wrapper { data: ... } agar sesuai implementasi Prisma
       expect(mockPrisma.rateCard.create).toHaveBeenCalledWith({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         data: expect.objectContaining({
           classification: PropertyClass.PREMIUM,
           pricePerDay: BigInt(500000),
@@ -131,6 +133,7 @@ describe('InventoryService', () => {
       const dto: CreateRateCardDto = {
         classification: PropertyClass.PREMIUM,
         pricePerDay: 600000,
+        targetSlot: AdSlot.SCREENSAVER,
       };
 
       // 1. Mock Check Uniqueness (findFirst -> returns existing record)

@@ -152,9 +152,9 @@ describe('Rate Card Management (E2E)', () => {
     expect(Array.isArray(data)).toBe(true);
 
     if (rateCardId) {
-      const found = (data as any[]).find((rc) => rc.id === rateCardId);
+      const found = data.find((rc) => rc.id === rateCardId);
       expect(found).toBeDefined();
-      expect(Number(found.pricePerDay)).toBe(500000);
+      expect(Number(found?.pricePerDay)).toBe(500000);
     } else {
       throw new Error('Rate Card ID is undefined (Step 2 Failed)');
     }

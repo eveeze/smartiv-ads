@@ -9,7 +9,7 @@ import { join } from 'path';
   imports: [
     MailerModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (config: ConfigService) => ({
+      useFactory: (config: ConfigService) => ({
         transport: {
           host: config.get('MAIL_HOST'),
           port: config.get('MAIL_PORT'),

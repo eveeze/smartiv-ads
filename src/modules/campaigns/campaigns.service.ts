@@ -9,13 +9,13 @@ import { FinanceService } from '../finance/finance.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import {
-  AdSlot,
   ApprovalStatus,
   CampaignStatus,
   User,
   Role,
   ScreenStatus,
   DurationPackage,
+  Prisma,
 } from '@prisma/client';
 import { ReviewCampaignDto } from './dto/review-campaign.dto';
 import { CampaignQueryDto } from './dto/campaign-query.dto';
@@ -310,7 +310,7 @@ export class CampaignsService {
   // STANDARD CRUD (READ/DELETE/CANCEL)
   // ==========================================
   async findAll(user: User, query: CampaignQueryDto) {
-    const where: any = {};
+    const where: Prisma.CampaignWhereInput = {};
     if (user.role === Role.ADVERTISER) where.advertiserId = user.id;
     if (query.status) where.status = query.status;
 
@@ -415,7 +415,7 @@ export class CampaignsService {
     });
   }
 
-  async review(id: number, dto: ReviewCampaignDto, adminId: number) {
+  async review(id: number, dto: ReviewCampaignDto) {
     const campaign = await this.prisma.campaign.findUnique({ where: { id } });
     if (!campaign || campaign.status !== CampaignStatus.PENDING_REVIEW) {
       throw new BadRequestException('Invalid campaign for review');

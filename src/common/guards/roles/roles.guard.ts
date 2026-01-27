@@ -20,9 +20,11 @@ export class RolesGuard implements CanActivate {
     }
 
     // 3. Ambil user dari request (User ini sudah ditempel oleh JwtAuthGuard sebelumnya)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { user } = context.switchToHttp().getRequest();
 
     // 4. Cek apakah role user ada di daftar requiredRoles
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     return requiredRoles.some((role) => user?.role === role);
   }
 }

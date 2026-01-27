@@ -8,7 +8,7 @@ import type { Screen } from '@prisma/client';
 
 describe('TelemetryController', () => {
   let controller: TelemetryController;
-  let service: TelemetryService;
+  // let service: TelemetryService;
 
   const mockTelemetryService = {
     ingestImpressions: jest.fn(),
@@ -31,7 +31,7 @@ describe('TelemetryController', () => {
       .compile();
 
     controller = module.get<TelemetryController>(TelemetryController);
-    service = module.get<TelemetryService>(TelemetryService);
+    // service = module.get<TelemetryService>(TelemetryService);
   });
 
   it('should be defined', () => {
@@ -47,7 +47,10 @@ describe('TelemetryController', () => {
 
     const result = await controller.ingest(mockScreen, dto);
 
-    expect(service.ingestImpressions).toHaveBeenCalledWith(mockScreen.id, dto);
+    expect(mockTelemetryService.ingestImpressions).toHaveBeenCalledWith(
+      mockScreen.id,
+      dto,
+    );
     expect(result).toEqual({ success: true, queued: 0 });
   });
 });

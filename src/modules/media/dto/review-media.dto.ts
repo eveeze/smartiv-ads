@@ -1,12 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ApprovalStatus } from '@prisma/client';
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  ValidateIf,
-} from 'class-validator';
+import { IsEnum, IsNotEmpty, IsString, ValidateIf } from 'class-validator';
 
 export class ReviewMediaDto {
   @ApiProperty({
@@ -24,7 +18,7 @@ export class ReviewMediaDto {
     required: false,
     example: 'Kualitas gambar terlalu rendah/blur',
   })
-  @ValidateIf((o) => o.status === ApprovalStatus.REJECTED) // Validasi kondisional
+  @ValidateIf((o: ReviewMediaDto) => o.status === ApprovalStatus.REJECTED) // Validasi kondisional
   @IsString()
   @IsNotEmpty({ message: 'Rejection reason is required when rejecting media' })
   rejectionReason?: string;

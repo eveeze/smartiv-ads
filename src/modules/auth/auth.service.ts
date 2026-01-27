@@ -159,7 +159,7 @@ export class AuthService implements IAuthService {
 
     try {
       await this.mailService.sendUserConfirmation(user, resetToken);
-    } catch (error) {
+    } catch {
       // Rollback jika gagal kirim email
       await this.prisma.user.update({
         where: { email: dto.email },

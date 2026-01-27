@@ -19,7 +19,42 @@ import { CalculateCostDto } from './dto/calculate-cost.dto';
 
 // --- MOCK DEFINITIONS ---
 
-const mockPrisma = {
+// --- MOCK DEFINITIONS ---
+
+type MockFn = jest.Mock<any, any>;
+
+interface MockPrismaService {
+  wallet: {
+    findUnique: MockFn;
+    create: MockFn;
+    update: MockFn;
+  };
+  transaction: {
+    create: MockFn;
+    update: MockFn;
+    findUnique: MockFn;
+    findMany: MockFn;
+    count: MockFn;
+  };
+  withdrawalRequest: {
+    create: MockFn;
+    findMany: MockFn;
+    findUnique: MockFn;
+    update: MockFn;
+  };
+  screen: {
+    findMany: MockFn;
+  };
+  property: {
+    findUnique: MockFn;
+  };
+  rateCard: {
+    findMany: MockFn;
+  };
+  $transaction: MockFn;
+}
+
+const mockPrisma: MockPrismaService = {
   wallet: {
     findUnique: jest.fn(),
     create: jest.fn(),
@@ -41,18 +76,17 @@ const mockPrisma = {
   screen: {
     findMany: jest.fn(),
   },
-  // [FIX] Tambahkan property dan rateCard mocks
   property: {
     findUnique: jest.fn(),
   },
   rateCard: {
     findMany: jest.fn(),
   },
-  // Handle Sequential (Array) & Interactive (Callback) Transactions
   $transaction: jest.fn((arg) => {
     if (Array.isArray(arg)) {
       return Promise.all(arg);
     }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return arg(mockPrisma);
   }),
 };

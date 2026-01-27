@@ -12,7 +12,7 @@ import { AssignPropertyDto } from './dto/assign-property.dto';
 
 describe('UsersController', () => {
   let controller: UsersController;
-  let service: UsersService;
+  // let service: UsersService;
 
   const mockUsersService = {
     findAll: jest.fn(),
@@ -44,7 +44,7 @@ describe('UsersController', () => {
     }).compile();
 
     controller = module.get<UsersController>(UsersController);
-    service = module.get<UsersService>(UsersService);
+    // service = module.get<UsersService>(UsersService);
   });
 
   // --- PHASE 8.5 TESTS ---

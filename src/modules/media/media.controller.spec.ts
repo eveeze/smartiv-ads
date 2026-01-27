@@ -6,7 +6,7 @@ import { UploadMediaDto } from './dto/upload-media.dto';
 
 describe('MediaController', () => {
   let controller: MediaController;
-  let service: MediaService;
+  // let service: MediaService;
 
   const mockUser: User = {
     id: 1,
@@ -29,7 +29,7 @@ describe('MediaController', () => {
     }).compile();
 
     controller = module.get<MediaController>(MediaController);
-    service = module.get<MediaService>(MediaService);
+    // service = module.get<MediaService>(MediaService);
   });
 
   it('should be defined', () => {
@@ -38,13 +38,13 @@ describe('MediaController', () => {
 
   describe('uploadFile', () => {
     it('should call service.upload', async () => {
-      const file = { originalname: 'test.jpg' } as any;
-      const dto = {} as UploadMediaDto; // [FIX] Tambahkan mock DTO
+      const file = { originalname: 'test.jpg' } as Express.Multer.File;
+      const dto = new UploadMediaDto();
 
       // [FIX] Panggil dengan 3 argumen: file, dto, user
       await controller.uploadFile(file, dto, mockUser);
 
-      expect(service.upload).toHaveBeenCalledWith(file, mockUser);
+      expect(mockMediaService.upload).toHaveBeenCalledWith(file, mockUser);
     });
   });
 });

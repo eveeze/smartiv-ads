@@ -233,14 +233,15 @@ export class TranscodeProcessor extends WorkerHost {
 
       this.logger.log(`✅ Media ${mediaId} Transcoded Successfully!`);
     } catch (err) {
-      this.logger.error(`❌ Transcode Failed: ${err.message}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`❌ Transcode Failed: ${msg}`);
       throw err;
     } finally {
       try {
         if (fs.existsSync(tempDir)) {
           fs.rmSync(tempDir, { recursive: true, force: true });
         }
-      } catch (e) {
+      } catch {
         this.logger.warn(`Failed to clean temp dir: ${tempDir}`);
       }
     }

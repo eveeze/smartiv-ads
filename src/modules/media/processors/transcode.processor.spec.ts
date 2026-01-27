@@ -45,25 +45,28 @@ jest.mock('fluent-ffmpeg', () => {
     screenshots: jest.fn().mockReturnThis(),
     output: jest.fn().mockReturnThis(),
     addOptions: jest.fn().mockReturnThis(),
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     on: jest.fn().mockImplementation((event: string, callback: () => void) => {
       if (event === 'end') callback(); // Simulate success
-      // [FIX] Return object with strict run type to avoid unsafe return
-      return { run: jest.fn<void, []>() };
-    }),
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return { run: jest.fn<void, []>() } as any;
+    }) as unknown as any,
   });
 });
 
-// Mock fs module
-jest.mock('fs', () => ({
-  ...jest.requireActual('fs'),
-  mkdtempSync: jest.fn().mockReturnValue('/tmp/mock-dir'),
-  existsSync: jest.fn().mockReturnValue(false),
-  mkdirSync: jest.fn(),
-  readFileSync: jest.fn().mockReturnValue(Buffer.from('mock')),
-  readdirSync: jest.fn().mockReturnValue(['stream.m3u8']),
-  statSync: jest.fn().mockReturnValue({ isDirectory: () => false }),
-  rmSync: jest.fn(),
-}));
+jest.mock('fs', () => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return {
+    ...jest.requireActual('fs'),
+    mkdtempSync: jest.fn<string, any[]>().mockReturnValue('/tmp/mock-dir'),
+    existsSync: jest.fn<boolean, any[]>().mockReturnValue(false),
+    mkdirSync: jest.fn<void, any[]>(),
+    readFileSync: jest.fn<Buffer, any[]>().mockReturnValue(Buffer.from('mock')),
+    readdirSync: jest.fn<string[], any[]>().mockReturnValue(['stream.m3u8']),
+    statSync: jest.fn().mockReturnValue({ isDirectory: () => false }),
+    rmSync: jest.fn<void, any[]>(),
+  };
+});
 
 // ==========================================
 // 3. TEST SUITE

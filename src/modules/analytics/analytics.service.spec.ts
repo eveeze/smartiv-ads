@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AnalyticsService } from './analytics.service';
 import { PrismaService } from '../../providers/prisma/prisma.service';
-import { CampaignStatus, ScreenStatus } from '@prisma/client';
+import { ScreenStatus } from '@prisma/client';
 
 describe('AnalyticsService', () => {
   let service: AnalyticsService;
@@ -62,10 +62,13 @@ describe('AnalyticsService', () => {
       const result = await service.getAdvertiserSummary(userId);
 
       // Verify Prisma Calls
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.campaign.count).toHaveBeenCalledTimes(2); // Active + Pending
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.campaign.aggregate).toHaveBeenCalledWith(
         expect.objectContaining({
           _sum: { totalCost: true },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           where: expect.objectContaining({ advertiserId: userId }),
         }),
       );

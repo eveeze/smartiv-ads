@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../providers/prisma/prisma.service';
-import { CampaignStatus, ScreenStatus } from '@prisma/client';
+import { CampaignStatus } from '@prisma/client';
 import { AdvertiserSummaryDto, AdminSummaryDto } from './dto/summary.dto';
 
 @Injectable()

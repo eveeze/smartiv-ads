@@ -36,6 +36,7 @@ export class FileSignatureValidatorPipe implements PipeTransform {
     }
 
     // Jika file type tidak terdeteksi atau tidak diizinkan
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
     if (!type || !this.allowedExtensions.includes(type.ext)) {
       // Hapus file sampah jika sudah terlanjur tersimpan di disk agar tidak menuh-menuhin server
       if (value.path && fs.existsSync(value.path)) {
@@ -43,6 +44,7 @@ export class FileSignatureValidatorPipe implements PipeTransform {
       }
 
       throw new UnprocessableEntityException(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         `Validation failed. Detected file type: ${type?.ext || 'unknown'}. Allowed: ${this.allowedExtensions.join(', ')}`,
       );
     }

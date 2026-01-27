@@ -28,6 +28,7 @@ import { Role } from '@prisma/client';
 import type { User } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
 import { ReviewMediaDto } from './dto/review-media.dto';
+import { UpdateMediaDto } from './dto/update-media.dto';
 
 @ApiTags('Media')
 @ApiBearerAuth()
@@ -79,6 +80,19 @@ export class MediaController {
     @CurrentUser() admin: User,
   ) {
     return this.mediaService.review(id, dto, admin.id);
+  }
+
+  @Patch(':id')
+  @Roles(Role.ADVERTISER)
+  @ApiOperation({
+    summary: 'Update media metadata (Title, Description, ActionURL)',
+  })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateMediaDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.mediaService.update(id, dto, user);
   }
 
   // [NEW ENDPOINT]

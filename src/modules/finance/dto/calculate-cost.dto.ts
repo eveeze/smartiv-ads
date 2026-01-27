@@ -6,7 +6,6 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
-  IsOptional,
   ValidateIf,
 } from 'class-validator';
 
@@ -44,7 +43,9 @@ export class CalculateCostDto {
     description: 'Wajib diisi jika packageType = CUSTOM',
     example: '2026-05-05',
   })
-  @ValidateIf((o) => o.durationPackage === DurationPackage.CUSTOM)
+  @ValidateIf(
+    (o: CalculateCostDto) => o.durationPackage === DurationPackage.CUSTOM,
+  )
   @IsDateString()
   endDate?: string;
 }

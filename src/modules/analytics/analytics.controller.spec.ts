@@ -18,7 +18,7 @@ interface MockAnalyticsService {
 
 describe('AnalyticsController', () => {
   let controller: AnalyticsController;
-  let service: AnalyticsService;
+  // let service: AnalyticsService;
 
   // Mock Service Type Safe
   const mockAnalyticsService: MockAnalyticsService = {
@@ -59,7 +59,7 @@ describe('AnalyticsController', () => {
       .compile();
 
     controller = module.get<AnalyticsController>(AnalyticsController);
-    service = module.get<AnalyticsService>(AnalyticsService);
+    // service = module.get<AnalyticsService>(AnalyticsService);
 
     jest.clearAllMocks();
   });

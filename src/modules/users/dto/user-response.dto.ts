@@ -13,7 +13,9 @@ export class WalletResponseDto {
 
   @ApiProperty({ example: 500000, description: 'Current active balance' })
   @Expose()
-  @Transform(({ value }) => (typeof value === 'bigint' ? Number(value) : value)) // Handle BigInt
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'bigint' ? Number(value) : (value as number),
+  ) // Handle BigInt
   balance: number;
 
   @ApiProperty({
@@ -21,7 +23,9 @@ export class WalletResponseDto {
     description: 'Frozen balance for active campaigns',
   })
   @Expose()
-  @Transform(({ value }) => (typeof value === 'bigint' ? Number(value) : value)) // Handle BigInt
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'bigint' ? Number(value) : (value as number),
+  ) // Handle BigInt
   frozenBalance: number;
 }
 

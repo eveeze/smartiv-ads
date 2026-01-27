@@ -52,6 +52,7 @@ export class CampaignsController {
   @Roles(Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get pending campaigns for review' })
   findPending(@CurrentUser() user: User, @Query() query: CampaignQueryDto) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     query.status = 'PENDING_REVIEW' as any;
     return this.campaignsService.findAll(user, query);
   }
@@ -109,8 +110,7 @@ export class CampaignsController {
   review(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ReviewCampaignDto,
-    @CurrentUser() admin: User,
   ) {
-    return this.campaignsService.review(id, dto, admin.id);
+    return this.campaignsService.review(id, dto);
   }
 }
