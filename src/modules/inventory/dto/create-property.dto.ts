@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsTimeZone,
 } from 'class-validator';
 
 // FIX: Import PropertyClass dari prisma client
@@ -60,11 +61,23 @@ export class CreatePropertyDto {
   @IsString()
   address?: string;
 
-  // FIX: Tambahkan City juga karena di Postman biasanya dikirim
   @ApiPropertyOptional({ example: 'Yogyakarta' })
   @IsOptional()
   @IsString()
   city?: string;
+
+  @ApiPropertyOptional({
+    example: 'Asia/Jakarta',
+    description: 'Timezone Identifier',
+  })
+  @IsOptional()
+  @IsTimeZone() // format timezone IANA
+  timezone?: string;
+
+  @ApiPropertyOptional({ example: 'Region Untuk Timezone' })
+  @IsOptional()
+  @IsString()
+  region?: string;
 
   @ApiProperty({
     enum: AdSlot,

@@ -22,16 +22,18 @@ import {
   User,
   Wallet,
   Transaction,
+  DurationPackage,
+  ScreenStatus,
+  RateCard,
 } from '@prisma/client';
 
-// [FIX] Interface Helper untuk response Midtrans
+// Helper Type
 interface MidtransNotification {
   order_id: string;
   transaction_status: string;
   fraud_status?: string;
 }
 
-// [FIX] Helper Type untuk Wallet yang di-include transactions
 type WalletWithTransactions = Wallet & { transactions: Transaction[] };
 
 @Injectable()
@@ -60,15 +62,12 @@ export class FinanceService {
         data: { userId },
         include: { transactions: true },
       });
-      // [FIX] Assert type agar sesuai
       return this.formatWallet(newWallet as WalletWithTransactions);
     }
 
-    // [FIX] Assert type
     return this.formatWallet(wallet as WalletWithTransactions);
   }
 
-  // [FIX] Mengganti 'any' dengan Type yang spesifik
   private formatWallet(wallet: WalletWithTransactions) {
     return {
       ...wallet,
@@ -81,88 +80,133 @@ export class FinanceService {
     };
   }
 
-  // --- RATE CARD ENGINE ---
+  // ===========================================================================
+  // [REVISED] RATE CARD ENGINE (PHASE 2)
+  // Logic: Harga = (Harga Paket Slot) x (Jumlah Screen Aktif)
+  // ===========================================================================
   async calculateCampaignCost(dto: CalculateCostDto) {
-    const start = new Date(dto.startDate);
-    const end = new Date(dto.endDate);
+    const { propertyId, targetSlot, durationPackage, startDate, endDate } = dto;
+    const start = new Date(startDate);
 
-    const diffTime = end.getTime() - start.getTime();
-    const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // 1. Hitung Durasi (Hari)
+    let durationDays = 1;
+    if (durationPackage === DurationPackage.CUSTOM) {
+      if (!endDate)
+        throw new BadRequestException(
+          'End date is required for CUSTOM package',
+        );
+      const end = new Date(endDate);
+      const diffTime = end.getTime() - start.getTime();
+      durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    } else if (durationPackage === DurationPackage.WEEKLY) {
+      durationDays = 7;
+    } else if (durationPackage === DurationPackage.MONTHLY) {
+      durationDays = 30;
+    }
 
     if (durationDays <= 0) {
       throw new BadRequestException('Durasi campaign minimal 1 hari');
     }
 
-    const screens = await this.prisma.screen.findMany({
-      where: { id: { in: dto.screenIds } },
+    // 2. Validasi Properti & Hitung Inventory (Screen Aktif)
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
       include: {
-        property: {
-          include: {
-            rateCards: true,
+        _count: {
+          select: {
+            screens: {
+              where: { status: ScreenStatus.ONLINE }, // Hanya hitung screen yang ONLINE
+            },
           },
         },
       },
     });
 
-    if (screens.length !== dto.screenIds.length) {
-      throw new NotFoundException('Beberapa ID layar tidak ditemukan');
+    if (!property) throw new NotFoundException('Property not found');
+
+    const activeScreenCount = property._count.screens;
+    if (activeScreenCount === 0) {
+      throw new BadRequestException(
+        'Property ini tidak memiliki layar aktif (ONLINE)',
+      );
     }
 
-    let totalCost = BigInt(0);
-    const breakdown: Array<{
-      screenId: number;
-      screenName: string;
-      dailyPrice: number;
-      days: number;
-      subtotal: number;
-    }> = [];
+    // 3. Cari Rate Card yang Sesuai
+    // Prioritas 1: Rate Card spesifik Property & Slot
+    // Prioritas 2: Rate Card umum berdasarkan Classification & Slot
+    const rateCards = await this.prisma.rateCard.findMany({
+      where: {
+        isActive: true,
+        targetSlot: targetSlot,
+        OR: [
+          { propertyId: propertyId },
+          { classification: property.classification },
+        ],
+      },
+      orderBy: {
+        propertyId: 'asc', // Prioritaskan yang punya propertyId (Specific)
+      },
+    });
 
-    for (const screen of screens) {
-      let dailyPrice = BigInt(0);
+    // Ambil yang paling spesifik (jika ada propertyId match, pakai itu. Jika tidak, pakai classification)
+    const selectedRateCard =
+      rateCards.find((rc) => rc.propertyId === propertyId) || rateCards[0];
 
-      // 1. Override Price
-      if (screen.priceOverride && screen.priceOverride > BigInt(0)) {
-        dailyPrice = screen.priceOverride;
-      }
-      // 2. Property Rate Card
-      else {
-        const rateCard = screen.property.rateCards.find(
-          (rc) =>
-            rc.isActive && rc.classification === screen.property.classification,
-        );
-
-        if (rateCard) {
-          dailyPrice = rateCard.pricePerDay;
-        } else {
-          // 3. Fallback
-          dailyPrice = BigInt(50000);
-        }
-      }
-
-      const screenCost = dailyPrice * BigInt(durationDays);
-      totalCost += screenCost;
-
-      breakdown.push({
-        screenId: screen.id,
-        screenName: screen.name,
-        dailyPrice: Number(dailyPrice),
-        days: durationDays,
-        subtotal: Number(screenCost),
-      });
+    if (!selectedRateCard) {
+      throw new BadRequestException(
+        `Belum ada Rate Card untuk slot ${targetSlot} di properti tipe ini.`,
+      );
     }
+
+    // 4. Hitung Harga Satuan Berdasarkan Paket
+    let unitPrice = BigInt(0);
+    let appliedPackage = durationPackage;
+
+    switch (durationPackage) {
+      case DurationPackage.WEEKLY:
+        // Jika ada harga khusus mingguan pakai itu, jika tidak: Harian x 7
+        unitPrice =
+          selectedRateCard.pricePerWeek ??
+          selectedRateCard.pricePerDay * BigInt(7);
+        break;
+
+      case DurationPackage.MONTHLY:
+        // Jika ada harga khusus bulanan pakai itu, jika tidak: Harian x 30
+        unitPrice =
+          selectedRateCard.pricePerMonth ??
+          selectedRateCard.pricePerDay * BigInt(30);
+        break;
+
+      case DurationPackage.DAILY:
+      case DurationPackage.CUSTOM:
+      default:
+        unitPrice = selectedRateCard.pricePerDay * BigInt(durationDays);
+        appliedPackage = DurationPackage.CUSTOM; // Fallback untuk logika display
+        break;
+    }
+
+    // 5. Total Akhir = Harga Paket x Jumlah Screen
+    const totalCost = unitPrice * BigInt(activeScreenCount);
 
     return {
       totalCost: Number(totalCost),
       durationDays,
-      screenCount: screens.length,
-      breakdown,
+      screenCount: activeScreenCount,
+      packageType: durationPackage,
+      unitPriceApplied: Number(unitPrice),
+      rateCardId: selectedRateCard.id,
+      breakdown: {
+        propertyName: property.name,
+        targetSlot,
+        pricePerUnit: Number(unitPrice),
+        activeScreens: activeScreenCount,
+      },
     };
   }
 
   // --- ADMIN DASHBOARD ---
   async getAllTransactions(query: TransactionQueryDto) {
     const { type, page = 1, take = 10, order = 'desc' } = query;
-
     const where: Prisma.TransactionWhereInput = {};
     if (type) where.type = type;
 
@@ -184,11 +228,7 @@ export class FinanceService {
     ]);
 
     const pageMetaDto = new PageMetaDto({ itemCount, pageOptionsDto: query });
-
-    const data = transactions.map((t) => ({
-      ...t,
-      amount: Number(t.amount),
-    }));
+    const data = transactions.map((t) => ({ ...t, amount: Number(t.amount) }));
 
     return new PageDto(data, pageMetaDto);
   }
@@ -196,7 +236,6 @@ export class FinanceService {
   // --- TOPUP FLOW ---
   async requestTopup(user: User, dto: CreateTopupDto) {
     const orderId = `TOPUP-${user.id}-${Date.now()}`;
-
     let wallet = await this.prisma.wallet.findUnique({
       where: { userId: user.id },
     });
@@ -243,7 +282,6 @@ export class FinanceService {
 
   // --- WEBHOOK HANDLER ---
   async handleMidtransNotification(notification: unknown) {
-    // [FIX] Casting result ke Interface MidtransNotification
     const statusResponse = (await this.midtrans.verifyNotification(
       notification,
     )) as MidtransNotification;
@@ -252,9 +290,7 @@ export class FinanceService {
     const transactionStatus = statusResponse.transaction_status;
     const fraudStatus = statusResponse.fraud_status;
 
-    this.logger.log(
-      `Webhook: ${orderId} | Status: ${transactionStatus} | Fraud: ${fraudStatus}`,
-    );
+    this.logger.log(`Webhook: ${orderId} | Status: ${transactionStatus}`);
 
     const transaction = await this.prisma.transaction.findUnique({
       where: { referenceCode: orderId },
@@ -267,18 +303,11 @@ export class FinanceService {
     }
 
     let newStatus: TransactionStatus | null = null;
-
-    if (transactionStatus === 'capture') {
-      if (fraudStatus === 'accept') {
-        newStatus = TransactionStatus.SUCCESS;
-      }
+    if (transactionStatus === 'capture' && fraudStatus === 'accept') {
+      newStatus = TransactionStatus.SUCCESS;
     } else if (transactionStatus === 'settlement') {
       newStatus = TransactionStatus.SUCCESS;
-    } else if (
-      transactionStatus === 'cancel' ||
-      transactionStatus === 'deny' ||
-      transactionStatus === 'expire'
-    ) {
+    } else if (['cancel', 'deny', 'expire'].includes(transactionStatus)) {
       newStatus = TransactionStatus.FAILED;
     }
 
@@ -290,9 +319,7 @@ export class FinanceService {
         }),
         this.prisma.wallet.update({
           where: { id: transaction.walletId },
-          data: {
-            balance: { increment: transaction.amount },
-          },
+          data: { balance: { increment: transaction.amount } },
         }),
       ]);
       this.logger.log(`✅ Topup Success: ${orderId}`);
@@ -312,7 +339,6 @@ export class FinanceService {
     const wallet = await this.prisma.wallet.findUnique({
       where: { userId: user.id },
     });
-
     if (!wallet) throw new BadRequestException('Wallet not found');
 
     const amountBig = BigInt(dto.amount);
@@ -343,7 +369,6 @@ export class FinanceService {
     return { ...result, amount: Number(result.amount) };
   }
 
-  // --- ADMIN WITHDRAWAL ---
   async getPendingWithdrawals() {
     const requests = await this.prisma.withdrawalRequest.findMany({
       where: { status: WithdrawalStatus.PENDING },
@@ -352,11 +377,7 @@ export class FinanceService {
       },
       orderBy: { createdAt: 'asc' },
     });
-
-    return requests.map((req) => ({
-      ...req,
-      amount: Number(req.amount),
-    }));
+    return requests.map((req) => ({ ...req, amount: Number(req.amount) }));
   }
 
   async reviewWithdrawal(
@@ -367,14 +388,12 @@ export class FinanceService {
     const request = await this.prisma.withdrawalRequest.findUnique({
       where: { id: requestId },
     });
-
     if (!request || request.status !== WithdrawalStatus.PENDING) {
       throw new BadRequestException('Invalid request ID or status');
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
       if (dto.approved) {
-        // APPROVED: Potong Saldo Permanen & Catat Transaksi
         await tx.wallet.update({
           where: { id: request.walletId },
           data: {
@@ -382,7 +401,6 @@ export class FinanceService {
             frozenBalance: { decrement: request.amount },
           },
         });
-
         await tx.transaction.create({
           data: {
             walletId: request.walletId,
@@ -393,7 +411,6 @@ export class FinanceService {
             referenceCode: `WD-${requestId}`,
           },
         });
-
         return tx.withdrawalRequest.update({
           where: { id: requestId },
           data: {
@@ -403,14 +420,10 @@ export class FinanceService {
           },
         });
       } else {
-        // REJECTED: Kembalikan Saldo Frozen
         await tx.wallet.update({
           where: { id: request.walletId },
-          data: {
-            frozenBalance: { decrement: request.amount },
-          },
+          data: { frozenBalance: { decrement: request.amount } },
         });
-
         return tx.withdrawalRequest.update({
           where: { id: requestId },
           data: {
@@ -421,12 +434,10 @@ export class FinanceService {
         });
       }
     });
-
     return { ...result, amount: Number(result.amount) };
   }
 
-  // --- CAMPAIGN FINANCIAL HELPERS (Delegated to Utils) ---
-
+  // --- HELPERS ---
   async freezeBalanceForCampaign(
     userId: number,
     amount: bigint,
@@ -434,7 +445,6 @@ export class FinanceService {
   ) {
     return FinanceUtils.freezeBalanceForCampaign(tx, userId, amount);
   }
-
   async commitFrozenBalance(
     userId: number,
     amount: bigint,
@@ -443,12 +453,42 @@ export class FinanceService {
   ) {
     return FinanceUtils.commitFrozenBalance(tx, userId, amount, campaignId);
   }
-
   async releaseFrozenBalance(
     userId: number,
     amount: bigint,
     tx: Prisma.TransactionClient,
   ) {
     return FinanceUtils.releaseFrozenBalance(tx, userId, amount);
+  }
+
+  // [NEW] Helper untuk proses Refund jika Campaign di-cancel setelah Active
+  async processRefund(
+    userId: number,
+    amount: bigint,
+    campaignId: number,
+    tx: Prisma.TransactionClient,
+  ) {
+    const wallet = await tx.wallet.findUnique({ where: { userId } });
+    if (!wallet) throw new NotFoundException('Wallet not found');
+
+    // 1. Kembalikan Saldo (Increment)
+    await tx.wallet.update({
+      where: { id: wallet.id },
+      data: {
+        balance: { increment: amount },
+      },
+    });
+
+    // 2. Catat Transaksi REFUND
+    await tx.transaction.create({
+      data: {
+        walletId: wallet.id,
+        amount: amount,
+        type: TransactionType.REFUND,
+        status: TransactionStatus.SUCCESS,
+        referenceCode: `REFUND-CAMP-${campaignId}-${Date.now()}`,
+        description: `Refund for Cancelled Campaign #${campaignId}`,
+      },
+    });
   }
 }

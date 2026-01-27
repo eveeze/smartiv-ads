@@ -15,6 +15,7 @@ import {
   User,
   Role,
   ScreenStatus,
+  DurationPackage,
 } from '@prisma/client';
 import { ReviewCampaignDto } from './dto/review-campaign.dto';
 import { CampaignQueryDto } from './dto/campaign-query.dto';
@@ -28,7 +29,12 @@ export class CampaignsService {
     private readonly financeService: FinanceService,
   ) {}
 
+  // ===========================================================================
+  // [REVISED] CREATE CAMPAIGN (PHASE 3)
+  // Logic: Pilih Property + Slot + Paket -> Auto Tag Screens
+  // ===========================================================================
   async create(user: User, dto: CreateCampaignDto) {
+    // 1. Validasi Media
     const media = await this.prisma.media.findUnique({
       where: { id: dto.mediaId },
     });
@@ -38,100 +44,106 @@ export class CampaignsService {
     if (media.status !== ApprovalStatus.APPROVED)
       throw new BadRequestException('Media is not APPROVED yet');
 
-    const start = new Date(dto.startDate);
-    const end = new Date(dto.endDate);
-    if (start >= end)
-      throw new BadRequestException('Start date must be before end date');
-    if (start < new Date())
-      throw new BadRequestException('Start date must be in the future');
+    // 2. Validasi Properti & Slot Availability
+    const property = await this.prisma.property.findUnique({
+      where: { id: dto.propertyId },
+    });
+    if (!property) throw new NotFoundException('Property not found');
 
-    let targetScreenIds: number[] = [];
-
-    if (dto.propertyId) {
-      // BUYOUT LOGIC
-      const propertyExists = await this.prisma.property.count({
-        where: { id: dto.propertyId },
-      });
-      if (propertyExists === 0) {
-        throw new NotFoundException('Property not found');
-      }
-
-      const propertyScreens = await this.prisma.screen.findMany({
-        where: {
-          propertyId: dto.propertyId,
-          status: ScreenStatus.ONLINE,
-        },
-        select: { id: true },
-      });
-
-      if (propertyScreens.length === 0) {
-        throw new BadRequestException(
-          'Property has no active screens available',
-        );
-      }
-
-      targetScreenIds = propertyScreens.map((s) => s.id);
-    } else {
-      // SELECTIVE LOGIC
-      if (!dto.screenIds || dto.screenIds.length === 0) {
-        throw new BadRequestException(
-          'Either propertyId or screenIds must be provided',
-        );
-      }
-
-      const validScreens = await this.prisma.screen.findMany({
-        where: {
-          id: { in: dto.screenIds },
-          status: ScreenStatus.ONLINE,
-        },
-        select: { id: true },
-      });
-
-      if (validScreens.length !== dto.screenIds.length) {
-        throw new BadRequestException('Some screens are invalid or not ONLINE');
-      }
-
-      targetScreenIds = dto.screenIds;
+    // Cek apakah slot yang diminta diaktifkan di properti ini
+    if (!property.enabledSlots.includes(dto.targetSlot)) {
+      throw new BadRequestException(
+        `Slot ${dto.targetSlot} tidak tersedia di properti ${property.name}`,
+      );
     }
 
-    const costEstimate = await this.financeService.calculateCampaignCost({
-      screenIds: targetScreenIds,
-      startDate: dto.startDate,
-      endDate: dto.endDate,
+    // 3. Hitung Tanggal (Start & End) berdasarkan Paket
+    const start = new Date(dto.startDate);
+    if (start < new Date()) {
+      // Toleransi sedikit untuk waktu server vs client
+    }
+
+    let end = new Date(start);
+    if (dto.durationPackage === DurationPackage.CUSTOM) {
+      if (!dto.endDate)
+        throw new BadRequestException('End date wajib untuk paket CUSTOM');
+      end = new Date(dto.endDate);
+    } else if (dto.durationPackage === DurationPackage.WEEKLY) {
+      end.setDate(start.getDate() + 7);
+    } else if (dto.durationPackage === DurationPackage.MONTHLY) {
+      end.setDate(start.getDate() + 30);
+    } else {
+      // DAILY
+      end.setDate(start.getDate() + 1);
+    }
+
+    if (start >= end) {
+      throw new BadRequestException('Start date must be before end date');
+    }
+
+    // 4. Cari Layar Aktif (Inventory)
+    // Sistem otomatis menargetkan SEMUA layar ONLINE di properti tsb
+    const availableScreens = await this.prisma.screen.findMany({
+      where: {
+        propertyId: dto.propertyId,
+        status: ScreenStatus.ONLINE,
+      },
+      select: { id: true },
     });
-    const totalCost = BigInt(costEstimate.totalCost);
+
+    if (availableScreens.length === 0) {
+      throw new BadRequestException(
+        'Properti ini tidak memiliki layar yang sedang ONLINE saat ini.',
+      );
+    }
+
+    // 5. Hitung Biaya (Finance Service Phase 2 Integration)
+    const costCalculation = await this.financeService.calculateCampaignCost({
+      propertyId: dto.propertyId,
+      targetSlot: dto.targetSlot,
+      durationPackage: dto.durationPackage,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    });
+
+    const totalCost = BigInt(costCalculation.totalCost);
 
     // ==========================================
-    // [LOGIC] DRAFT vs SUBMIT
+    // EXECUTION: DRAFT vs SUBMIT
     // ==========================================
 
     if (dto.saveAsDraft) {
-      // 1. DRAFT FLOW: Simpan DB, Tanpa Freeze Saldo
+      // DRAFT: Simpan data, connect screen, tapi status DRAFT (tanpa potong saldo)
       return this.prisma.campaign.create({
         data: {
           advertiserId: user.id,
           name: dto.name,
+          propertyId: dto.propertyId,
+          targetSlot: dto.targetSlot,
+          durationPackage: dto.durationPackage,
           startDate: start,
           endDate: end,
           totalCost: totalCost,
           status: CampaignStatus.DRAFT,
-          propertyId: dto.propertyId ?? null,
           screens: {
-            connect: targetScreenIds.map((id) => ({ id })),
+            connect: availableScreens.map((s) => ({ id: s.id })),
           },
           items: {
             create: {
               mediaId: media.id,
-              targetSlot: AdSlot.SCREENSAVER,
-              targetRoomCategory: [],
+              targetSlot: dto.targetSlot,
+              actionUrl: media.actionUrl,
             },
           },
         },
-        include: { screens: { select: { id: true, name: true } } },
+        include: {
+          screens: { select: { id: true, name: true } },
+          items: true,
+        },
       });
     }
 
-    // 2. SUBMIT FLOW: Transaction (Freeze Saldo + Create Campaign)
+    // SUBMIT: Transaction (Freeze Saldo + Create Campaign)
     return await this.prisma.$transaction(async (tx) => {
       await this.financeService.freezeBalanceForCampaign(
         user.id,
@@ -143,13 +155,15 @@ export class CampaignsService {
         data: {
           advertiserId: user.id,
           name: dto.name,
+          propertyId: dto.propertyId,
+          targetSlot: dto.targetSlot,
+          durationPackage: dto.durationPackage,
           startDate: start,
           endDate: end,
           totalCost: totalCost,
           status: CampaignStatus.PENDING_REVIEW,
-          propertyId: dto.propertyId ?? null,
           screens: {
-            connect: targetScreenIds.map((id) => ({ id })),
+            connect: availableScreens.map((s) => ({ id: s.id })),
           },
         },
       });
@@ -158,8 +172,8 @@ export class CampaignsService {
         data: {
           campaignId: campaign.id,
           mediaId: media.id,
-          targetSlot: AdSlot.SCREENSAVER,
-          targetRoomCategory: [],
+          targetSlot: dto.targetSlot,
+          actionUrl: media.actionUrl,
         },
       });
 
@@ -167,11 +181,7 @@ export class CampaignsService {
         data: {
           userId: user.id,
           action: 'CAMPAIGN_CREATED',
-          details: `Created campaign #${campaign.id} targeting ${
-            targetScreenIds.length
-          } screens. Type: ${
-            dto.propertyId ? 'BUYOUT' : 'SELECTIVE'
-          }. Cost: ${totalCost}`,
+          details: `Created campaign #${campaign.id}. Pkg: ${dto.durationPackage}. Screens: ${availableScreens.length}. Cost: ${totalCost}`,
         },
       });
 
@@ -180,10 +190,13 @@ export class CampaignsService {
   }
 
   // ==========================================
-  // [NEW] SUBMIT DRAFT (Transition DRAFT -> PENDING)
+  // [REVISED] SUBMIT DRAFT
   // ==========================================
   async submit(id: number, userId: number) {
-    const campaign = await this.prisma.campaign.findUnique({ where: { id } });
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id },
+      include: { screens: true },
+    });
     if (!campaign) throw new NotFoundException('Campaign not found');
     if (campaign.advertiserId !== userId)
       throw new ForbiddenException('You do not own this campaign');
@@ -192,14 +205,13 @@ export class CampaignsService {
       throw new BadRequestException('Only DRAFT campaigns can be submitted');
     }
 
-    if (campaign.startDate < new Date()) {
+    if (campaign.screens.length === 0) {
       throw new BadRequestException(
-        'Start date is in the past. Please update campaign dates first.',
+        'Campaign ini tidak memiliki target layar. Silakan edit atau buat baru.',
       );
     }
 
     return await this.prisma.$transaction(async (tx) => {
-      // Freeze Saldo sesuai totalCost yang tersimpan di Draft
       await this.financeService.freezeBalanceForCampaign(
         userId,
         campaign.totalCost,
@@ -215,7 +227,7 @@ export class CampaignsService {
         data: {
           userId,
           action: 'CAMPAIGN_SUBMITTED',
-          details: `Draft #${id} submitted for review. Frozen: ${campaign.totalCost}`,
+          details: `Draft #${id} submitted. Cost: ${campaign.totalCost}`,
         },
       });
 
@@ -224,12 +236,11 @@ export class CampaignsService {
   }
 
   // ==========================================
-  // UPDATE CAMPAIGN (DRAFT ONLY)
+  // [REVISED] UPDATE (DRAFT ONLY)
   // ==========================================
   async update(id: number, userId: number, dto: UpdateCampaignDto) {
     const campaign = await this.prisma.campaign.findUnique({
       where: { id },
-      include: { screens: true },
     });
 
     if (!campaign) throw new NotFoundException('Campaign not found');
@@ -237,116 +248,71 @@ export class CampaignsService {
       throw new ForbiddenException('You do not own this campaign');
 
     if (campaign.status !== CampaignStatus.DRAFT) {
-      throw new BadRequestException(
-        'Only DRAFT campaigns can be edited. Please cancel and create a new one.',
-      );
+      throw new BadRequestException('Only DRAFT campaigns can be edited.');
     }
 
-    let startDate = campaign.startDate;
-    let endDate = campaign.endDate;
+    const newPropertyId = dto.propertyId ?? campaign.propertyId;
+    const newSlot = dto.targetSlot ?? campaign.targetSlot;
+    const newPackage = dto.durationPackage ?? campaign.durationPackage;
+    const newStartStr = dto.startDate ?? campaign.startDate.toISOString();
+    const newEndStr = dto.endDate ?? campaign.endDate.toISOString();
 
-    if (dto.startDate) startDate = new Date(dto.startDate);
-    if (dto.endDate) endDate = new Date(dto.endDate);
+    const start = new Date(newStartStr);
+    let end = new Date(start);
 
-    if (dto.startDate || dto.endDate) {
-      if (startDate >= endDate) {
-        throw new BadRequestException('Start date must be before end date');
-      }
-      if (startDate < new Date()) {
-        throw new BadRequestException('Start date must be in the future');
-      }
+    if (newPackage === DurationPackage.CUSTOM) {
+      end = new Date(newEndStr);
+    } else if (newPackage === DurationPackage.WEEKLY) {
+      end.setDate(start.getDate() + 7);
+    } else if (newPackage === DurationPackage.MONTHLY) {
+      end.setDate(start.getDate() + 30);
+    } else {
+      end.setDate(start.getDate() + 1);
     }
 
-    let targetScreenIds: number[] = campaign.screens.map((s) => s.id);
-    let propertyId = campaign.propertyId;
+    if (!newPropertyId) throw new BadRequestException('Property ID missing');
 
-    if (dto.propertyId !== undefined) {
-      if (dto.propertyId) {
-        const propertyScreens = await this.prisma.screen.findMany({
-          where: { propertyId: dto.propertyId, status: ScreenStatus.ONLINE },
-          select: { id: true },
-        });
-        if (propertyScreens.length === 0)
-          throw new BadRequestException('Property has no active screens');
-        targetScreenIds = propertyScreens.map((s) => s.id);
-        propertyId = dto.propertyId;
-      } else {
-        if (!dto.screenIds || dto.screenIds.length === 0) {
-          throw new BadRequestException(
-            'screenIds must be provided when switching from Buyout to Selective',
-          );
-        }
-        propertyId = null;
-      }
-    }
-
-    if (dto.screenIds) {
-      const validScreens = await this.prisma.screen.findMany({
-        where: { id: { in: dto.screenIds }, status: ScreenStatus.ONLINE },
-        select: { id: true },
-      });
-      if (validScreens.length !== dto.screenIds.length) {
-        throw new BadRequestException('Some screens are invalid or not ONLINE');
-      }
-      targetScreenIds = dto.screenIds;
-      propertyId = null;
-    }
-
-    const costEstimate = await this.financeService.calculateCampaignCost({
-      screenIds: targetScreenIds,
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
+    const availableScreens = await this.prisma.screen.findMany({
+      where: {
+        propertyId: newPropertyId,
+        status: ScreenStatus.ONLINE,
+      },
+      select: { id: true },
     });
-    const newTotalCost = BigInt(costEstimate.totalCost);
+
+    const costCalc = await this.financeService.calculateCampaignCost({
+      propertyId: newPropertyId,
+      targetSlot: newSlot,
+      durationPackage: newPackage,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    });
 
     return this.prisma.campaign.update({
       where: { id },
       data: {
         name: dto.name,
-        startDate: startDate,
-        endDate: endDate,
-        totalCost: newTotalCost,
-        propertyId: propertyId,
+        propertyId: newPropertyId,
+        targetSlot: newSlot,
+        durationPackage: newPackage,
+        startDate: start,
+        endDate: end,
+        totalCost: BigInt(costCalc.totalCost),
         screens: {
-          set: targetScreenIds.map((sid) => ({ id: sid })),
+          set: availableScreens.map((s) => ({ id: s.id })),
         },
       },
-      include: {
-        screens: { select: { id: true, name: true } },
-      },
+      include: { screens: { select: { id: true, name: true } } },
     });
   }
 
-  async remove(id: number, userId: number) {
-    const campaign = await this.prisma.campaign.findUnique({
-      where: { id },
-    });
-
-    if (!campaign) throw new NotFoundException('Campaign not found');
-    if (campaign.advertiserId !== userId)
-      throw new ForbiddenException('You do not own this campaign');
-
-    if (campaign.status !== CampaignStatus.DRAFT) {
-      throw new BadRequestException(
-        'Only DRAFT campaigns can be deleted directly. Use CANCEL for active/pending campaigns.',
-      );
-    }
-
-    return this.prisma.campaign.delete({
-      where: { id },
-    });
-  }
-
+  // ==========================================
+  // STANDARD CRUD (READ/DELETE/CANCEL)
+  // ==========================================
   async findAll(user: User, query: CampaignQueryDto) {
     const where: any = {};
-
-    if (user.role === Role.ADVERTISER) {
-      where.advertiserId = user.id;
-    }
-
-    if (query.status) {
-      where.status = query.status;
-    }
+    if (user.role === Role.ADVERTISER) where.advertiserId = user.id;
+    if (query.status) where.status = query.status;
 
     const [data, itemCount] = await Promise.all([
       this.prisma.campaign.findMany({
@@ -354,7 +320,7 @@ export class CampaignsService {
         include: {
           items: { include: { media: true } },
           _count: { select: { screens: true } },
-          property: { select: { name: true } },
+          property: { select: { name: true, city: true } },
         },
         skip: query.skip,
         take: query.take,
@@ -374,26 +340,36 @@ export class CampaignsService {
         screens: true,
         items: { include: { media: true } },
         advertiser: { select: { name: true, email: true } },
-        property: { select: { name: true, city: true } },
+        property: { select: { name: true, city: true, timezone: true } },
       },
     });
 
     if (!campaign) throw new NotFoundException('Campaign not found');
-
     if (user.role === Role.ADVERTISER && campaign.advertiserId !== user.id) {
       throw new NotFoundException('Campaign not found');
     }
-
     return campaign;
   }
 
+  async remove(id: number, userId: number) {
+    const campaign = await this.prisma.campaign.findUnique({ where: { id } });
+    if (!campaign) throw new NotFoundException('Campaign not found');
+    if (campaign.advertiserId !== userId)
+      throw new ForbiddenException('You do not own this campaign');
+    if (campaign.status !== CampaignStatus.DRAFT) {
+      throw new BadRequestException(
+        'Only DRAFT campaigns can be deleted directly.',
+      );
+    }
+    return this.prisma.campaign.delete({ where: { id } });
+  }
+
+  // [UPDATED] Handle Refund on Cancel
   async cancel(id: number, user: User) {
     const campaign = await this.prisma.campaign.findUnique({ where: { id } });
     if (!campaign) throw new NotFoundException('Campaign not found');
-
-    if (campaign.advertiserId !== user.id) {
-      throw new BadRequestException('You do not own this campaign');
-    }
+    if (campaign.advertiserId !== user.id)
+      throw new ForbiddenException('Ownership error');
 
     const allowedStatuses: CampaignStatus[] = [
       CampaignStatus.PENDING_REVIEW,
@@ -407,29 +383,30 @@ export class CampaignsService {
     }
 
     return await this.prisma.$transaction(async (tx) => {
+      // Logic Baru: Refund atau Release Frozen
       if (campaign.status === CampaignStatus.PENDING_REVIEW) {
+        // Uang masih Frozen -> Release
         await this.financeService.releaseFrozenBalance(
           user.id,
           campaign.totalCost,
           tx,
         );
-
-        await tx.auditLog.create({
-          data: {
-            userId: user.id,
-            action: 'CAMPAIGN_CANCELLED_REFUND',
-            details: `Campaign #${id} cancelled by user. Full refund: ${campaign.totalCost}`,
-          },
-        });
-      } else {
-        await tx.auditLog.create({
-          data: {
-            userId: user.id,
-            action: 'CAMPAIGN_STOPPED',
-            details: `Active Campaign #${id} stopped by user. No automatic refund.`,
-          },
-        });
+      } else if (campaign.status === CampaignStatus.ACTIVE) {
+        await this.financeService.processRefund(
+          user.id,
+          campaign.totalCost,
+          campaign.id,
+          tx,
+        );
       }
+
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'CAMPAIGN_CANCELLED',
+          details: `Campaign #${id} cancelled by user. Status was ${campaign.status}`,
+        },
+      });
 
       return await tx.campaign.update({
         where: { id },
@@ -440,10 +417,8 @@ export class CampaignsService {
 
   async review(id: number, dto: ReviewCampaignDto, adminId: number) {
     const campaign = await this.prisma.campaign.findUnique({ where: { id } });
-    if (!campaign) throw new NotFoundException('Campaign not found');
-
-    if (campaign.status !== CampaignStatus.PENDING_REVIEW) {
-      throw new BadRequestException('Campaign is not pending review');
+    if (!campaign || campaign.status !== CampaignStatus.PENDING_REVIEW) {
+      throw new BadRequestException('Invalid campaign for review');
     }
 
     return await this.prisma.$transaction(async (tx) => {
@@ -454,7 +429,6 @@ export class CampaignsService {
           campaign.id,
           tx,
         );
-
         return await tx.campaign.update({
           where: { id },
           data: { status: CampaignStatus.ACTIVE },
@@ -465,7 +439,6 @@ export class CampaignsService {
           campaign.totalCost,
           tx,
         );
-
         return await tx.campaign.update({
           where: { id },
           data: {

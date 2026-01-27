@@ -8,7 +8,9 @@ import {
   ScreenOrientation,
   ScreenStatus,
   RoomCategory,
+  AdSlot,
 } from '@prisma/client';
+import { GetPlaylistDto } from './dto/playlist.dto';
 
 // ==========================================
 // 1. DEFINISI TYPE-SAFE MOCK INTERFACE
@@ -18,8 +20,8 @@ type MockFn = jest.Mock<any, any>;
 
 interface MockPlayerService {
   getConfig: MockFn;
-  generatePlaylist: MockFn;
-  recordHeartbeat: MockFn;
+  getPlaylist: MockFn; // [FIX] Updated name from generatePlaylist
+  heartbeat: MockFn; // [FIX] Updated name from recordHeartbeat
 }
 
 describe('PlayerController', () => {
@@ -43,11 +45,11 @@ describe('PlayerController', () => {
     updatedAt: new Date(),
   };
 
-  // [FIX] Gunakan Interface agar type-safe dan autocomplete jalan
+  // [FIX] Gunakan Interface agar type-safe
   const mockPlayerService: MockPlayerService = {
     getConfig: jest.fn(),
-    generatePlaylist: jest.fn(),
-    recordHeartbeat: jest.fn(),
+    getPlaylist: jest.fn(),
+    heartbeat: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -60,7 +62,7 @@ describe('PlayerController', () => {
         },
       ],
     })
-      .overrideGuard(PlayerAuthGuard) // Override Guard agar tidak butuh PrismaService
+      .overrideGuard(PlayerAuthGuard) // Override Guard
       .useValue({ canActivate: jest.fn(() => true) })
       .compile();
 
@@ -75,44 +77,42 @@ describe('PlayerController', () => {
   });
 
   describe('getConfig', () => {
-    it('should call service.getConfig with screen id', async () => {
+    it('should call service.getConfig with screen object', async () => {
       const expectedResult = { screenId: 1, refreshInterval: 900 };
       mockPlayerService.getConfig.mockResolvedValue(expectedResult);
 
       const result = await controller.getConfig(mockScreen);
 
-      // [FIX] Gunakan mockPlayerService langsung untuk menghindari unbound method
-      expect(mockPlayerService.getConfig).toHaveBeenCalledWith(mockScreen.id);
+      expect(mockPlayerService.getConfig).toHaveBeenCalledWith(mockScreen);
       expect(result).toEqual(expectedResult);
     });
   });
 
   describe('getPlaylist', () => {
-    it('should call service.generatePlaylist with screen id', async () => {
-      const expectedResult = { totalItems: 0, items: [] };
-      mockPlayerService.generatePlaylist.mockResolvedValue(expectedResult);
+    it('should call service.getPlaylist with screen and query', async () => {
+      const query: GetPlaylistDto = { slot: AdSlot.SCREENSAVER };
+      const expectedResult = { totalDuration: 0, items: [] };
+      mockPlayerService.getPlaylist.mockResolvedValue(expectedResult);
 
-      const result = await controller.getPlaylist(mockScreen);
+      const result = await controller.getPlaylist(mockScreen, query);
 
-      expect(mockPlayerService.generatePlaylist).toHaveBeenCalledWith(
-        mockScreen.id,
+      expect(mockPlayerService.getPlaylist).toHaveBeenCalledWith(
+        mockScreen,
+        query,
       );
       expect(result).toEqual(expectedResult);
     });
   });
 
   describe('heartbeat', () => {
-    it('should call service.recordHeartbeat with payload', async () => {
+    it('should call service.heartbeat with payload', async () => {
       const dto: HeartbeatDto = { ipAddress: '10.0.0.1' };
-      const expectedResult = { status: 'ONLINE' };
-      mockPlayerService.recordHeartbeat.mockResolvedValue(expectedResult);
+      const expectedResult = { status: 'ok' };
+      mockPlayerService.heartbeat.mockResolvedValue(expectedResult);
 
       const result = await controller.heartbeat(mockScreen, dto);
 
-      expect(mockPlayerService.recordHeartbeat).toHaveBeenCalledWith(
-        mockScreen.id,
-        dto,
-      );
+      expect(mockPlayerService.heartbeat).toHaveBeenCalledWith(mockScreen, dto);
       expect(result).toEqual(expectedResult);
     });
   });

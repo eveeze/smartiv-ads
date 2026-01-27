@@ -3,7 +3,7 @@
 # --------------------------------------------------------
 FROM node:20-alpine AS builder
 
-# Install sistem dependencies
+# Install system dependencies
 RUN corepack enable && corepack prepare pnpm@latest --activate
 RUN apk add --no-cache openssl ffmpeg
 
@@ -13,7 +13,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
-# Install SEMUA dependencies (termasuk devDependencies untuk build)
+# Install ALL dependencies (including devDependencies for build)
 RUN pnpm install --frozen-lockfile
 
 # Generate Prisma Client
@@ -22,7 +22,7 @@ RUN pnpm prisma generate
 # Copy source code
 COPY . .
 
-# Build Aplikasi NestJS
+# Build NestJS Application
 RUN pnpm build
 
 # --------------------------------------------------------
@@ -38,11 +38,12 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
-# Install dependencies (termasuk dev untuk prisma generate)
+# Install dependencies (including dev for prisma generate)
 RUN pnpm install --frozen-lockfile
 RUN pnpm prisma generate
 
-# Hapus devDependencies (sisakan production saja)
+# Remove devDependencies (keep production only)
+# ts-node and typescript MUST be in "dependencies" in package.json for this to work
 RUN pnpm prune --prod
 
 # --------------------------------------------------------
@@ -57,12 +58,13 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy semua yang dibutuhkan untuk running & seeding
+# Copy necessary files for running & seeding
 COPY package.json pnpm-lock.yaml ./
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
-# EXPOSE dan CMD tetap sama
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
 EXPOSE 3000
 CMD ["node", "dist/src/main"]

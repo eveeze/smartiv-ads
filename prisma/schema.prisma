@@ -10,7 +10,7 @@ datasource db {
 }
 
 // --------------------------------------
-// ENUMS·
+// ENUMS
 // --------------------------------------
 
 enum Role {
@@ -21,7 +21,7 @@ enum Role {
 
 enum PropertyType {
   HOTEL
-  HOSPITAL      // Rumah Sakit
+  HOSPITAL
   APARTMENT
   VILLA
   RESORT
@@ -30,19 +30,11 @@ enum PropertyType {
   OTHER
 }
 
-// Klasifikasi untuk menentukan "Base Rate" harga iklan
 enum PropertyClass {
-  // Hotel: Bintang 1-2 | RS: Kelas C/D | Mall: Grade C
-  BUDGET 
-  
-  // Hotel: Bintang 3 | RS: Kelas B | Mall: Grade B
-  STANDARD 
-  
-  // Hotel: Bintang 4 | RS: Kelas A (Swasta Premium) | Mall: Grade A
-  PREMIUM 
-  
-  // Hotel: Bintang 5/Luxury | RS: International/VIP Only
-  LUXURY 
+  BUDGET
+  STANDARD
+  PREMIUM
+  LUXURY
 }
 
 enum ScreenStatus {
@@ -56,56 +48,40 @@ enum ScreenOrientation {
   PORTRAIT
 }
 
-// Slot Iklan (Sesuai Menu Aplikasi SmartIV di TV)
 enum AdSlot {
-  SCREENSAVER       // Idle Mode
-  INFO_SLIDER       // Running Text / Banner Bawah
-  APP_PROMOTION     // Pop-up Apps
-  
-  // Menu Sections (Bisa dipakai untuk Health Info di RS)
-  LEISURE_CULINARY  
-  LEISURE_TOURISM   
+  SCREENSAVER
+  INFO_SLIDER
+  APP_PROMOTION
+  LEISURE_CULINARY
+  LEISURE_TOURISM
   LEISURE_GIFT
-  
-  // Other Placements
-  WELCOME_GREETING  // Saat Tamu/Pasien Check-in
-  BACKGROUND        // Wallpaper Menu Utama
+  WELCOME_GREETING
+  BACKGROUND
 }
 
-// Kategori Ruangan (Diperluas untuk RS & Villa)
 enum RoomCategory {
-  // --- HOTEL / UMUM ---
   STANDARD
   DELUXE
   SUITE
-  
-  // --- VIP SECTOR (Hotel/RS) ---
   VIP
   VVIP
   PRESIDENTIAL
-
-  // --- PUBLIC AREA ---
-  LOBBY           // Lobi Utama
-  WAITING_ROOM    // Ruang Tunggu (Poli/Keluarga)
-  RESTAURANT      // Kantin / Resto
-  HALLWAY         // Lorong / Koridor
-  ELEVATOR_HALL   // Depan Lift
-
-  // --- HOSPITAL SPECIFIC ---
-  WARD_CLASS_1    // Rawat Inap Kelas 1
-  WARD_CLASS_2    // Rawat Inap Kelas 2
-  WARD_CLASS_3    // Rawat Inap Kelas 3
-  ICU             // Intensive Care Unit (Biasanya untuk keluarga penunggu)
-  ER              // Emergency Room / IGD
-  POLYCLINIC      // Poli Rawat Jalan
-  NURSE_STATION   // Konter Perawat
-
-  // --- VILLA / APARTMENT SPECIFIC ---
-  LIVING_ROOM     // Ruang Tengah
-  MASTER_BEDROOM  // Kamar Utama
-  KITCHEN_AREA    // Area Dapur/Makan
-  PRIVATE_POOL    // Area Kolam Renang Privat
-
+  LOBBY
+  WAITING_ROOM
+  RESTAURANT
+  HALLWAY
+  ELEVATOR_HALL
+  WARD_CLASS_1
+  WARD_CLASS_2
+  WARD_CLASS_3
+  ICU
+  ER
+  POLYCLINIC
+  NURSE_STATION
+  LIVING_ROOM
+  MASTER_BEDROOM
+  KITCHEN_AREA
+  PRIVATE_POOL
   OTHER
 }
 
@@ -149,19 +125,27 @@ enum TransactionStatus {
   FAILED
 }
 
+// [NEW] Enum untuk Paket Durasi Campaign
+enum DurationPackage {
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
 // --------------------------------------
 // MODELS
 // --------------------------------------
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  name      String?
-  phone     String?
-  role      Role     @default(ADVERTISER)
-  isActive  Boolean  @default(true)
-  passwordResetToken   String?   @unique  
+  id                   Int       @id @default(autoincrement())
+  email                String    @unique
+  password             String
+  name                 String?
+  phone                String?
+  role                 Role      @default(ADVERTISER)
+  isActive             Boolean   @default(true)
+  passwordResetToken   String?   @unique
   passwordResetExpires DateTime?
 
   createdAt DateTime @default(now())
@@ -172,7 +156,6 @@ model User {
   logs      AuditLog[]
   media     Media[]
 
-  // Jika user adalah Property Operator (RS Admin / Hotel Admin)
   propertyId Int?
   property   Property? @relation(fields: [propertyId], references: [id])
 
@@ -183,10 +166,8 @@ model Wallet {
   id            Int      @id @default(autoincrement())
   userId        Int      @unique
   user          User     @relation(fields: [userId], references: [id])
-  
   balance       BigInt   @default(0)
   frozenBalance BigInt   @default(0)
-  
   updatedAt     DateTime @updatedAt
 
   transactions       Transaction[]
@@ -202,11 +183,9 @@ model Transaction {
   amount        BigInt
   type          TransactionType
   status        TransactionStatus @default(PENDING)
-  
-  referenceCode String?           @unique 
+  referenceCode String?           @unique
   paymentToken  String?
   paymentUrl    String?
-
   description   String?
   createdAt     DateTime          @default(now())
 
@@ -217,17 +196,13 @@ model WithdrawalRequest {
   id          Int              @id @default(autoincrement())
   walletId    Int
   wallet      Wallet           @relation(fields: [walletId], references: [id])
-  
   amount      BigInt
   bankName    String
   accountNo   String
   accountName String
-  
   status      WithdrawalStatus @default(PENDING)
-  
   adminNote   String?
   approvedBy  Int?
-  
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -236,25 +211,25 @@ model WithdrawalRequest {
 
 model Property {
   id             Int           @id @default(autoincrement())
-  
-  name           String        // e.g., "RS Sentra Medika", "Villa Kayu Manis"
+  name           String
   type           PropertyType  @default(HOTEL)
-  classification PropertyClass @default(STANDARD) // Grade A/B/C or Stars
+  classification PropertyClass @default(STANDARD)
 
-  // --- Sinkronisasi SmartIV Core ---
-  smartivId      Int?          @unique 
-  smartivCode    String?       @unique 
-  
-  // --- Branding ---
-  baseColor      String?       
-  activeColor    String?       
-  logoUrl        String?       
+  smartivId   Int?    @unique
+  smartivCode String? @unique
 
-  // --- Lokasi & Config ---
-  address        String?
-  city           String?
-  
-  enabledSlots   AdSlot[]      @default([SCREENSAVER])
+  baseColor   String?
+  activeColor String?
+  logoUrl     String?
+
+  address String?
+  city    String?
+
+  // [NEW] Fields untuk Timezone & Region
+  timezone String  @default("Asia/Jakarta") // e.g. "Asia/Makassar"
+  region   String? // e.g. "Bali", "Jabodetabek"
+
+  enabledSlots AdSlot[] @default([SCREENSAVER])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -268,22 +243,20 @@ model Property {
 }
 
 model Screen {
-  id         Int               @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   propertyId Int
-  property   Property          @relation(fields: [propertyId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id])
 
-  name       String   // e.g., "TV R.Inap 305", "TV Lobby Poli Anak"
-  code       String   @unique // MAC Address
-  
+  name        String
+  code        String            @unique
   resolution  String?
   orientation ScreenOrientation @default(LANDSCAPE)
   ipAddress   String?
-  
-  // Penentuan lokasi layar lebih spesifik (Penting untuk RS/Villa)
-  roomCategory RoomCategory     @default(STANDARD)
 
-  status      ScreenStatus      @default(ONLINE)
-  lastPing    DateTime?
+  roomCategory RoomCategory @default(STANDARD)
+
+  status   ScreenStatus @default(ONLINE)
+  lastPing DateTime?
 
   priceOverride BigInt?
 
@@ -297,17 +270,19 @@ model Screen {
 }
 
 model RateCard {
-  id             Int            @id @default(autoincrement())
-  propertyId     Int?
-  property       Property?      @relation(fields: [propertyId], references: [id])
+  id         Int       @id @default(autoincrement())
+  propertyId Int?
+  property   Property? @relation(fields: [propertyId], references: [id])
 
-  // Harga dasar bisa berdasarkan Kelas Properti (misal: RS Tipe A vs Tipe C)
   classification PropertyClass?
-  
-  targetSlot     AdSlot? 
+  targetSlot     AdSlot?
 
-  pricePerDay BigInt
-  currency    String @default("IDR")
+  // [NEW] Support Paket Harga (Daily, Weekly, Monthly)
+  pricePerDay   BigInt
+  pricePerWeek  BigInt?
+  pricePerMonth BigInt?
+
+  currency String @default("IDR")
 
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -316,23 +291,27 @@ model RateCard {
 }
 
 model Campaign {
-  id           Int            @id @default(autoincrement())
+  id           Int  @id @default(autoincrement())
   advertiserId Int
-  advertiser   User           @relation(fields: [advertiserId], references: [id])
+  advertiser   User @relation(fields: [advertiserId], references: [id])
 
-  propertyId   Int?
-  property     Property?      @relation(fields: [propertyId], references: [id])
+  propertyId Int?
+  property   Property? @relation(fields: [propertyId], references: [id])
 
-  name         String
-  startDate    DateTime
-  endDate      DateTime
-  totalCost    BigInt
-  status       CampaignStatus @default(DRAFT)
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  totalCost BigInt
+  status    CampaignStatus @default(DRAFT)
+
+  // [NEW] Fields untuk Logika Baru Campaign
+  targetSlot      AdSlot          @default(SCREENSAVER)
+  durationPackage DurationPackage @default(CUSTOM)
 
   rejectionReason String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   screens     Screen[]
   items       CampaignItem[]
   impressions ImpressionLog[]
@@ -341,19 +320,20 @@ model Campaign {
 }
 
 model CampaignItem {
-  id                 Int            @id @default(autoincrement())
-  campaignId         Int
-  campaign           Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-  mediaId            Int
-  media              Media          @relation(fields: [mediaId], references: [id])
+  mediaId Int
+  media   Media @relation(fields: [mediaId], references: [id])
 
-  // Target lebih fleksibel (bisa pilih WARD_CLASS_1, VIP, atau LOBBY)
   targetRoomCategory RoomCategory[]
-  
   targetSlot         AdSlot
 
   durationSec Int @default(15)
+
+  // [NEW] Field untuk interaksi
+  actionUrl String?
 
   createdAt DateTime @default(now())
 
@@ -361,29 +341,33 @@ model CampaignItem {
 }
 
 model Media {
-  id             Int            @id @default(autoincrement())
-  uploaderId     Int
-  uploader       User           @relation(fields: [uploaderId], references: [id])
+  id         Int  @id @default(autoincrement())
+  uploaderId Int
+  uploader   User @relation(fields: [uploaderId], references: [id])
 
-  filename       String
-  originalName   String
-  mimeType       String
-  size           Int
-  type           MediaType
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  type         MediaType
 
-  url            String
-  thumbnailUrl   String?
+  // [NEW] Metadata Media
+  title       String?
+  description String? @db.Text
+  actionUrl   String? // Default action URL jika tidak di-override di CampaignItem
 
-  hlsUrl         String?
-  isTranscoded   Boolean        @default(false)
+  url          String
+  thumbnailUrl String?
+  hlsUrl       String?
+  isTranscoded Boolean @default(false)
 
   status          ApprovalStatus @default(PENDING)
-  rejectionReason String?        
-  reviewedAt      DateTime?      
-  reviewedBy      Int?           
+  rejectionReason String?
+  reviewedAt      DateTime?
+  reviewedBy      Int?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   campaignItems CampaignItem[]
 
@@ -394,10 +378,8 @@ model ImpressionLog {
   id         BigInt   @id @default(autoincrement())
   screenId   Int
   screen     Screen   @relation(fields: [screenId], references: [id])
-
   campaignId Int
   campaign   Campaign @relation(fields: [campaignId], references: [id])
-
   timestamp  DateTime @default(now())
   duration   Int
 
