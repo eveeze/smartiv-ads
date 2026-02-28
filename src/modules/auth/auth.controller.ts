@@ -29,6 +29,7 @@ import {
   LoginDataDto,
   MessageResponseDto,
 } from '../../common/dto/api-response.dto';
+import { UserResponseDto } from '../users/dto/user-response.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
 import type { User } from '@prisma/client';
@@ -90,7 +91,11 @@ export class AuthController {
     description:
       'Returns the full profile of the currently authenticated user based on the JWT token.',
   })
-  @ApiResponse({ status: 200, description: 'Returns the current user object.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the current user object.',
+    type: UserResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: false,
     unauthorized: true,

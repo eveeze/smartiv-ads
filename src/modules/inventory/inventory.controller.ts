@@ -392,6 +392,7 @@ export class InventoryController {
   @ApiResponse({
     status: 200,
     description: 'Array of blocked category objects.',
+    type: [CategoryResponseDto],
   })
   @ApiStandardErrors({ badRequest: false, notFound: 'Property not found.' })
   getBlocklist(@Param('id', ParseIntPipe) id: number) {
@@ -428,7 +429,11 @@ export class InventoryController {
     description:
       'Returns available campaigns for a property, automatically filtering out blocked categories.',
   })
-  @ApiResponse({ status: 200, description: 'Filtered availability data.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Filtered availability data.',
+    type: Object,
+  })
   @ApiStandardErrors({ badRequest: false, notFound: 'Property not found.' })
   checkAvailability(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.checkAvailability(id);

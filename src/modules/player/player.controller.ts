@@ -12,6 +12,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
+import { MessageResponseDto } from '../../common/dto/api-response.dto';
 import { GetPlaylistDto, PlaylistResponseDto } from './dto/playlist.dto';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 
@@ -28,7 +29,11 @@ export class PlayerController {
     description:
       'Called periodically by the player device to report it is online. Updates `lastPing` and `status` fields.',
   })
-  @ApiResponse({ status: 200, description: 'Heartbeat acknowledged.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Heartbeat acknowledged.',
+    type: MessageResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Invalid heartbeat payload.',
     unauthorized: 'Missing or invalid X-Device-ID header.',
@@ -45,7 +50,11 @@ export class PlayerController {
     description:
       'Returns the screen configuration including timezone, orientation, and associated property details.',
   })
-  @ApiResponse({ status: 200, description: 'Screen configuration object.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Screen configuration object.',
+    type: Object,
+  })
   @ApiStandardErrors({
     badRequest: false,
     unauthorized: 'Missing or invalid X-Device-ID header.',
