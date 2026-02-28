@@ -489,4 +489,80 @@ export class FinanceService {
       },
     });
   }
+
+  // ==========================================
+  // PUBLISHER REVENUE REPORT (PHASE 13)
+  // ==========================================
+
+  async getPublisherReport(
+    user: User,
+    query: { startDate?: string; endDate?: string },
+  ) {
+    const propertyId = user.propertyId;
+    if (!propertyId) {
+      throw new BadRequestException('User is not associated with any property');
+    }
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const startDate = query.startDate
+      ? new Date(query.startDate)
+      : startOfMonth;
+    const endDate = query.endDate ? new Date(query.endDate) : endOfMonth;
+
+    const [ledgerEntries, totals] = await Promise.all([
+      // Daily breakdown
+      this.prisma.publisherLedger.findMany({
+        where: {
+          propertyId,
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        orderBy: { date: 'asc' },
+        select: {
+          date: true,
+          totalImpressions: true,
+          totalRevenue: true,
+        },
+      }),
+      // Aggregate totals
+      this.prisma.publisherLedger.aggregate({
+        _sum: {
+          totalImpressions: true,
+          totalRevenue: true,
+        },
+        where: {
+          propertyId,
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      }),
+    ]);
+
+    return {
+      propertyId,
+      dateRange: {
+        start: startDate.toISOString().slice(0, 10),
+        end: endDate.toISOString().slice(0, 10),
+      },
+      summary: {
+        totalImpressions: totals._sum.totalImpressions || 0,
+        totalRevenue: totals._sum.totalRevenue?.toString() || '0',
+      },
+      dailyBreakdown: ledgerEntries.map((entry) => ({
+        date:
+          entry.date instanceof Date
+            ? entry.date.toISOString().slice(0, 10)
+            : String(entry.date),
+        impressions: entry.totalImpressions,
+        revenue: entry.totalRevenue.toString(),
+      })),
+    };
+  }
 }

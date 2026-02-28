@@ -1,0 +1,194 @@
+
+> smartiv-ads@0.0.1 test:cov /home/eveeze/Learning/nest/smartiv-ads
+> jest --coverage
+
+PASS src/modules/player/player.service.spec.ts
+PASS src/modules/auth/auth.service.spec.ts
+PASS src/modules/media/processors/transcode.processor.spec.ts
+PASS src/modules/media/media.service.spec.ts
+PASS src/modules/users/users.service.spec.ts
+PASS src/modules/users/users.controller.spec.ts
+PASS src/modules/finance/finance.controller.spec.ts
+PASS src/modules/inventory/inventory.controller.spec.ts
+PASS src/modules/telemetry/processors/telemetry.processor.spec.ts
+PASS src/modules/campaigns/campaigns.service.spec.ts
+PASS src/modules/campaigns/campaigns.controller.spec.ts
+PASS src/modules/telemetry/telemetry.controller.spec.ts
+PASS src/modules/auth/auth.controller.spec.ts
+PASS src/modules/media/media.controller.spec.ts
+PASS src/modules/player/player.controller.spec.ts
+PASS src/modules/media/placement.service.spec.ts
+PASS src/providers/storage/storage.service.spec.ts
+PASS src/providers/prisma/prisma.service.spec.ts
+PASS src/modules/mail/mail.service.spec.ts
+PASS src/modules/finance/finance.service.spec.ts
+PASS src/modules/inventory/inventory.service.spec.ts
+PASS src/modules/analytics/analytics.controller.spec.ts
+PASS src/modules/dashboard/dashboard.service.spec.ts
+PASS src/common/interceptors/transform/transform.interceptor.spec.ts
+PASS src/common/filters/all-exceptions/all-exceptions.filter.spec.ts
+PASS src/config/configuration/configuration.spec.ts
+PASS src/modules/telemetry/telemetry.service.spec.ts
+PASS src/common/guards/jwt-auth/jwt-auth.guard.spec.ts
+PASS src/modules/analytics/analytics.service.spec.ts
+PASS src/common/guards/roles/roles.guard.spec.ts
+PASS src/app.controller.spec.ts
+PASS src/providers/queue/queue.service.spec.ts
+------------------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------
+File                                      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                       
+------------------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------
+All files                                 |   67.09 |    54.12 |   56.46 |      68 |                                                                                         
+ src                                      |   20.96 |       50 |      75 |   16.07 |                                                                                         
+  app.controller.ts                       |     100 |       75 |     100 |     100 | 6                                                                                       
+  app.module.ts                           |       0 |      100 |     100 |       0 | 1-53                                                                                    
+  app.service.ts                          |     100 |      100 |     100 |     100 |                                                                                         
+  main.ts                                 |       0 |        0 |       0 |       0 | 1-66                                                                                    
+ src/common/decorators/current-screen     |      50 |      100 |       0 |      50 |                                                                                         
+  current-screen.decorator.ts             |      50 |      100 |       0 |      50 | 6-7                                                                                     
+ src/common/decorators/current-user       |      50 |      100 |       0 |      50 |                                                                                         
+  current-user.decorator.ts               |      50 |      100 |       0 |      50 | 6-7                                                                                     
+ src/common/decorators/roles              |     100 |      100 |     100 |     100 |                                                                                         
+  roles.decorator.ts                      |     100 |      100 |     100 |     100 |                                                                                         
+ src/common/dto                           |    92.5 |    64.28 |   57.14 |   91.89 |                                                                                         
+  page-meta.dto.ts                        |     100 |       50 |     100 |     100 | 29-30                                                                                   
+  page-options.dto.ts                     |   88.23 |    66.66 |      50 |   85.71 | 20,31                                                                                   
+  page.dto.ts                             |   88.88 |       75 |      50 |   88.88 | 10                                                                                      
+ src/common/filters/all-exceptions        |   86.48 |    46.15 |     100 |   85.71 |                                                                                         
+  all-exceptions.filter.ts                |   86.48 |    46.15 |     100 |   85.71 | 63-66,87                                                                                
+ src/common/guards/api-key                |       0 |        0 |       0 |       0 |                                                                                         
+  api-key.guard.ts                        |       0 |        0 |       0 |       0 | 1-36                                                                                    
+ src/common/guards/jwt-auth               |     100 |      100 |     100 |     100 |                                                                                         
+  jwt-auth.guard.ts                       |     100 |      100 |     100 |     100 |                                                                                         
+ src/common/guards/roles                  |     100 |    83.33 |     100 |     100 |                                                                                         
+  roles.guard.ts                          |     100 |    83.33 |     100 |     100 | 8                                                                                       
+ src/common/interceptors/transform        |    92.3 |       50 |     100 |    90.9 |                                                                                         
+  transform.interceptor.ts                |    92.3 |       50 |     100 |    90.9 | 33                                                                                      
+ src/common/pipes                         |   38.88 |        0 |       0 |   31.25 |                                                                                         
+  file-signature.pipe.ts                  |   38.88 |        0 |       0 |   31.25 | 22-52                                                                                   
+ src/common/utils                         |   25.45 |    21.95 |   17.39 |   26.92 |                                                                                         
+  bigint.util.ts                          |       0 |        0 |       0 |       0 | 11-18                                                                                   
+  finance.utils.ts                        |      20 |        0 |       0 |   21.42 | 14-82                                                                                   
+  media.utils.ts                          |   27.27 |       20 |   18.75 |   29.03 | 8-40,79-103                                                                             
+  type-guards.util.ts                     |     100 |      100 |     100 |     100 |                                                                                         
+ src/config/configuration                 |     100 |      100 |     100 |     100 |                                                                                         
+  configuration.ts                        |     100 |      100 |     100 |     100 |                                                                                         
+ src/modules/analytics                    |   82.05 |       75 |     100 |   84.84 |                                                                                         
+  analytics.controller.ts                 |     100 |       75 |     100 |     100 | 23                                                                                      
+  analytics.module.ts                     |       0 |      100 |     100 |       0 | 1-11                                                                                    
+  analytics.service.ts                    |     100 |       75 |     100 |     100 | 8,94-100                                                                                
+ src/modules/analytics/dto                |     100 |      100 |     100 |     100 |                                                                                         
+  summary.dto.ts                          |     100 |      100 |     100 |     100 |                                                                                         
+ src/modules/auth                         |   55.55 |    60.78 |   43.75 |   56.04 |                                                                                         
+  auth.controller.ts                      |   80.76 |       75 |   28.57 |   79.16 | 53,61,75,83,92                                                                          
+  auth.module.ts                          |       0 |      100 |       0 |       0 | 1-40                                                                                    
+  auth.service.ts                         |   57.62 |    51.61 |    62.5 |   58.18 | 114-196                                                                                 
+ src/modules/auth/dto                     |     100 |      100 |     100 |     100 |                                                                                         
+  change-password.dto.ts                  |     100 |      100 |     100 |     100 |                                                                                         
+  forgot-password.dto.ts                  |     100 |      100 |     100 |     100 |                                                                                         
+  login.dto.ts                            |     100 |      100 |     100 |     100 |                                                                                         
+  register.dto.ts                         |     100 |      100 |     100 |     100 |                                                                                         
+  reset-password.dto.ts                   |     100 |      100 |     100 |     100 |                                                                                         
+ src/modules/auth/interfaces/auth-service |     100 |      100 |     100 |     100 |                                                                                         
+  auth-service.interface.ts               |     100 |      100 |     100 |     100 |                                                                                         
+ src/modules/auth/strategies              |       0 |        0 |       0 |       0 |                                                                                         
+  jwt.strategies.ts                       |       0 |        0 |       0 |       0 | 1-45                                                                                    
+ src/modules/campaigns                    |   62.37 |    50.72 |   74.19 |   64.86 |                                                                                         
+  campaigns.controller.ts                 |   97.29 |       75 |    90.9 |   97.14 | 127                                                                                     
+  campaigns.module.ts                     |       0 |      100 |     100 |       0 | 1-13                                                                                    
+  campaigns.service.ts                    |   57.69 |    45.61 |      65 |   60.13 | 45,47,55,63-65,68-71,75,187,189,192,225,227,239,242-245,283-333,348,360-361,387,403-462 
+ src/modules/campaigns/dto                |   96.29 |       75 |       0 |   96.29 |                                                                                         
+  campaign-query.dto.ts                   |     100 |       75 |     100 |     100 | 10                                                                                      
+  create-campaign.dto.ts                  |    92.3 |       75 |       0 |    92.3 | 52                                                                                      
+  review-campaign.dto.ts                  |     100 |      100 |     100 |     100 |                                                                                         
+  update-campaign.dto.ts                  |     100 |      100 |     100 |     100 |                                                                                         
+ src/modules/dashboard                    |   66.25 |    60.71 |   55.55 |   68.05 |                                                                                         
+  dashboard.controller.ts                 |       0 |        0 |       0 |       0 | 1-42                                                                                    
+  dashboard.module.ts                     |       0 |      100 |     100 |       0 | 1-11                                                                                    
+  dashboard.service.ts                    |   96.36 |    70.83 |     100 |   96.07 | 120,185                                                                                 
+ src/modules/finance                      |   64.86 |    49.15 |   59.37 |   66.66 |                                                                                         
+  finance.controller.ts                   |   97.22 |       75 |      90 |   97.05 | 127                                                                                     
+  finance.module.ts                       |       0 |      100 |     100 |       0 | 1-13                                                                                    
+  finance.service.ts                      |   60.28 |    41.11 |   45.45 |   61.83 | 49-75,94,102-103,107,128,155,173-176,241,300,305,308-309,324-329,337-459,503            
+ src/modules/finance/dto                  |   92.68 |       75 |       0 |   92.68 |                                                                                         
+  calculate-cost.dto.ts                   |      90 |       75 |       0 |      90 | 47                                                                                      
+  create-topup.dto.ts                     |   83.33 |      100 |       0 |   83.33 | 7                                                                                       
+  publisher-report-query.dto.ts           |     100 |      100 |     100 |     100 |                                                                                         
+  review-withdrawal.dto.ts                |     100 |      100 |     100 |     100 |                                                                                         
+  transaction-query.dto.ts                |     100 |       75 |     100 |     100 | 10                                                                                      
+  withdrawal-request.dto.ts               |   88.88 |      100 |       0 |   88.88 | 7                                                                                       
+ src/modules/internal                     |       0 |      100 |     100 |       0 |                                                                                         
+  internal.module.ts                      |       0 |      100 |     100 |       0 | 1-4                                                                                     
+ src/modules/inventory                    |   60.73 |       53 |   62.22 |      62 |                                                                                         
+  inventory.controller.ts                 |   85.29 |       68 |   77.27 |   84.84 | 62-73,213,220,230,239                                                                   
+  inventory.module.ts                     |       0 |      100 |     100 |       0 | 1-12                                                                                    
+  inventory.service.ts                    |   46.59 |       38 |   47.82 |   46.83 | 39-56,69,74-83,98-166,218-255,325,367                                                   
+ src/modules/inventory/dto                |   98.38 |       75 |       0 |   98.38 |                                                                                         
+  blocklist.dto.ts                        |     100 |      100 |     100 |     100 |                                                                                         
+  create-property.dto.ts                  |     100 |       75 |     100 |     100 | 41-47                                                                                   
+  create-rate-card.dto.ts                 |     100 |       75 |     100 |     100 | 20-25                                                                                   
+  create-screen.dto.ts                    |     100 |       75 |     100 |     100 | 33-43                                                                                   
+  screen-page-options.dto.ts              |   85.71 |      100 |       0 |   85.71 | 8                                                                                       
+  update-property.dto.ts                  |     100 |      100 |     100 |     100 |                                                                                         
+  update-rate-card.dto.ts                 |     100 |      100 |     100 |     100 |                                                                                         
+  update-screen.dto.ts                    |     100 |       75 |     100 |     100 | 15                                                                                      
+ src/modules/mail                         |      40 |       60 |   33.33 |    37.5 |                                                                                         
+  mail.module.ts                          |       0 |      100 |       0 |       0 | 1-39                                                                                    
+  mail.service.ts                         |      80 |       60 |      50 |      75 | 14-16                                                                                   
+ src/modules/media                        |   61.13 |    48.67 |   32.43 |   62.14 |                                                                                         
+  media.controller.ts                     |   78.78 |    66.66 |   22.22 |   77.41 | 64,71,79,86,97,110,117                                                                  
+  media.module.ts                         |       0 |      100 |     100 |       0 | 1-16                                                                                    
+  media.service.ts                        |   47.31 |    34.84 |   22.72 |   48.19 | 51-58,105-182,197,217-218,226-259,277-281                                               
+  placement.service.ts                    |   85.71 |    69.23 |   83.33 |   85.18 | 60-61,68-71,90,139,156                                                                  
+ src/modules/media/dto                    |   95.23 |    55.55 |       0 |   95.23 |                                                                                         
+  review-media.dto.ts                     |   85.71 |       75 |       0 |   85.71 | 21                                                                                      
+  update-media.dto.ts                     |     100 |      100 |     100 |     100 |                                                                                         
+  upload-media.dto.ts                     |     100 |       40 |     100 |     100 | 6                                                                                       
+ src/modules/media/processors             |    82.6 |    57.14 |   85.71 |    83.9 |                                                                                         
+  transcode.processor.ts                  |    82.6 |    57.14 |   85.71 |    83.9 | 86-92,111-113,117-120,169-172,266,289-290,301                                           
+ src/modules/player                       |   86.79 |    70.37 |     100 |   89.13 |                                                                                         
+  player.controller.ts                    |     100 |       75 |     100 |     100 | 22-41                                                                                   
+  player.module.ts                        |       0 |      100 |     100 |       0 | 1-12                                                                                    
+  player.service.ts                       |     100 |    66.66 |     100 |     100 | 15,78-113                                                                               
+ src/modules/player/dto                   |     100 |       75 |     100 |     100 |                                                                                         
+  heartbeat.dto.ts                        |     100 |      100 |     100 |     100 |                                                                                         
+  playlist.dto.ts                         |     100 |       75 |     100 |     100 | 16-52                                                                                   
+ src/modules/player/guards                |   31.25 |       30 |       0 |   21.42 |                                                                                         
+  player-auth.guard.ts                    |   31.25 |       30 |       0 |   21.42 | 12-36                                                                                   
+ src/modules/telemetry                    |   71.87 |       75 |     100 |   73.07 |                                                                                         
+  telemetry.controller.ts                 |     100 |       75 |     100 |     100 | 31-39                                                                                   
+  telemetry.module.ts                     |       0 |      100 |     100 |       0 | 1-13                                                                                    
+  telemetry.service.ts                    |     100 |       75 |     100 |     100 | 10                                                                                      
+ src/modules/telemetry/dto                |      90 |      100 |       0 |      90 |                                                                                         
+  create-impression.dto.ts                |      90 |      100 |       0 |      90 | 36                                                                                      
+ src/modules/telemetry/processors         |   83.33 |    66.66 |     100 |   84.44 |                                                                                         
+  telemetry.processor.ts                  |   83.33 |    66.66 |     100 |   84.44 | 46-47,75-77,172-173                                                                     
+ src/modules/users                        |   86.17 |    75.67 |   88.23 |   88.23 |                                                                                         
+  users.controller.ts                     |   94.44 |       75 |   85.71 |   94.11 | 119-120                                                                                 
+  users.module.ts                         |       0 |      100 |     100 |       0 | 1-12                                                                                    
+  users.service.ts                        |   92.15 |    76.66 |      90 |   93.47 | 94,177-179                                                                              
+ src/modules/users/dto                    |   92.85 |    60.71 |   16.66 |   91.93 |                                                                                         
+  assign-property.dto.ts                  |     100 |      100 |     100 |     100 |                                                                                         
+  create-user.dto.ts                      |     100 |       75 |     100 |     100 | 37                                                                                      
+  update-profile.dto.ts                   |     100 |      100 |     100 |     100 |                                                                                         
+  update-user-status.dto.ts               |     100 |      100 |     100 |     100 |                                                                                         
+  user-page-options.dto.ts                |     100 |       75 |     100 |     100 | 10                                                                                      
+  user-response.dto.ts                    |    87.5 |       55 |   16.66 |   84.37 | 17,27,97,103,109                                                                        
+ src/providers/payment                    |   18.75 |    21.42 |       0 |   14.28 |                                                                                         
+  midtrans.service.ts                     |   23.07 |    21.42 |       0 |   16.66 | 31-104                                                                                  
+  payment.module.ts                       |       0 |      100 |     100 |       0 | 1-10                                                                                    
+ src/providers/prisma                     |   41.66 |      100 |       0 |    37.5 |                                                                                         
+  prisma.module.ts                        |       0 |      100 |     100 |       0 | 1-8                                                                                     
+  prisma.service.ts                       |   71.42 |      100 |       0 |      60 | 10-14                                                                                   
+ src/providers/queue                      |   63.63 |       75 |      75 |   66.66 |                                                                                         
+  queue.module.ts                         |       0 |      100 |       0 |       0 | 1-34                                                                                    
+  queue.service.ts                        |     100 |       75 |     100 |     100 | 24                                                                                      
+ src/providers/storage                    |   35.55 |    33.33 |   14.28 |   34.14 |                                                                                         
+  storage.module.ts                       |       0 |      100 |     100 |       0 | 1-10                                                                                    
+  storage.service.ts                      |   41.02 |    33.33 |   14.28 |   37.83 | 46-112                                                                                  
+------------------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------
+
+Test Suites: 32 passed, 32 total
+Tests:       150 passed, 150 total
+Snapshots:   0 total
+Time:        4.721 s, estimated 5 s
+Ran all test suites.

@@ -4,28 +4,31 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
-  DeleteObjectCommand, // [FIX] Import ini wajib ada
+  DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
 import * as fs from 'fs';
 
+/** Default signed URL expiry: 1 hour */
+const DEFAULT_PRESIGN_EXPIRY_SECONDS = 3600;
+
 @Injectable()
 export class StorageService {
-  private s3Client: S3Client;
-  private bucketName: string;
+  private readonly s3Client: S3Client;
+  private readonly bucketName: string;
   private readonly logger = new Logger(StorageService.name);
 
   constructor(private configService: ConfigService) {
     this.bucketName = this.configService.getOrThrow<string>('minio.bucket');
 
-    // FIX 1: Ambil host dan port terpisah, lalu gabungkan jadi URL lengkap
     const minioHost = this.configService.getOrThrow<string>('minio.endpoint');
     const minioPort = this.configService.getOrThrow<number>('minio.port');
-    const fullS3Endpoint = `http://${minioHost}:${minioPort}`; // Hasil: http://minio:9000
+    const fullS3Endpoint = `http://${minioHost}:${minioPort}`;
 
     this.s3Client = new S3Client({
       region: 'us-east-1',
-      endpoint: fullS3Endpoint, // Gunakan URL lengkap di sini
+      endpoint: fullS3Endpoint,
       forcePathStyle: true,
       credentials: {
         accessKeyId: this.configService.getOrThrow<string>('minio.accessKey'),
@@ -39,7 +42,7 @@ export class StorageService {
     key: string,
     fileBuffer: Buffer | fs.ReadStream,
     mimeType: string,
-  ) {
+  ): Promise<string> {
     try {
       await this.s3Client.send(
         new PutObjectCommand({
@@ -57,7 +60,6 @@ export class StorageService {
     }
   }
 
-  // [NEW] Method Delete yang sebelumnya hilang
   async delete(key: string): Promise<void> {
     try {
       await this.s3Client.send(
@@ -70,15 +72,26 @@ export class StorageService {
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Delete failed for ${key}: ${msg}`);
-      // Kita throw error agar service pemanggil tahu kalau gagal hapus fisik
       throw error;
     }
   }
 
+  // [Phase 10 Step 3] Generate Presigned URL for secure content access
+  async getPresignedUrl(
+    key: string,
+    expirySeconds: number = DEFAULT_PRESIGN_EXPIRY_SECONDS,
+  ): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    return getSignedUrl(this.s3Client, command, {
+      expiresIn: expirySeconds,
+    });
+  }
+
   getFileUrl(key: string): string {
-    // FIX 2: Generate URL Publik
-    // 'minio' hanya bisa diakses internal docker. Untuk browser (client), gunakan localhost.
-    // Idealnya ini menggunakan ENV terpisah seperti PUBLIC_STORAGE_URL untuk production.
     return `http://localhost:9000/${this.bucketName}/${key}`;
   }
 

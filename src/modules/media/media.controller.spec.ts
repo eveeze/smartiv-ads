@@ -44,7 +44,7 @@ describe('MediaController', () => {
       // [FIX] Panggil dengan 3 argumen: file, dto, user
       await controller.uploadFile(file, dto, mockUser);
 
-      expect(mockMediaService.upload).toHaveBeenCalledWith(file, mockUser);
+      expect(mockMediaService.upload).toHaveBeenCalledWith(file, mockUser, dto);
     });
   });
 });

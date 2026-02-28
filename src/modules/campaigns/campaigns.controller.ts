@@ -113,4 +113,17 @@ export class CampaignsController {
   ) {
     return this.campaignsService.review(id, dto);
   }
+
+  // [Phase 14] Campaign Preview for Sales Tools
+  @Get(':id/preview-url')
+  @Roles(Role.ADVERTISER, Role.SUPER_ADMIN)
+  @ApiOperation({
+    summary: 'Get campaign preview URL (for sharing/presentation)',
+  })
+  getPreviewUrl(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.campaignsService.getPreviewUrl(id, user);
+  }
 }

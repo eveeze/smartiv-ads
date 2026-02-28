@@ -18,14 +18,15 @@ import configuration, {
 import { TelemetryModule } from './modules/telemetry/telemetry.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { MailModule } from './modules/mail/mail.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
     // Global Config Setup
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [configuration], // Load factory function
-      validationSchema: validationSchema, // Validate using Joi
+      load: [configuration],
+      validationSchema: validationSchema,
     }),
 
     // Feature Modules
@@ -35,6 +36,7 @@ import { MailModule } from './modules/mail/mail.module';
     CampaignsModule,
     FinanceModule,
     PlayerModule,
+    DashboardModule,
 
     // Core Providers
     PrismaModule,

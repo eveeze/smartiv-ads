@@ -10,7 +10,6 @@ export class MediaUtils {
         if (err)
           return reject(err instanceof Error ? err : new Error(String(err)));
 
-        // Best Practice: Optional Chaining & Array Check
         const streams = metadata?.streams || [];
         const hasAudio = streams.some(
           (stream) => stream.codec_type === 'audio',
@@ -21,23 +20,44 @@ export class MediaUtils {
   }
 
   // =================================================================
-  // 2. Helper URL: Generate Full URL
+  // 2. Helper: Get Media Dimensions via ffprobe
   // =================================================================
-  /**
-   * Menggabungkan Domain MinIO dengan Path File
-   * @param relativePath Path file (termasuk bucket jika perlu)
-   */
+  static async getMediaDimensions(
+    filePath: string,
+  ): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      Ffmpeg.ffprobe(filePath, (err, metadata) => {
+        if (err)
+          return reject(err instanceof Error ? err : new Error(String(err)));
+
+        const videoStream = metadata?.streams?.find(
+          (s) => s.codec_type === 'video',
+        );
+        if (!videoStream?.width || !videoStream?.height) {
+          return reject(new Error('Could not determine media dimensions'));
+        }
+
+        resolve({
+          width: videoStream.width,
+          height: videoStream.height,
+        });
+      });
+    });
+  }
+
+  // =================================================================
+  // 3. Helper URL: Generate Full URL
+  // =================================================================
   static getFullUrl(relativePath: string | null): string | null {
     if (!relativePath) return null;
 
-    // Jika path sudah berupa URL lengkap (misal dari CDN eksternal), kembalikan langsung
+    // Jika path sudah berupa URL lengkap, kembalikan langsung
     if (relativePath.startsWith('http')) return relativePath;
 
     const baseUrl = (
       process.env.MINIO_PUBLIC_URL || 'http://localhost:9000'
     ).replace(/\/$/, '');
 
-    // Pastikan relativePath diawali dengan slash '/'
     const cleanPath = relativePath.startsWith('/')
       ? relativePath
       : `/${relativePath}`;
@@ -45,15 +65,41 @@ export class MediaUtils {
     return `${baseUrl}${cleanPath}`;
   }
 
-  static getHlsUrl(mediaId: number): string {
-    const bucket = process.env.MINIO_BUCKET || 'smartiv-media';
+  private static getBucket(): string {
+    return process.env.MINIO_BUCKET || 'smartiv-media';
+  }
 
-    return this.getFullUrl(`${bucket}/hls/${mediaId}/master.m3u8`) ?? '';
+  static getHlsUrl(mediaId: number): string {
+    return (
+      this.getFullUrl(`${this.getBucket()}/hls/${mediaId}/master.m3u8`) ?? ''
+    );
   }
 
   static getThumbnailUrl(mediaId: number): string {
-    const bucket = process.env.MINIO_BUCKET || 'smartiv-media';
+    return (
+      this.getFullUrl(`${this.getBucket()}/hls/${mediaId}/thumbnail.jpg`) ?? ''
+    );
+  }
 
-    return this.getFullUrl(`${bucket}/hls/${mediaId}/thumbnail.jpg`) ?? '';
+  // [Phase 10 Step 2] GIF Preview URL
+  static getPreviewUrl(mediaId: number): string {
+    return (
+      this.getFullUrl(`${this.getBucket()}/hls/${mediaId}/preview.gif`) ?? ''
+    );
+  }
+
+  // =================================================================
+  // 4. Storage Key Helpers (for Signed URL generation)
+  // =================================================================
+  static getHlsKey(mediaId: number): string {
+    return `hls/${mediaId}/master.m3u8`;
+  }
+
+  static getThumbnailKey(mediaId: number): string {
+    return `hls/${mediaId}/thumbnail.jpg`;
+  }
+
+  static getPreviewKey(mediaId: number): string {
+    return `hls/${mediaId}/preview.gif`;
   }
 }

@@ -36,6 +36,7 @@ jest.mock('../../../common/utils/media.utils', () => ({
     hasAudioStream: jest.fn().mockResolvedValue(true),
     getHlsUrl: jest.fn((id: number) => `http://mock/hls/${id}`),
     getThumbnailUrl: jest.fn((id: number) => `http://mock/thumb/${id}`),
+    getPreviewUrl: jest.fn((id: number) => `http://mock/preview/${id}`),
   },
 }));
 
@@ -45,6 +46,10 @@ jest.mock('fluent-ffmpeg', () => {
     screenshots: jest.fn().mockReturnThis(),
     output: jest.fn().mockReturnThis(),
     addOptions: jest.fn().mockReturnThis(),
+    setStartTime: jest.fn().mockReturnThis(),
+    duration: jest.fn().mockReturnThis(),
+    outputOptions: jest.fn().mockReturnThis(),
+    format: jest.fn().mockReturnThis(),
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     on: jest.fn().mockImplementation((event: string, callback: () => void) => {
       if (event === 'end') callback(); // Simulate success
@@ -143,6 +148,9 @@ describe('TranscodeProcessor', () => {
         ) as unknown as string,
         thumbnailUrl: expect.stringContaining(
           'http://mock/thumb/1',
+        ) as unknown as string,
+        previewUrl: expect.stringContaining(
+          'http://mock/preview/1',
         ) as unknown as string,
       },
     });

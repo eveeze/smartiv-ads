@@ -15,6 +15,7 @@ import { WithdrawalRequestDto } from './dto/withdrawal-request.dto';
 import { ReviewWithdrawalDto } from './dto/review-withdrawal.dto';
 import { CalculateCostDto } from './dto/calculate-cost.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
+import { PublisherReportQueryDto } from './dto/publisher-report-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
@@ -108,5 +109,21 @@ export class FinanceController {
     @CurrentUser() admin: User,
   ) {
     return this.financeService.reviewWithdrawal(id, dto, admin.id);
+  }
+
+  // --- PUBLISHER (OPERATOR) ENDPOINTS ---
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PROPERTY_OPERATOR, Role.SUPER_ADMIN)
+  @Get('publisher/report')
+  @ApiOperation({
+    summary: 'Get publisher revenue report (Daily breakdown)',
+  })
+  getPublisherReport(
+    @CurrentUser() user: User,
+    @Query() query: PublisherReportQueryDto,
+  ) {
+    return this.financeService.getPublisherReport(user, query);
   }
 }

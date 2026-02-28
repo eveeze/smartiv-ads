@@ -18,8 +18,6 @@ process.env.REDIS_PORT = '6379';
 
 // Database URL
 // FIX: Menggunakan kredensial postgres:postgres sesuai docker-compose.yml
-// Menggunakan DB 'smartiv_db' yang sudah ada skemanya (karena sudah dijalankan di dev)
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL =
-    'postgresql://postgres:postgres@localhost:5432/smartiv_db?schema=public';
-}
+// Menggunakan DB 'smartiv_db' yang sudah ada skemanya
+process.env.DATABASE_URL =
+  'postgresql://postgres:postgres@localhost:5432/smartiv_db?schema=public';

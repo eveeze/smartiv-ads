@@ -175,4 +175,178 @@ describe('AuthService', () => {
       );
     });
   });
+
+  // --- CHANGE PASSWORD ---
+  describe('changePassword', () => {
+    it('should change password successfully', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        password: 'old_hash',
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new_hash');
+
+      await service.changePassword(1, {
+        oldPassword: 'oldPass123',
+        newPassword: 'newPass456',
+      });
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { password: 'new_hash' },
+        }),
+      );
+    });
+
+    it('should throw NotFoundException if user not found', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.changePassword(999, {
+          oldPassword: 'old',
+          newPassword: 'new',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should throw BadRequestException if old password does not match', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        password: 'old_hash',
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      await expect(
+        service.changePassword(1, {
+          oldPassword: 'wrongPass',
+          newPassword: 'newPass',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // --- FORGOT PASSWORD ---
+  describe('forgotPassword', () => {
+    it('should send reset email when user exists', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        email: 'test@example.com',
+        name: 'Test',
+      });
+      mockPrisma.user.update.mockResolvedValue({});
+      mockMailService.sendUserConfirmation.mockResolvedValue(undefined);
+
+      await service.forgotPassword({ email: 'test@example.com' });
+
+      expect(mockPrisma.user.update).toHaveBeenCalled();
+      expect(mockMailService.sendUserConfirmation).toHaveBeenCalled();
+    });
+
+    it('should silently succeed if user does not exist (security)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      // Should not throw
+      await expect(
+        service.forgotPassword({ email: 'nonexistent@example.com' }),
+      ).resolves.toBeUndefined();
+
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('should rollback and throw if email fails', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        email: 'test@example.com',
+        name: 'Test',
+      });
+      mockPrisma.user.update.mockResolvedValue({});
+      mockMailService.sendUserConfirmation.mockRejectedValue(
+        new Error('SMTP Error'),
+      );
+
+      await expect(
+        service.forgotPassword({ email: 'test@example.com' }),
+      ).rejects.toThrow(BadRequestException);
+
+      // Should have been called twice: first to set token, then to rollback
+      expect(mockPrisma.user.update).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // --- RESET PASSWORD ---
+  describe('resetPassword', () => {
+    it('should reset password with valid token', async () => {
+      const futureDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        passwordResetToken: 'hashed_token',
+        passwordResetExpires: futureDate,
+      });
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_pw');
+
+      await service.resetPassword({
+        token: 'valid_token',
+        newPassword: 'newPassword123',
+      });
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: expect.objectContaining({
+            password: 'new_hashed_pw',
+            passwordResetToken: null,
+            passwordResetExpires: null,
+          }),
+        }),
+      );
+    });
+
+    it('should throw BadRequestException if token is invalid', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword({
+          token: 'invalid_token',
+          newPassword: 'newPass',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if token has expired', async () => {
+      const pastDate = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        passwordResetToken: 'hashed_token',
+        passwordResetExpires: pastDate,
+      });
+
+      await expect(
+        service.resetPassword({
+          token: 'expired_token',
+          newPassword: 'newPass',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // --- CREATE TOKEN ---
+  describe('createToken', () => {
+    it('should create JWT token from user data', async () => {
+      mockJwtService.signAsync.mockResolvedValue('jwt_mock_token');
+
+      const result = await service.createToken({
+        id: 1,
+        email: 'test@example.com',
+        role: 'ADVERTISER',
+      } as any);
+
+      expect(result).toHaveProperty('accessToken', 'jwt_mock_token');
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith({
+        sub: 1,
+        email: 'test@example.com',
+        role: 'ADVERTISER',
+      });
+    });
+  });
 });

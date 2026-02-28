@@ -1,0 +1,27 @@
+
+> smartiv-ads@0.0.1 test:e2e:cov /home/eveeze/Learning/nest/smartiv-ads
+> jest --config ./test/jest-e2e.json --coverage --runInBand --forceExit
+
+PASS test/campaign-flow.e2e-spec.ts
+PASS test/player.e2e-spec.ts
+PASS test/media.e2e-spec.ts
+PASS test/analytics.e2e-spec.ts
+PASS test/inventory.e2e-spec.ts
+PASS test/auth.e2e-spec.ts
+PASS test/finance.e2e-spec.ts
+PASS test/users.e2e-spec.ts
+PASS test/rate-card.e2e-spec.ts
+PASS test/telemetry.e2e-spec.ts
+PASS test/app.e2e-spec.ts
+----------|---------|----------|---------|---------|-------------------
+File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+----------|---------|----------|---------|---------|-------------------
+All files |       0 |        0 |       0 |       0 |                   
+----------|---------|----------|---------|---------|-------------------
+
+Test Suites: 11 passed, 11 total
+Tests:       53 passed, 53 total
+Snapshots:   0 total
+Time:        7.496 s, estimated 9 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

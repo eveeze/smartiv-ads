@@ -10,6 +10,7 @@ import {
   Body,
   UseGuards,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MediaService } from './media.service';
@@ -17,6 +18,7 @@ import {
   ApiBearerAuth,
   ApiConsumes,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { UploadMediaDto } from './dto/upload-media.dto';
@@ -47,14 +49,19 @@ export class MediaController {
     @Body() dto: UploadMediaDto,
     @CurrentUser() user: User,
   ) {
-    return this.mediaService.upload(file, user);
+    return this.mediaService.upload(file, user, dto);
   }
 
   @Get()
   @Roles(Role.ADVERTISER, Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get all media uploaded by me' })
-  findAll(@CurrentUser() user: User) {
-    return this.mediaService.findAll(user);
+  @ApiOperation({ summary: 'Get all media (with optional tag search)' })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search by tag name',
+  })
+  findAll(@CurrentUser() user: User, @Query('search') search?: string) {
+    return this.mediaService.findAll(user, search);
   }
 
   @Get('pending')
@@ -62,6 +69,14 @@ export class MediaController {
   @ApiOperation({ summary: 'Get all pending media (Admin)' })
   findPending() {
     return this.mediaService.findPending();
+  }
+
+  // [Phase 10 Step 4] Tags Autocomplete endpoint
+  @Get('tags')
+  @Roles(Role.ADVERTISER, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get all media tags (for autocomplete)' })
+  findAllTags() {
+    return this.mediaService.findAllTags();
   }
 
   @Get(':id')
@@ -95,7 +110,6 @@ export class MediaController {
     return this.mediaService.update(id, dto, user);
   }
 
-  // [NEW ENDPOINT]
   @Delete(':id')
   @Roles(Role.ADVERTISER)
   @ApiOperation({ summary: 'Delete media (Only if not in active campaign)' })

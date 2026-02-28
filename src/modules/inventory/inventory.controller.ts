@@ -35,6 +35,7 @@ import { CreateRateCardDto } from './dto/create-rate-card.dto';
 import { UpdateRateCardDto } from './dto/update-rate-card.dto';
 import { ScreenPageOptionsDto } from './dto/screen-page-options.dto';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
+import { UpdateBlocklistDto } from './dto/blocklist.dto';
 
 @ApiTags('Inventory')
 @ApiBearerAuth()
@@ -199,5 +200,42 @@ export class InventoryController {
   @ApiOperation({ summary: 'Delete pricing rule (Permanently)' })
   removeRateCard(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.removeRateCard(id);
+  }
+
+  // ==========================================
+  // PHASE 12: BRAND SAFETY BLOCKLIST
+  // ==========================================
+
+  @Get('categories')
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'List all industry categories' })
+  findAllCategories() {
+    return this.inventoryService.findAllCategories();
+  }
+
+  @Get('properties/:id/blocklist')
+  @Roles(Role.SUPER_ADMIN, Role.PROPERTY_OPERATOR)
+  @ApiOperation({ summary: 'Get blocked categories for a property' })
+  getBlocklist(@Param('id', ParseIntPipe) id: number) {
+    return this.inventoryService.getBlocklist(id);
+  }
+
+  @Post('properties/:id/blocklist')
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update blocked categories for a property' })
+  updateBlocklist(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateBlocklistDto,
+  ) {
+    return this.inventoryService.updateBlocklist(id, dto);
+  }
+
+  @Get('properties/:id/availability')
+  @Roles(Role.SUPER_ADMIN, Role.PROPERTY_OPERATOR)
+  @ApiOperation({
+    summary: 'Check campaign availability (with blocklist filtering)',
+  })
+  checkAvailability(@Param('id', ParseIntPipe) id: number) {
+    return this.inventoryService.checkAvailability(id);
   }
 }

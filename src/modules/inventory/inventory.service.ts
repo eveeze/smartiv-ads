@@ -6,13 +6,15 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../providers/prisma/prisma.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
+import { UpdateBlocklistDto } from './dto/blocklist.dto';
 import { PageOptionsDto } from '../../common/dto/page-options.dto';
 import { PageDto } from '../../common/dto/page.dto';
 import { PageMetaDto } from '../../common/dto/page-meta.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { CreateScreenDto } from './dto/create-screen.dto';
 import { UpdateScreenDto } from './dto/update-screen.dto';
-import { Property, Screen, Prisma } from '@prisma/client'; // [FIX] Import Prisma namespace
+import { CampaignStatus, Prisma } from '@prisma/client';
+import type { Property, Screen } from '@prisma/client';
 import { CreateRateCardDto } from './dto/create-rate-card.dto';
 import { UpdateRateCardDto } from './dto/update-rate-card.dto';
 
@@ -252,6 +254,118 @@ export class InventoryService {
     // Hard Delete (Sesuai policy sistem saat ini)
     return this.prisma.rateCard.delete({
       where: { id },
+    });
+  }
+
+  // ==========================================
+  // BRAND SAFETY BLOCKLIST (PHASE 12)
+  // ==========================================
+
+  async getBlocklist(propertyId: number) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        blocklist: {
+          select: { id: true, name: true, code: true },
+          orderBy: { name: 'asc' },
+        },
+      },
+    });
+
+    if (!property) {
+      throw new NotFoundException(`Property with ID ${propertyId} not found`);
+    }
+
+    return property.blocklist;
+  }
+
+  async updateBlocklist(propertyId: number, dto: UpdateBlocklistDto) {
+    await this.findPropertyById(propertyId); // Ensure exists
+
+    // Validate all category IDs exist in one query
+    if (dto.categoryIds.length > 0) {
+      const existingCount = await this.prisma.industryCategory.count({
+        where: { id: { in: dto.categoryIds } },
+      });
+
+      if (existingCount !== dto.categoryIds.length) {
+        throw new BadRequestException('One or more category IDs are invalid');
+      }
+    }
+
+    // Atomic set — replaces entire blocklist in one operation
+    return this.prisma.property.update({
+      where: { id: propertyId },
+      data: {
+        blocklist: {
+          set: dto.categoryIds.map((id) => ({ id })),
+        },
+      },
+      include: {
+        blocklist: {
+          select: { id: true, name: true, code: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * [Phase 12] Check campaign availability with blocklist filtering.
+   * Uses DB-level filtering (NOT { categoryId IN blockedIds }) — no JS loops.
+   */
+  async checkAvailability(propertyId: number) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        blocklist: { select: { id: true } },
+      },
+    });
+
+    if (!property) {
+      throw new NotFoundException(`Property with ID ${propertyId} not found`);
+    }
+
+    const blockedIds = property.blocklist.map((cat) => cat.id);
+
+    // DB-level filtering: exclude campaigns whose category is blocked
+    const where: Prisma.CampaignWhereInput = {
+      propertyId,
+      status: CampaignStatus.ACTIVE,
+    };
+
+    if (blockedIds.length > 0) {
+      where.OR = [
+        { categoryId: null }, // Campaigns without category always pass
+        { NOT: { categoryId: { in: blockedIds } } },
+      ];
+    }
+
+    const campaigns = await this.prisma.campaign.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        targetSlot: true,
+        status: true,
+        category: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      propertyId,
+      blockedCategories: blockedIds.length,
+      availableCampaigns: campaigns,
+    };
+  }
+
+  // ==========================================
+  // INDUSTRY CATEGORIES (PHASE 12)
+  // ==========================================
+
+  async findAllCategories() {
+    return this.prisma.industryCategory.findMany({
+      orderBy: { name: 'asc' },
     });
   }
 }

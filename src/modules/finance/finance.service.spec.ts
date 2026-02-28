@@ -54,7 +54,7 @@ interface MockPrismaService {
   $transaction: MockFn;
 }
 
-const mockPrisma: MockPrismaService = {
+const mockPrisma: MockPrismaService & any = {
   wallet: {
     findUnique: jest.fn(),
     create: jest.fn(),
@@ -81,6 +81,10 @@ const mockPrisma: MockPrismaService = {
   },
   rateCard: {
     findMany: jest.fn(),
+  },
+  publisherLedger: {
+    findMany: jest.fn(),
+    aggregate: jest.fn(),
   },
   $transaction: jest.fn((arg) => {
     if (Array.isArray(arg)) {
@@ -271,6 +275,258 @@ describe('FinanceService', () => {
           data: { balance: { increment: BigInt(50000) } },
         }),
       );
+    });
+  });
+
+  // 5. TEST PROCESS REFUND
+  describe('processRefund', () => {
+    it('should create refund transaction and update wallet balance', async () => {
+      const mockTx = {
+        wallet: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 1,
+            balance: 100000n,
+            frozenBalance: 25000n,
+          }),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        transaction: { create: jest.fn().mockResolvedValue({ id: 200 }) },
+      } as any;
+
+      await service.processRefund(1, 25000n, 5, mockTx);
+
+      expect(mockTx.transaction.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            walletId: 1,
+            amount: 25000n,
+            type: 'REFUND',
+            status: 'SUCCESS',
+            description: 'Refund for Cancelled Campaign #5',
+          }),
+        }),
+      );
+      expect(mockTx.wallet.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { balance: { increment: 25000n } }, // release frozen logic does balance increment inside the service check. Wait — in FinanceService it's actually increment, let's just check it updates.
+        }),
+      );
+    });
+  });
+
+  // 6. TEST PUBLISHER REPORT (PHASE 13)
+  describe('getPublisherReport', () => {
+    it('should return aggregated publisher revenue report', async () => {
+      mockPrisma.publisherLedger.findMany.mockResolvedValue([
+        {
+          totalRevenue: {
+            toString: () => '500000',
+          },
+          totalImpressions: 1500,
+          date: new Date('2026-05-01'),
+        },
+      ]);
+      mockPrisma.publisherLedger.aggregate.mockResolvedValue({
+        _sum: {
+          totalRevenue: { toString: () => '500000' },
+          totalImpressions: 1500,
+        },
+      });
+
+      const result = await service.getPublisherReport(
+        { id: 1, propertyId: 10 } as any,
+        {},
+      );
+
+      expect(result.summary.totalRevenue).toBe('500000');
+      expect(result.summary.totalImpressions).toBe(1500);
+      expect(result.dailyBreakdown).toHaveLength(1);
+    });
+  });
+
+  // 7. TEST REQUEST WITHDRAWAL
+  describe('requestWithdrawal', () => {
+    it('should create withdrawal request with sufficient balance', async () => {
+      mockPrisma.wallet.findUnique.mockResolvedValue({
+        id: 1,
+        userId: mockUser.id,
+        balance: BigInt(1000000),
+        frozenBalance: BigInt(0),
+      });
+      mockPrisma.wallet.update.mockResolvedValue({});
+      mockPrisma.withdrawalRequest.create.mockResolvedValue({
+        id: 1,
+        amount: BigInt(500000),
+        status: 'PENDING',
+      });
+
+      const result = await service.requestWithdrawal(mockUser, {
+        amount: 500000,
+        bankName: 'BCA',
+        accountNo: '1234567890',
+        accountName: 'Test User',
+      });
+
+      expect(result.amount).toBe(500000);
+    });
+
+    it('should throw BadRequestException if wallet not found', async () => {
+      mockPrisma.wallet.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.requestWithdrawal(mockUser, {
+          amount: 500000,
+          bankName: 'BCA',
+          accountNo: '123',
+          accountName: 'Test',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should throw BadRequestException if insufficient balance', async () => {
+      mockPrisma.wallet.findUnique.mockResolvedValue({
+        id: 1,
+        userId: mockUser.id,
+        balance: BigInt(100000),
+        frozenBalance: BigInt(50000),
+      });
+
+      await expect(
+        service.requestWithdrawal(mockUser, {
+          amount: 100000,
+          bankName: 'BCA',
+          accountNo: '123',
+          accountName: 'Test',
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
+  // 8. TEST GET PENDING WITHDRAWALS
+  describe('getPendingWithdrawals', () => {
+    it('should return all pending withdrawal requests', async () => {
+      mockPrisma.withdrawalRequest.findMany.mockResolvedValue([
+        {
+          id: 1,
+          amount: BigInt(500000),
+          status: 'PENDING',
+          wallet: { user: { name: 'Test', email: 'test@test.com' } },
+        },
+      ]);
+
+      const result = await service.getPendingWithdrawals();
+      expect(result).toHaveLength(1);
+      expect(result[0].amount).toBe(500000);
+    });
+  });
+
+  // 9. TEST REVIEW WITHDRAWAL
+  describe('reviewWithdrawal', () => {
+    it('should approve withdrawal and deduct balance', async () => {
+      mockPrisma.withdrawalRequest.findUnique.mockResolvedValue({
+        id: 1,
+        walletId: 1,
+        amount: BigInt(500000),
+        status: 'PENDING',
+      });
+      mockPrisma.wallet.update.mockResolvedValue({});
+      mockPrisma.transaction.create.mockResolvedValue({});
+      mockPrisma.withdrawalRequest.update.mockResolvedValue({
+        id: 1,
+        amount: BigInt(500000),
+        status: 'APPROVED',
+      });
+
+      const result = await service.reviewWithdrawal(
+        1,
+        { approved: true, adminNote: 'OK' },
+        100,
+      );
+
+      expect(result.amount).toBe(500000);
+      expect(mockPrisma.wallet.update).toHaveBeenCalled();
+      expect(mockPrisma.transaction.create).toHaveBeenCalled();
+    });
+
+    it('should reject withdrawal and return frozen balance', async () => {
+      mockPrisma.withdrawalRequest.findUnique.mockResolvedValue({
+        id: 1,
+        walletId: 1,
+        amount: BigInt(500000),
+        status: 'PENDING',
+      });
+      mockPrisma.wallet.update.mockResolvedValue({});
+      mockPrisma.withdrawalRequest.update.mockResolvedValue({
+        id: 1,
+        amount: BigInt(500000),
+        status: 'REJECTED',
+      });
+
+      const result = await service.reviewWithdrawal(
+        1,
+        { approved: false, adminNote: 'Insufficient docs' },
+        100,
+      );
+
+      expect(result.amount).toBe(500000);
+      // Wallet update should decrement frozenBalance (return funds)
+      expect(mockPrisma.wallet.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { frozenBalance: { decrement: BigInt(500000) } },
+        }),
+      );
+    });
+
+    it('should throw BadRequestException for invalid request', async () => {
+      mockPrisma.withdrawalRequest.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.reviewWithdrawal(999, { approved: true }, 100),
+      ).rejects.toThrow();
+    });
+
+    it('should throw BadRequestException if request is not PENDING', async () => {
+      mockPrisma.withdrawalRequest.findUnique.mockResolvedValue({
+        id: 1,
+        status: 'APPROVED',
+      });
+
+      await expect(
+        service.reviewWithdrawal(1, { approved: true }, 100),
+      ).rejects.toThrow();
+    });
+  });
+
+  // 10. TEST GET WALLET
+  describe('getWallet', () => {
+    it('should return wallet for user', async () => {
+      mockPrisma.wallet.findUnique.mockResolvedValue({
+        id: 1,
+        userId: mockUser.id,
+        balance: BigInt(1000000),
+        frozenBalance: BigInt(0),
+        transactions: [],
+      });
+
+      const result = await service.getMyWallet(mockUser.id);
+      expect(result).toBeDefined();
+      expect(result.balance).toBe(1000000);
+    });
+
+    it('should create wallet if not found', async () => {
+      mockPrisma.wallet.findUnique.mockResolvedValue(null);
+      mockPrisma.wallet.create.mockResolvedValue({
+        id: 2,
+        userId: mockUser.id,
+        balance: BigInt(0),
+        frozenBalance: BigInt(0),
+        transactions: [],
+      });
+
+      const result = await service.getMyWallet(mockUser.id);
+      expect(result).toBeDefined();
+      expect(mockPrisma.wallet.create).toHaveBeenCalled();
     });
   });
 });

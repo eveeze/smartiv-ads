@@ -125,7 +125,7 @@ enum TransactionStatus {
   FAILED
 }
 
-// [NEW] Enum untuk Paket Durasi Campaign
+// Enum untuk Paket Durasi Campaign
 enum DurationPackage {
   DAILY
   WEEKLY
@@ -159,6 +159,7 @@ model User {
   propertyId Int?
   property   Property? @relation(fields: [propertyId], references: [id])
 
+  @@index([propertyId])
   @@map("users")
 }
 
@@ -189,6 +190,7 @@ model Transaction {
   description   String?
   createdAt     DateTime          @default(now())
 
+  @@index([walletId])
   @@map("transactions")
 }
 
@@ -206,6 +208,7 @@ model WithdrawalRequest {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
+  @@index([status])
   @@map("withdrawal_requests")
 }
 
@@ -225,20 +228,26 @@ model Property {
   address String?
   city    String?
 
-  // [NEW] Fields untuk Timezone & Region
+  // Fields untuk Timezone & Region
   timezone String  @default("Asia/Jakarta") // e.g. "Asia/Makassar"
   region   String? // e.g. "Bali", "Jabodetabek"
 
   enabledSlots AdSlot[] @default([SCREENSAVER])
 
+  // [Phase 13] Revenue Share Percentage (e.g. 0.3 = 30%)
+  revenueSharePercentage Float @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  screens   Screen[]
-  operators User[]
-  rateCards RateCard[]
-  campaigns Campaign[]
+  screens        Screen[]
+  operators      User[]
+  rateCards      RateCard[]
+  campaigns      Campaign[]
+  blocklist      IndustryCategory[] @relation("PropertyBlocklist")
+  publisherLedger PublisherLedger[]
 
+  @@index([classification])
   @@map("properties")
 }
 
@@ -266,6 +275,8 @@ model Screen {
   campaigns   Campaign[]
   impressions ImpressionLog[]
 
+  @@index([propertyId])
+  @@index([status])
   @@map("screens")
 }
 
@@ -277,7 +288,7 @@ model RateCard {
   classification PropertyClass?
   targetSlot     AdSlot?
 
-  // [NEW] Support Paket Harga (Daily, Weekly, Monthly)
+  // Support Paket Harga (Daily, Weekly, Monthly)
   pricePerDay   BigInt
   pricePerWeek  BigInt?
   pricePerMonth BigInt?
@@ -287,6 +298,7 @@ model RateCard {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  @@index([propertyId, targetSlot, isActive])
   @@map("rate_cards")
 }
 
@@ -304,11 +316,15 @@ model Campaign {
   totalCost BigInt
   status    CampaignStatus @default(DRAFT)
 
-  // [NEW] Fields untuk Logika Baru Campaign
+  // Fields untuk Logika Baru Campaign
   targetSlot      AdSlot          @default(SCREENSAVER)
   durationPackage DurationPackage @default(CUSTOM)
 
   rejectionReason String?
+
+  // [Phase 12] Brand Safety Category
+  categoryId Int?
+  category   IndustryCategory? @relation(fields: [categoryId], references: [id])
 
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -316,6 +332,10 @@ model Campaign {
   items       CampaignItem[]
   impressions ImpressionLog[]
 
+  @@index([advertiserId])
+  @@index([propertyId])
+  @@index([status])
+  @@index([categoryId])
   @@map("campaigns")
 }
 
@@ -332,11 +352,17 @@ model CampaignItem {
 
   durationSec Int @default(15)
 
-  // [NEW] Field untuk interaksi
+  // Field untuk interaksi
   actionUrl String?
+
+  // [Phase 11] Optional AdPlacement relation
+  placementId Int?
+  placement   AdPlacement? @relation(fields: [placementId], references: [id])
 
   createdAt DateTime @default(now())
 
+  @@index([campaignId])
+  @@index([mediaId])
   @@map("campaign_items")
 }
 
@@ -351,14 +377,16 @@ model Media {
   size         Int
   type         MediaType
 
-  // [NEW] Metadata Media
+  // Metadata Media
   title       String?
+  displayName String?
   description String? @db.Text
   actionUrl   String? // Default action URL jika tidak di-override di CampaignItem
 
   url          String
   thumbnailUrl String?
   hlsUrl       String?
+  previewUrl   String? // [Phase 10 Step 2] GIF Preview URL
   isTranscoded Boolean @default(false)
 
   status          ApprovalStatus @default(PENDING)
@@ -370,8 +398,68 @@ model Media {
   updatedAt DateTime @updatedAt
 
   campaignItems CampaignItem[]
+  tags          MediaTag[]     @relation("MediaTags")
 
+  @@index([uploaderId])
+  @@index([status])
   @@map("media")
+}
+
+// [Phase 10 Step 4] Tag Model for Media Categorization
+model MediaTag {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  media Media[] @relation("MediaTags")
+
+  @@map("media_tags")
+}
+
+// [Phase 11] Ad Placement Specification
+model AdPlacement {
+  id              Int         @id @default(autoincrement())
+  code            String      @unique
+  name            String
+  width           Int
+  height          Int
+  aspectRatio     String // e.g. "16:9", "4:1"
+  allowedMediaTypes MediaType[]
+
+  createdAt DateTime @default(now())
+
+  campaignItems CampaignItem[]
+
+  @@map("ad_placements")
+}
+
+// [Phase 12] Industry Category for Brand Safety
+model IndustryCategory {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+  code String @unique
+
+  campaigns  Campaign[]
+  properties Property[] @relation("PropertyBlocklist")
+
+  @@map("industry_categories")
+}
+
+// [Phase 13] Publisher Revenue Ledger
+model PublisherLedger {
+  id               Int      @id @default(autoincrement())
+  propertyId       Int
+  property         Property @relation(fields: [propertyId], references: [id])
+  date             DateTime @db.Date
+  totalImpressions Int      @default(0)
+  totalRevenue     BigInt   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([propertyId, date])
+  @@index([propertyId])
+  @@index([date])
+  @@map("publisher_ledger")
 }
 
 model ImpressionLog {
@@ -383,6 +471,9 @@ model ImpressionLog {
   timestamp  DateTime @default(now())
   duration   Int
 
+  @@index([screenId])
+  @@index([campaignId])
+  @@index([timestamp])
   @@map("impression_logs")
 }
 
@@ -394,5 +485,6 @@ model AuditLog {
   details   String?  @db.Text
   createdAt DateTime @default(now())
 
+  @@index([userId])
   @@map("audit_logs")
 }

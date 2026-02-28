@@ -24,7 +24,7 @@ async function main() {
   const hashedPassword = bcrypt.hashSync('password123', salt);
 
   // ==========================================
-  // A. USERS (Admin & Advertisers)
+  // A. USERS (Admin, Advertisers, Operator)
   // ==========================================
   const admin = await prisma.user.upsert({
     where: { email: 'admin@smartiv.com' },
@@ -49,11 +49,11 @@ async function main() {
       phone: '081234567890',
       role: Role.ADVERTISER,
       isActive: true,
-      wallet: { create: { balance: 500000000 } }, // 500 Juta
+      wallet: { create: { balance: 500000000 } },
     },
   });
 
-  const advertiser2 = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'client@umkm.com' },
     update: {},
     create: {
@@ -63,14 +63,94 @@ async function main() {
       phone: '089876543210',
       role: Role.ADVERTISER,
       isActive: true,
-      wallet: { create: { balance: 5000000 } }, // 5 Juta
+      wallet: { create: { balance: 5000000 } },
     },
   });
 
   console.log('✅ Users Created');
 
   // ==========================================
-  // B. PROPERTIES (Diverse Types & Locations)
+  // B. AD PLACEMENTS (Phase 11 Seed)
+  // ==========================================
+  const placementsData = [
+    {
+      code: 'FULLSCREEN_1080P',
+      name: 'Fullscreen 1080p',
+      width: 1920,
+      height: 1080,
+      aspectRatio: '16:9',
+      allowedMediaTypes: [MediaType.IMAGE, MediaType.VIDEO],
+    },
+    {
+      code: 'FULLSCREEN_720P',
+      name: 'Fullscreen 720p',
+      width: 1280,
+      height: 720,
+      aspectRatio: '16:9',
+      allowedMediaTypes: [MediaType.IMAGE, MediaType.VIDEO],
+    },
+    {
+      code: 'BANNER_FOOTER',
+      name: 'Banner Footer',
+      width: 1920,
+      height: 480,
+      aspectRatio: '4:1',
+      allowedMediaTypes: [MediaType.IMAGE],
+    },
+    {
+      code: 'SIDEBAR_MENU',
+      name: 'Sidebar Menu',
+      width: 480,
+      height: 1080,
+      aspectRatio: '4:9',
+      allowedMediaTypes: [MediaType.IMAGE],
+    },
+    {
+      code: 'PORTRAIT_FULL',
+      name: 'Portrait Fullscreen',
+      width: 1080,
+      height: 1920,
+      aspectRatio: '9:16',
+      allowedMediaTypes: [MediaType.IMAGE, MediaType.VIDEO],
+    },
+  ];
+
+  for (const placement of placementsData) {
+    await prisma.adPlacement.upsert({
+      where: { code: placement.code },
+      update: {},
+      create: placement,
+    });
+  }
+  console.log('✅ Ad Placements Seeded');
+
+  // ==========================================
+  // C. INDUSTRY CATEGORIES (Phase 12 Seed)
+  // ==========================================
+  const categoriesData = [
+    { code: 'TRAVEL', name: 'Travel & Tourism' },
+    { code: 'FNB', name: 'Food & Beverage' },
+    { code: 'AUTOMOTIVE', name: 'Automotive' },
+    { code: 'ALCOHOL', name: 'Alcohol & Tobacco' },
+    { code: 'HEALTHCARE', name: 'Healthcare & Pharma' },
+    { code: 'FINANCE', name: 'Finance & Banking' },
+    { code: 'TECHNOLOGY', name: 'Technology' },
+    { code: 'RETAIL', name: 'Retail & E-Commerce' },
+    { code: 'ENTERTAINMENT', name: 'Entertainment' },
+    { code: 'GAMBLING', name: 'Gambling & Betting' },
+  ];
+
+  for (const cat of categoriesData) {
+    await prisma.industryCategory.upsert({
+      where: { code: cat.code },
+      update: {},
+      create: cat,
+    });
+  }
+  console.log('✅ Industry Categories Seeded');
+
+  // ==========================================
+  // D. PROPERTIES (Diverse Types & Locations)
   // ==========================================
   const propertiesData = [
     {
@@ -79,15 +159,16 @@ async function main() {
       classification: PropertyClass.LUXURY,
       city: 'Jakarta',
       address: 'Jl. MH Thamrin No. 1',
-      timezone: 'Asia/Jakarta', // WIB
+      timezone: 'Asia/Jakarta',
       region: 'Jabodetabek',
       smartivCode: 'GI-JKT',
+      revenueSharePercentage: 0.3,
       enabledSlots: [
         AdSlot.SCREENSAVER,
         AdSlot.INFO_SLIDER,
         AdSlot.APP_PROMOTION,
       ],
-      screenCount: 15, // Buat 15 Layar
+      screenCount: 15,
     },
     {
       name: 'Siloam Hospitals Bali',
@@ -95,9 +176,10 @@ async function main() {
       classification: PropertyClass.PREMIUM,
       city: 'Denpasar',
       address: 'Jl. Sunset Road No. 818',
-      timezone: 'Asia/Makassar', // WITA (Penting untuk test Timezone)
+      timezone: 'Asia/Makassar',
       region: 'Bali & Nusa Tenggara',
       smartivCode: 'SH-BALI',
+      revenueSharePercentage: 0.25,
       enabledSlots: [AdSlot.SCREENSAVER, AdSlot.LEISURE_CULINARY],
       screenCount: 10,
     },
@@ -110,6 +192,7 @@ async function main() {
       timezone: 'Asia/Jakarta',
       region: 'Jawa Barat',
       smartivCode: 'HSH-BDG',
+      revenueSharePercentage: 0.2,
       enabledSlots: [AdSlot.SCREENSAVER],
       screenCount: 10,
     },
@@ -118,14 +201,13 @@ async function main() {
   for (const propData of propertiesData) {
     const { screenCount, ...data } = propData;
 
-    // 1. Create Property
     const property = await prisma.property.upsert({
       where: { smartivCode: data.smartivCode },
       update: {},
       create: data,
     });
 
-    // 2. Create Rate Card (Harga dinamis)
+    // Rate Cards
     const basePrice =
       propData.classification === PropertyClass.LUXURY ? 150000 : 75000;
 
@@ -135,27 +217,25 @@ async function main() {
           propertyId: property.id,
           targetSlot: slot,
           pricePerDay: basePrice,
-          pricePerWeek: basePrice * 7 * 0.9, // Diskon 10%
-          pricePerMonth: basePrice * 30 * 0.8, // Diskon 20%
+          pricePerWeek: basePrice * 7 * 0.9,
+          pricePerMonth: basePrice * 30 * 0.8,
           isActive: true,
         },
       });
     }
 
-    // 3. Create Bulk Screens
+    // Bulk Screens
     const screens = Array.from({ length: screenCount }).map((_, i) => ({
       propertyId: property.id,
       name: `TV ${propData.type} ${i + 1}`,
       code: `${data.smartivCode}-SCR-${i + 1}`.toUpperCase(),
       resolution: '1920x1080',
       orientation:
-        i % 5 === 0 ? ScreenOrientation.PORTRAIT : ScreenOrientation.LANDSCAPE, // Tiap 5 layar ada 1 portrait
+        i % 5 === 0 ? ScreenOrientation.PORTRAIT : ScreenOrientation.LANDSCAPE,
       status: ScreenStatus.ONLINE,
       roomCategory: i < 5 ? RoomCategory.LOBBY : RoomCategory.STANDARD,
     }));
 
-    // Skip duplicate creation check for screens to keep seed simple (delete many before create usually better, but upsert hard for bulk)
-    // Here we just ignore if fails or assume clean DB usually
     const createdScreens = await prisma.screen.createMany({
       data: screens,
       skipDuplicates: true,
@@ -166,11 +246,30 @@ async function main() {
     );
   }
 
-  // ==========================================
-  // C. MEDIA & CAMPAIGNS (Real Logic Simulation)
-  // ==========================================
+  // Create Operator user linked to Grand Indonesia
+  const grandIndo = await prisma.property.findFirst({
+    where: { smartivCode: 'GI-JKT' },
+  });
 
-  // 1. Upload Media Dummy
+  if (grandIndo) {
+    await prisma.user.upsert({
+      where: { email: 'operator@grandindonesia.com' },
+      update: {},
+      create: {
+        email: 'operator@grandindonesia.com',
+        password: hashedPassword,
+        name: 'Grand Indonesia Operator',
+        role: Role.PROPERTY_OPERATOR,
+        isActive: true,
+        propertyId: grandIndo.id,
+      },
+    });
+    console.log('✅ Operator User Created (Grand Indonesia)');
+  }
+
+  // ==========================================
+  // E. MEDIA & CAMPAIGNS
+  // ==========================================
   const media1 = await prisma.media.create({
     data: {
       uploaderId: advertiser1.id,
@@ -180,7 +279,7 @@ async function main() {
       size: 15000000,
       type: MediaType.VIDEO,
       title: 'Promo Lebaran 2026',
-      url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', // HLS Sample
+      url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
       thumbnailUrl:
         'https://via.placeholder.com/300x200.png?text=Thumbnail+Video',
       actionUrl: 'https://grandbrand.com/promo',
@@ -191,7 +290,7 @@ async function main() {
 
   const media2 = await prisma.media.create({
     data: {
-      uploaderId: advertiser1.id, // Advertiser yang sama
+      uploaderId: advertiser1.id,
       filename: 'dummy-image-1.jpg',
       originalName: 'Banner Diskon.jpg',
       mimeType: 'image/jpeg',
@@ -203,20 +302,19 @@ async function main() {
     },
   });
 
-  // 2. Create Active Campaign (Grand Indonesia - Screensaver)
-  // Target: Semua screen di Grand Indo
-  const grandIndo = await prisma.property.findFirst({
-    where: { smartivCode: 'GI-JKT' },
-  });
-
+  // Campaign at Grand Indonesia
   if (grandIndo) {
     const today = new Date();
     const nextWeek = new Date();
     nextWeek.setDate(today.getDate() + 7);
 
-    // Ambil screen untuk dikonekkan
     const giScreens = await prisma.screen.findMany({
       where: { propertyId: grandIndo.id },
+    });
+
+    // Get FNB category for brand safety demo
+    const fnbCategory = await prisma.industryCategory.findUnique({
+      where: { code: 'FNB' },
     });
 
     await prisma.campaign.create({
@@ -229,7 +327,8 @@ async function main() {
         endDate: nextWeek,
         targetSlot: AdSlot.SCREENSAVER,
         durationPackage: DurationPackage.WEEKLY,
-        totalCost: 10500000, // Dummy cost
+        totalCost: 10500000,
+        categoryId: fnbCategory?.id,
         screens: {
           connect: giScreens.map((s) => ({ id: s.id })),
         },
@@ -253,7 +352,7 @@ async function main() {
     console.log('✅ Active Campaign Created at Grand Indonesia');
   }
 
-  // 3. Create Active Campaign (Siloam Bali - Timezone Test)
+  // Campaign at Siloam Bali
   const siloamBali = await prisma.property.findFirst({
     where: { smartivCode: 'SH-BALI' },
   });
@@ -274,13 +373,13 @@ async function main() {
         status: CampaignStatus.ACTIVE,
         startDate: today,
         endDate: nextMonth,
-        targetSlot: AdSlot.SCREENSAVER, // Menggunakan screensaver juga
+        targetSlot: AdSlot.SCREENSAVER,
         durationPackage: DurationPackage.MONTHLY,
         totalCost: 25000000,
         screens: { connect: screens.map((s) => ({ id: s.id })) },
         items: {
           create: {
-            mediaId: media2.id, // Pakai gambar
+            mediaId: media2.id,
             durationSec: 10,
             targetSlot: AdSlot.SCREENSAVER,
           },

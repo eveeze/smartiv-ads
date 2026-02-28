@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../providers/prisma/prisma.service';
 import { FinanceService } from '../finance/finance.service';
+import { StorageService } from '../../providers/storage/storage.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import {
@@ -16,25 +17,26 @@ import {
   ScreenStatus,
   DurationPackage,
   Prisma,
+  MediaType,
 } from '@prisma/client';
 import { ReviewCampaignDto } from './dto/review-campaign.dto';
 import { CampaignQueryDto } from './dto/campaign-query.dto';
 import { PageMetaDto } from '../../common/dto/page-meta.dto';
 import { PageDto } from '../../common/dto/page.dto';
+import { MediaUtils } from '../../common/utils/media.utils';
 
 @Injectable()
 export class CampaignsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly financeService: FinanceService,
+    private readonly storageService: StorageService,
   ) {}
 
   // ===========================================================================
-  // [REVISED] CREATE CAMPAIGN (PHASE 3)
-  // Logic: Pilih Property + Slot + Paket -> Auto Tag Screens
+  // CREATE CAMPAIGN
   // ===========================================================================
   async create(user: User, dto: CreateCampaignDto) {
-    // 1. Validasi Media
     const media = await this.prisma.media.findUnique({
       where: { id: dto.mediaId },
     });
@@ -44,25 +46,18 @@ export class CampaignsService {
     if (media.status !== ApprovalStatus.APPROVED)
       throw new BadRequestException('Media is not APPROVED yet');
 
-    // 2. Validasi Properti & Slot Availability
     const property = await this.prisma.property.findUnique({
       where: { id: dto.propertyId },
     });
     if (!property) throw new NotFoundException('Property not found');
 
-    // Cek apakah slot yang diminta diaktifkan di properti ini
     if (!property.enabledSlots.includes(dto.targetSlot)) {
       throw new BadRequestException(
         `Slot ${dto.targetSlot} tidak tersedia di properti ${property.name}`,
       );
     }
 
-    // 3. Hitung Tanggal (Start & End) berdasarkan Paket
     const start = new Date(dto.startDate);
-    if (start < new Date()) {
-      // Toleransi sedikit untuk waktu server vs client
-    }
-
     let end = new Date(start);
     if (dto.durationPackage === DurationPackage.CUSTOM) {
       if (!dto.endDate)
@@ -73,7 +68,6 @@ export class CampaignsService {
     } else if (dto.durationPackage === DurationPackage.MONTHLY) {
       end.setDate(start.getDate() + 30);
     } else {
-      // DAILY
       end.setDate(start.getDate() + 1);
     }
 
@@ -81,8 +75,6 @@ export class CampaignsService {
       throw new BadRequestException('Start date must be before end date');
     }
 
-    // 4. Cari Layar Aktif (Inventory)
-    // Sistem otomatis menargetkan SEMUA layar ONLINE di properti tsb
     const availableScreens = await this.prisma.screen.findMany({
       where: {
         propertyId: dto.propertyId,
@@ -97,7 +89,6 @@ export class CampaignsService {
       );
     }
 
-    // 5. Hitung Biaya (Finance Service Phase 2 Integration)
     const costCalculation = await this.financeService.calculateCampaignCost({
       propertyId: dto.propertyId,
       targetSlot: dto.targetSlot,
@@ -108,12 +99,7 @@ export class CampaignsService {
 
     const totalCost = BigInt(costCalculation.totalCost);
 
-    // ==========================================
-    // EXECUTION: DRAFT vs SUBMIT
-    // ==========================================
-
     if (dto.saveAsDraft) {
-      // DRAFT: Simpan data, connect screen, tapi status DRAFT (tanpa potong saldo)
       return this.prisma.campaign.create({
         data: {
           advertiserId: user.id,
@@ -143,7 +129,6 @@ export class CampaignsService {
       });
     }
 
-    // SUBMIT: Transaction (Freeze Saldo + Create Campaign)
     return await this.prisma.$transaction(async (tx) => {
       await this.financeService.freezeBalanceForCampaign(
         user.id,
@@ -189,9 +174,9 @@ export class CampaignsService {
     });
   }
 
-  // ==========================================
-  // [REVISED] SUBMIT DRAFT
-  // ==========================================
+  // ===========================================================================
+  // SUBMIT DRAFT
+  // ===========================================================================
   async submit(id: number, userId: number) {
     const campaign = await this.prisma.campaign.findUnique({
       where: { id },
@@ -200,14 +185,12 @@ export class CampaignsService {
     if (!campaign) throw new NotFoundException('Campaign not found');
     if (campaign.advertiserId !== userId)
       throw new ForbiddenException('You do not own this campaign');
-
     if (campaign.status !== CampaignStatus.DRAFT) {
       throw new BadRequestException('Only DRAFT campaigns can be submitted');
     }
-
     if (campaign.screens.length === 0) {
       throw new BadRequestException(
-        'Campaign ini tidak memiliki target layar. Silakan edit atau buat baru.',
+        'Campaign ini tidak memiliki target layar.',
       );
     }
 
@@ -217,12 +200,10 @@ export class CampaignsService {
         campaign.totalCost,
         tx,
       );
-
       const updated = await tx.campaign.update({
         where: { id },
         data: { status: CampaignStatus.PENDING_REVIEW },
       });
-
       await tx.auditLog.create({
         data: {
           userId,
@@ -230,23 +211,18 @@ export class CampaignsService {
           details: `Draft #${id} submitted. Cost: ${campaign.totalCost}`,
         },
       });
-
       return updated;
     });
   }
 
-  // ==========================================
-  // [REVISED] UPDATE (DRAFT ONLY)
-  // ==========================================
+  // ===========================================================================
+  // UPDATE (DRAFT ONLY)
+  // ===========================================================================
   async update(id: number, userId: number, dto: UpdateCampaignDto) {
-    const campaign = await this.prisma.campaign.findUnique({
-      where: { id },
-    });
-
+    const campaign = await this.prisma.campaign.findUnique({ where: { id } });
     if (!campaign) throw new NotFoundException('Campaign not found');
     if (campaign.advertiserId !== userId)
       throw new ForbiddenException('You do not own this campaign');
-
     if (campaign.status !== CampaignStatus.DRAFT) {
       throw new BadRequestException('Only DRAFT campaigns can be edited.');
     }
@@ -259,7 +235,6 @@ export class CampaignsService {
 
     const start = new Date(newStartStr);
     let end = new Date(start);
-
     if (newPackage === DurationPackage.CUSTOM) {
       end = new Date(newEndStr);
     } else if (newPackage === DurationPackage.WEEKLY) {
@@ -273,10 +248,7 @@ export class CampaignsService {
     if (!newPropertyId) throw new BadRequestException('Property ID missing');
 
     const availableScreens = await this.prisma.screen.findMany({
-      where: {
-        propertyId: newPropertyId,
-        status: ScreenStatus.ONLINE,
-      },
+      where: { propertyId: newPropertyId, status: ScreenStatus.ONLINE },
       select: { id: true },
     });
 
@@ -298,17 +270,15 @@ export class CampaignsService {
         startDate: start,
         endDate: end,
         totalCost: BigInt(costCalc.totalCost),
-        screens: {
-          set: availableScreens.map((s) => ({ id: s.id })),
-        },
+        screens: { set: availableScreens.map((s) => ({ id: s.id })) },
       },
       include: { screens: { select: { id: true, name: true } } },
     });
   }
 
-  // ==========================================
+  // ===========================================================================
   // STANDARD CRUD (READ/DELETE/CANCEL)
-  // ==========================================
+  // ===========================================================================
   async findAll(user: User, query: CampaignQueryDto) {
     const where: Prisma.CampaignWhereInput = {};
     if (user.role === Role.ADVERTISER) where.advertiserId = user.id;
@@ -343,7 +313,6 @@ export class CampaignsService {
         property: { select: { name: true, city: true, timezone: true } },
       },
     });
-
     if (!campaign) throw new NotFoundException('Campaign not found');
     if (user.role === Role.ADVERTISER && campaign.advertiserId !== user.id) {
       throw new NotFoundException('Campaign not found');
@@ -364,7 +333,6 @@ export class CampaignsService {
     return this.prisma.campaign.delete({ where: { id } });
   }
 
-  // [UPDATED] Handle Refund on Cancel
   async cancel(id: number, user: User) {
     const campaign = await this.prisma.campaign.findUnique({ where: { id } });
     if (!campaign) throw new NotFoundException('Campaign not found');
@@ -383,9 +351,7 @@ export class CampaignsService {
     }
 
     return await this.prisma.$transaction(async (tx) => {
-      // Logic Baru: Refund atau Release Frozen
       if (campaign.status === CampaignStatus.PENDING_REVIEW) {
-        // Uang masih Frozen -> Release
         await this.financeService.releaseFrozenBalance(
           user.id,
           campaign.totalCost,
@@ -448,5 +414,66 @@ export class CampaignsService {
         });
       }
     });
+  }
+
+  // ===========================================================================
+  // [Phase 14] CAMPAIGN PREVIEW URL (Sales Tools)
+  // ===========================================================================
+  async getPreviewUrl(id: number, user: User) {
+    const campaign = await this.prisma.campaign.findUnique({
+      where: { id },
+      include: {
+        items: { include: { media: true }, take: 1 },
+        property: { select: { name: true, city: true } },
+      },
+    });
+
+    if (!campaign) throw new NotFoundException('Campaign not found');
+    if (user.role === Role.ADVERTISER && campaign.advertiserId !== user.id) {
+      throw new NotFoundException('Campaign not found');
+    }
+
+    const firstItem = campaign.items[0];
+    if (!firstItem?.media) {
+      throw new BadRequestException('Campaign has no media items');
+    }
+
+    const media = firstItem.media;
+    const isTranscodedVideo =
+      media.isTranscoded && media.type === MediaType.VIDEO;
+
+    // Generate presigned URLs for preview — parallel
+    const [mediaUrl, thumbnailUrl, previewUrl] = await Promise.all([
+      this.storageService
+        .getPresignedUrl(media.filename)
+        .catch(() => media.url),
+      isTranscodedVideo
+        ? this.storageService
+            .getPresignedUrl(MediaUtils.getThumbnailKey(media.id))
+            .catch(() => media.thumbnailUrl)
+        : Promise.resolve(media.thumbnailUrl),
+      isTranscodedVideo
+        ? this.storageService
+            .getPresignedUrl(MediaUtils.getPreviewKey(media.id))
+            .catch(() => media.previewUrl)
+        : Promise.resolve(null),
+    ]);
+
+    return {
+      campaignId: campaign.id,
+      campaignName: campaign.name,
+      property: campaign.property,
+      media: {
+        id: media.id,
+        type: media.type,
+        title: media.title,
+        url: mediaUrl,
+        thumbnailUrl,
+        previewUrl,
+      },
+      startDate: campaign.startDate,
+      endDate: campaign.endDate,
+      slot: campaign.targetSlot,
+    };
   }
 }
