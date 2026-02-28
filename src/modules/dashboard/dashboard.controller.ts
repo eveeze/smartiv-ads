@@ -6,6 +6,11 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
+import {
+  OperatorDashboardDto,
+  ScheduleEntryDto,
+  PropertyResponseDto,
+} from '../../common/dto/api-response.dto';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
@@ -31,6 +36,7 @@ export class DashboardController {
   @ApiResponse({
     status: 200,
     description: 'Operator dashboard summary object.',
+    type: OperatorDashboardDto,
   })
   @ApiStandardErrors({
     badRequest: 'Operator not assigned to any property.',
@@ -50,6 +56,7 @@ export class DashboardController {
   @ApiResponse({
     status: 200,
     description: 'Array of schedule entries grouped by date.',
+    type: [ScheduleEntryDto],
   })
   @ApiStandardErrors({
     badRequest: 'Operator not assigned to any property.',
@@ -66,7 +73,11 @@ export class DashboardController {
     description:
       'Returns property details (name, address, classification, logo) for the operator. This is read-only — property data is managed by SmartIV Core.',
   })
-  @ApiResponse({ status: 200, description: 'Property profile object.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Property profile object.',
+    type: PropertyResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Operator not assigned to any property.',
     notFound: false,

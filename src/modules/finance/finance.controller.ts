@@ -27,6 +27,15 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
+import {
+  CalculateCostResponseDto,
+  WalletDetailDto,
+  TopupResponseDto,
+  WithdrawalResponseDto,
+  TransactionResponseDto,
+  MessageResponseDto,
+  PublisherReportDto,
+} from '../../common/dto/api-response.dto';
 import { Role } from '@prisma/client';
 import type { User } from '@prisma/client';
 
@@ -48,6 +57,7 @@ export class FinanceController {
   @ApiResponse({
     status: 200,
     description: 'Returns estimated cost breakdown.',
+    type: CalculateCostResponseDto,
   })
   @ApiStandardErrors({
     badRequest: 'Invalid calculation parameters.',
@@ -71,6 +81,7 @@ export class FinanceController {
   @ApiResponse({
     status: 200,
     description: 'Wallet object with balance and transactions.',
+    type: WalletDetailDto,
   })
   @ApiStandardErrors({ badRequest: false, forbidden: false, notFound: false })
   getMyWallet(@CurrentUser() user: User) {
@@ -89,6 +100,7 @@ export class FinanceController {
   @ApiResponse({
     status: 201,
     description: 'Returns Midtrans snap token and redirect URL.',
+    type: TopupResponseDto,
   })
   @ApiStandardErrors({
     badRequest: 'Invalid topup amount (must be > 0).',
@@ -110,6 +122,7 @@ export class FinanceController {
   @ApiResponse({
     status: 201,
     description: 'Withdrawal request created (pending admin review).',
+    type: WithdrawalResponseDto,
   })
   @ApiStandardErrors({
     badRequest: 'Insufficient wallet balance or invalid amount.',
@@ -130,7 +143,11 @@ export class FinanceController {
     description:
       'Receives payment status notifications from Midtrans. This is called by Midtrans servers, not by the frontend.',
   })
-  @ApiResponse({ status: 200, description: 'Webhook processed.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook processed.',
+    type: MessageResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: false,
     unauthorized: false,
@@ -152,7 +169,11 @@ export class FinanceController {
     description:
       'Returns all financial transactions across the platform. Supports filtering by type and pagination.',
   })
-  @ApiResponse({ status: 200, description: 'Paginated list of transactions.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of transactions.',
+    type: [TransactionResponseDto],
+  })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   getAllTransactions(@Query() query: TransactionQueryDto) {
     return this.financeService.getAllTransactions(query);
@@ -169,6 +190,7 @@ export class FinanceController {
   @ApiResponse({
     status: 200,
     description: 'List of pending withdrawal requests.',
+    type: [WithdrawalResponseDto],
   })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   getPendingWithdrawals() {
@@ -187,6 +209,7 @@ export class FinanceController {
   @ApiResponse({
     status: 200,
     description: 'Withdrawal reviewed (approved or rejected).',
+    type: WithdrawalResponseDto,
   })
   @ApiStandardErrors({
     badRequest: 'Withdrawal is not in PENDING status.',
@@ -211,7 +234,11 @@ export class FinanceController {
     description:
       'Returns earnings breakdown for the property operator. Includes total earning, daily breakdown, and revenue share percentage.',
   })
-  @ApiResponse({ status: 200, description: 'Publisher revenue report object.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Publisher revenue report object.',
+    type: PublisherReportDto,
+  })
   @ApiStandardErrors({
     badRequest: false,
     notFound: 'Operator not assigned to any property.',

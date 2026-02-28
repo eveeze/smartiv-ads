@@ -23,6 +23,11 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
+import {
+  MediaResponseDto,
+  MediaTagResponseDto,
+  MessageResponseDto,
+} from '../../common/dto/api-response.dto';
 import { UploadMediaDto } from './dto/upload-media.dto';
 import { FileSignatureValidatorPipe } from '../../common/pipes/file-signature.pipe';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
@@ -52,6 +57,7 @@ export class MediaController {
   @ApiResponse({
     status: 201,
     description: 'Media uploaded and queued for processing.',
+    type: MediaResponseDto,
   })
   @ApiStandardErrors({
     badRequest: 'No file attached or invalid file type/signature.',
@@ -93,7 +99,11 @@ export class MediaController {
     summary: 'Get all pending media (Admin)',
     description: 'Returns media awaiting admin review/approval.',
   })
-  @ApiResponse({ status: 200, description: 'Array of pending media objects.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Array of pending media objects.',
+    type: [MediaResponseDto],
+  })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findPending() {
     return this.mediaService.findPending();
@@ -110,6 +120,7 @@ export class MediaController {
   @ApiResponse({
     status: 200,
     description: 'Array of tag objects with id and name.',
+    type: [MediaTagResponseDto],
   })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findAllTags() {
@@ -126,6 +137,7 @@ export class MediaController {
   @ApiResponse({
     status: 200,
     description: 'Media detail object with presigned URLs.',
+    type: MediaResponseDto,
   })
   @ApiStandardErrors({
     badRequest: false,
@@ -142,7 +154,11 @@ export class MediaController {
     description:
       'Admin reviews uploaded media. Approved media can be used in campaigns.',
   })
-  @ApiResponse({ status: 200, description: 'Media status updated.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Media status updated.',
+    type: MediaResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Invalid review action.',
     notFound: 'Media not found.',
@@ -162,7 +178,11 @@ export class MediaController {
     description:
       'Allows advertisers to update the metadata of their own media assets.',
   })
-  @ApiResponse({ status: 200, description: 'Media metadata updated.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Media metadata updated.',
+    type: MediaResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Invalid fields.',
     notFound: 'Media not found or not owned by user.',
@@ -182,7 +202,11 @@ export class MediaController {
     description:
       'Permanently deletes a media asset. Fails if media is used by an active campaign.',
   })
-  @ApiResponse({ status: 200, description: 'Media deleted successfully.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Media deleted successfully.',
+    type: MessageResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Media is currently used in an active campaign.',
     notFound: 'Media not found or not owned by user.',

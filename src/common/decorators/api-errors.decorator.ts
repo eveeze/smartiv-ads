@@ -6,10 +6,12 @@ import {
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
 } from '@nestjs/swagger';
+import { ApiErrorResponseDto } from '../dto/api-response.dto';
 
 /**
  * A reusable decorator to apply standard error responses to API endpoints.
- * Provides clear documentation for the frontend team in Scalar/Swagger.
+ * Each error response includes the `ApiErrorResponseDto` schema so the frontend
+ * can see the exact shape of error responses in Scalar docs.
  */
 export function ApiStandardErrors(
   options: {
@@ -33,6 +35,7 @@ export function ApiStandardErrors(
           typeof options.badRequest === 'string'
             ? options.badRequest
             : 'Validation failed or invalid input data.',
+        type: ApiErrorResponseDto,
       }),
     );
   }
@@ -44,6 +47,7 @@ export function ApiStandardErrors(
           typeof options.unauthorized === 'string'
             ? options.unauthorized
             : 'Missing or invalid authentication token.',
+        type: ApiErrorResponseDto,
       }),
     );
   }
@@ -55,6 +59,7 @@ export function ApiStandardErrors(
           typeof options.forbidden === 'string'
             ? options.forbidden
             : 'User does not have required permissions (Role restriction).',
+        type: ApiErrorResponseDto,
       }),
     );
   }
@@ -66,6 +71,7 @@ export function ApiStandardErrors(
           typeof options.notFound === 'string'
             ? options.notFound
             : 'The requested resource was not found.',
+        type: ApiErrorResponseDto,
       }),
     );
   }
@@ -74,6 +80,7 @@ export function ApiStandardErrors(
   decorators.push(
     ApiInternalServerErrorResponse({
       description: 'Unexpected server/database error.',
+      type: ApiErrorResponseDto,
     }),
   );
 

@@ -24,6 +24,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
+import {
+  PropertyResponseDto,
+  ScreenResponseDto,
+  RateCardResponseDto,
+  CategoryResponseDto,
+  MessageResponseDto,
+} from '../../common/dto/api-response.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
@@ -55,6 +62,7 @@ export class InventoryController {
   @ApiResponse({
     status: 200,
     description: 'List of screens filtered by assigned property',
+    type: [ScreenResponseDto],
   })
   @ApiStandardErrors({
     badRequest: 'Operator not assigned to any property.',
@@ -88,7 +96,11 @@ export class InventoryController {
     description:
       'Registers a new hotel/hospital/building as a SmartIV Ads property.',
   })
-  @ApiResponse({ status: 201, description: 'Property created successfully.' })
+  @ApiResponse({
+    status: 201,
+    description: 'Property created successfully.',
+    type: PropertyResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Invalid property data or duplicate smartivCode.',
     notFound: false,
@@ -103,7 +115,11 @@ export class InventoryController {
     summary: 'Get all properties with pagination',
     description: 'Returns paginated list of all registered properties.',
   })
-  @ApiResponse({ status: 200, description: 'Paginated list of properties.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of properties.',
+    type: [PropertyResponseDto],
+  })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findAllProperties(@Query() pageOptionsDto: PageOptionsDto) {
     return this.inventoryService.findAllProperties(pageOptionsDto);
@@ -116,7 +132,11 @@ export class InventoryController {
     description:
       'Returns ID + Name only. Ideal for select/dropdown components in frontend.',
   })
-  @ApiResponse({ status: 200, description: 'Array of {id, name} objects.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Array of {id, name} objects.',
+    type: [PropertyResponseDto],
+  })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findPropertiesList() {
     return this.inventoryService.findPropertiesList();
@@ -128,7 +148,11 @@ export class InventoryController {
     summary: 'Get property details',
     description: 'Returns full property data including screens and blocklist.',
   })
-  @ApiResponse({ status: 200, description: 'Property detail object.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Property detail object.',
+    type: PropertyResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: false,
     notFound: 'Property with specified ID not found.',
@@ -173,7 +197,11 @@ export class InventoryController {
     summary: 'Register new screen',
     description: 'Adds a new TV/display screen to an existing property.',
   })
-  @ApiResponse({ status: 201, description: 'Screen registered successfully.' })
+  @ApiResponse({
+    status: 201,
+    description: 'Screen registered successfully.',
+    type: ScreenResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Invalid screen data or duplicate code.',
     notFound: 'Referenced property not found.',
@@ -189,7 +217,11 @@ export class InventoryController {
     description:
       'Returns paginated list of screens. Filter by propertyId query param.',
   })
-  @ApiResponse({ status: 200, description: 'Paginated list of screens.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of screens.',
+    type: [ScreenResponseDto],
+  })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findAllScreens(@Query() pageOptionsDto: ScreenPageOptionsDto) {
     return this.inventoryService.findAllScreens(
@@ -223,7 +255,11 @@ export class InventoryController {
     description:
       'Returns full screen data including property info and connected campaigns.',
   })
-  @ApiResponse({ status: 200, description: 'Screen detail object.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Screen detail object.',
+    type: ScreenResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: false,
     notFound: 'Screen with specified ID not found.',
@@ -267,7 +303,11 @@ export class InventoryController {
     description:
       'Creates a rate card defining CPM pricing per slot, duration, and property.',
   })
-  @ApiResponse({ status: 201, description: 'Rate card created.' })
+  @ApiResponse({
+    status: 201,
+    description: 'Rate card created.',
+    type: RateCardResponseDto,
+  })
   @ApiStandardErrors({
     badRequest:
       'Conflicting rate card already exists for this slot/property/duration.',
@@ -283,7 +323,11 @@ export class InventoryController {
     summary: 'List all active pricing rules',
     description: 'Returns all rate cards with property and slot information.',
   })
-  @ApiResponse({ status: 200, description: 'Array of rate card objects.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Array of rate card objects.',
+    type: [RateCardResponseDto],
+  })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findAllRateCards() {
     return this.inventoryService.findAllRateCards();
@@ -361,7 +405,11 @@ export class InventoryController {
     description:
       'Sets the blocklist for a property. Pass an array of category IDs to block.',
   })
-  @ApiResponse({ status: 200, description: 'Blocklist updated successfully.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Blocklist updated successfully.',
+    type: MessageResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Invalid category IDs.',
     notFound: 'Property not found.',

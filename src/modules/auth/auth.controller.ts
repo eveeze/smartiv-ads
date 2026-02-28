@@ -25,6 +25,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
+import {
+  LoginDataDto,
+  MessageResponseDto,
+} from '../../common/dto/api-response.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
 import type { User } from '@prisma/client';
@@ -43,7 +47,11 @@ export class AuthController {
     description:
       'Creates a new user account with ADVERTISER role. Returns user data on success.',
   })
-  @ApiResponse({ status: 201, description: 'User successfully registered.' })
+  @ApiResponse({
+    status: 201,
+    description: 'User successfully registered.',
+    type: MessageResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Email already exists or validation failed.',
     unauthorized: false,
@@ -63,6 +71,7 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Returns `accessToken` (JWT) and `user` object.',
+    type: LoginDataDto,
   })
   @ApiStandardErrors({
     badRequest: 'Missing or malformed email/password fields.',
@@ -100,7 +109,11 @@ export class AuthController {
     description:
       'Requires the old password for verification. Returns success message on completion.',
   })
-  @ApiResponse({ status: 200, description: 'Password changed successfully.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully.',
+    type: MessageResponseDto,
+  })
   @ApiStandardErrors({
     badRequest:
       'Old password is incorrect or new password does not meet requirements.',
@@ -145,6 +158,7 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Password has been reset successfully.',
+    type: MessageResponseDto,
   })
   @ApiStandardErrors({
     badRequest:

@@ -17,6 +17,11 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
+import {
+  CampaignResponseDto,
+  MessageResponseDto,
+  PreviewUrlResponseDto,
+} from '../../common/dto/api-response.dto';
 import { CampaignsService } from './campaigns.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
@@ -43,7 +48,11 @@ export class CampaignsController {
     description:
       'Creates a campaign with media items. Use saveAsDraft=true to save without freezing wallet balance. Validates media compatibility with target placement.',
   })
-  @ApiResponse({ status: 201, description: 'Campaign created successfully.' })
+  @ApiResponse({
+    status: 201,
+    description: 'Campaign created successfully.',
+    type: CampaignResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Missing required fields or media incompatible with placement.',
     notFound: 'Referenced media, property, or placement not found.',
@@ -59,7 +68,11 @@ export class CampaignsController {
     description:
       'Returns campaigns based on user role. Advertisers see their own campaigns; Admins see all. Supports status and pagination filters.',
   })
-  @ApiResponse({ status: 200, description: 'Paginated list of campaigns.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of campaigns.',
+    type: [CampaignResponseDto],
+  })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findAll(@CurrentUser() user: User, @Query() query: CampaignQueryDto) {
     return this.campaignsService.findAll(user, query);
@@ -72,7 +85,11 @@ export class CampaignsController {
     description:
       'Returns campaigns with PENDING_REVIEW status awaiting admin approval.',
   })
-  @ApiResponse({ status: 200, description: 'List of pending campaigns.' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of pending campaigns.',
+    type: [CampaignResponseDto],
+  })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findPending(@CurrentUser() user: User, @Query() query: CampaignQueryDto) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -87,7 +104,11 @@ export class CampaignsController {
     description:
       'Returns full campaign data including items, screens, and financial details.',
   })
-  @ApiResponse({ status: 200, description: 'Campaign detail object.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Campaign detail object.',
+    type: CampaignResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: false,
     notFound: 'Campaign not found or not owned by user.',
@@ -103,7 +124,11 @@ export class CampaignsController {
     description:
       'Allows editing campaign details. Only drafts can be modified.',
   })
-  @ApiResponse({ status: 200, description: 'Campaign updated.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Campaign updated.',
+    type: CampaignResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Campaign is not in DRAFT status.',
     notFound: 'Campaign not found.',
@@ -143,7 +168,11 @@ export class CampaignsController {
     description:
       'Permanently removes a draft campaign. Non-draft campaigns cannot be deleted.',
   })
-  @ApiResponse({ status: 200, description: 'Campaign deleted.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Campaign deleted.',
+    type: MessageResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Campaign is not in DRAFT status.',
     notFound: 'Campaign not found.',
@@ -201,7 +230,11 @@ export class CampaignsController {
     description:
       'Generates a temporary presigned URL for previewing campaign media. Useful for sales presentations.',
   })
-  @ApiResponse({ status: 200, description: 'Returns presigned preview URL.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns presigned preview URL.',
+    type: PreviewUrlResponseDto,
+  })
   @ApiStandardErrors({ badRequest: false, notFound: 'Campaign not found.' })
   getPreviewUrl(
     @Param('id', ParseIntPipe) id: number,
