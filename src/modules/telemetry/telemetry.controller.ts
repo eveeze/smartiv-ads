@@ -12,6 +12,7 @@ import {
   ApiHeader,
   ApiAcceptedResponse,
 } from '@nestjs/swagger';
+import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
 import { TelemetryService } from './telemetry.service';
 import { CreateImpressionLogDto } from './dto/create-impression.dto';
 // [FIX] Gunakan relative import
@@ -32,8 +33,20 @@ export class TelemetryController {
 
   @Post('impression')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: 'Ingest impression logs from player' })
-  @ApiAcceptedResponse({ description: 'Logs queued for processing' })
+  @ApiOperation({
+    summary: 'Ingest impression logs from player',
+    description:
+      'Receives impression data from the player device and queues it for async processing via BullMQ. Triggers revenue share calculation.',
+  })
+  @ApiAcceptedResponse({
+    description: 'Logs queued for async processing (BullMQ).',
+  })
+  @ApiStandardErrors({
+    badRequest: 'Invalid impression data.',
+    unauthorized: 'Missing or invalid X-Device-ID header.',
+    forbidden: false,
+    notFound: false,
+  })
   async ingest(
     @CurrentScreen() screen: Screen,
     @Body() dto: CreateImpressionLogDto,

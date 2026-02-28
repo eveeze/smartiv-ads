@@ -5,6 +5,7 @@ import {
   ApiBearerAuth,
   ApiOkResponse,
 } from '@nestjs/swagger';
+import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
@@ -24,16 +25,32 @@ export class AnalyticsController {
 
   @Get('advertiser/summary')
   @Roles(Role.ADVERTISER)
-  @ApiOperation({ summary: 'Get summary for Advertiser Dashboard' })
-  @ApiOkResponse({ type: AdvertiserSummaryDto })
+  @ApiOperation({
+    summary: 'Get summary for Advertiser Dashboard',
+    description:
+      'Returns key metrics for the advertiser: active campaigns count, total spend, total impressions, and campaign performance breakdown.',
+  })
+  @ApiOkResponse({
+    type: AdvertiserSummaryDto,
+    description: 'Advertiser dashboard summary object.',
+  })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   async getAdvertiserSummary(@CurrentUser() user: User) {
     return this.analyticsService.getAdvertiserSummary(user.id);
   }
 
   @Get('admin/summary')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get summary for Super Admin Dashboard' })
-  @ApiOkResponse({ type: AdminSummaryDto })
+  @ApiOperation({
+    summary: 'Get summary for Super Admin Dashboard',
+    description:
+      'Returns platform-wide metrics: total revenue, active campaigns, registered users, and top-performing properties.',
+  })
+  @ApiOkResponse({
+    type: AdminSummaryDto,
+    description: 'Admin dashboard summary object.',
+  })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   async getAdminSummary() {
     return this.analyticsService.getAdminSummary();
   }

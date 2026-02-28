@@ -18,6 +18,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
@@ -45,11 +46,19 @@ export class UsersController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Create new user (Admin Onboarding)' })
+  @ApiOperation({
+    summary: 'Create new user (Admin Onboarding)',
+    description:
+      'Admin creates a new user with a specified role. Used for onboarding operators and other staff.',
+  })
   @ApiResponse({
     status: 201,
     description: 'User created successfully.',
     type: UserResponseDto,
+  })
+  @ApiStandardErrors({
+    badRequest: 'Invalid data or email already exists.',
+    notFound: false,
   })
   async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
     const user = await this.usersService.createUser(createUserDto);
@@ -59,11 +68,19 @@ export class UsersController {
   @Patch(':id/assign-property')
   @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Assign Property to Operator' })
+  @ApiOperation({
+    summary: 'Assign Property to Operator',
+    description:
+      'Links a user (Operator) to a specific property for management purposes.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Property assigned.',
     type: UserResponseDto,
+  })
+  @ApiStandardErrors({
+    badRequest: 'Invalid property or user ID.',
+    notFound: 'User or property not found.',
   })
   async assignProperty(
     @Param('id', ParseIntPipe) id: number,
@@ -76,8 +93,17 @@ export class UsersController {
   // Phase 8 Endpoints
 
   @Patch('profile')
-  @ApiOperation({ summary: 'Update my profile' })
-  @ApiResponse({ type: UserResponseDto })
+  @ApiOperation({
+    summary: 'Update my profile',
+    description:
+      'Allows the currently logged-in user to update their own profile (name, phone, etc.).',
+  })
+  @ApiResponse({ status: 200, type: UserResponseDto })
+  @ApiStandardErrors({
+    badRequest: 'Invalid profile data.',
+    forbidden: false,
+    notFound: false,
+  })
   async updateProfile(
     @CurrentUser() user: User,
     @Body() dto: UpdateProfileDto,
@@ -89,8 +115,17 @@ export class UsersController {
   @Get()
   @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get All Users' })
-  @ApiResponse({ status: 200, type: PageDto })
+  @ApiOperation({
+    summary: 'Get All Users',
+    description:
+      'Returns a paginated list of all users. Supports filtering by role and search by name/email.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of users.',
+    type: PageDto,
+  })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   async findAll(@Query() pageOptionsDto: UserPageOptionsDto) {
     return this.usersService.findAll(pageOptionsDto);
   }
@@ -98,8 +133,15 @@ export class UsersController {
   @Get(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get User Detail' })
-  @ApiResponse({ type: UserResponseDto })
+  @ApiOperation({
+    summary: 'Get User Detail',
+    description: 'Returns the full profile of a specific user by their ID.',
+  })
+  @ApiResponse({ status: 200, type: UserResponseDto })
+  @ApiStandardErrors({
+    badRequest: false,
+    notFound: 'User with specified ID not found.',
+  })
   async findOne(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<UserResponseDto> {
@@ -110,8 +152,16 @@ export class UsersController {
   @Patch(':id/status')
   @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Block/Unblock user' })
-  @ApiResponse({ type: UserResponseDto })
+  @ApiOperation({
+    summary: 'Block/Unblock user',
+    description:
+      'Toggles a user active/inactive status. Blocked users cannot log in.',
+  })
+  @ApiResponse({ status: 200, type: UserResponseDto })
+  @ApiStandardErrors({
+    badRequest: 'Invalid status value.',
+    notFound: 'User not found.',
+  })
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserStatusDto,

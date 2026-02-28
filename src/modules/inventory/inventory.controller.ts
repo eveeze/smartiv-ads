@@ -23,6 +23,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
@@ -55,6 +56,10 @@ export class InventoryController {
     status: 200,
     description: 'List of screens filtered by assigned property',
   })
+  @ApiStandardErrors({
+    badRequest: 'Operator not assigned to any property.',
+    notFound: false,
+  })
   async getOperatorScreens(
     @CurrentUser() user: User,
     @Query() pageOptionsDto: ScreenPageOptionsDto,
@@ -78,35 +83,71 @@ export class InventoryController {
 
   @Post('properties')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Create new property' })
+  @ApiOperation({
+    summary: 'Create new property',
+    description:
+      'Registers a new hotel/hospital/building as a SmartIV Ads property.',
+  })
+  @ApiResponse({ status: 201, description: 'Property created successfully.' })
+  @ApiStandardErrors({
+    badRequest: 'Invalid property data or duplicate smartivCode.',
+    notFound: false,
+  })
   createProperty(@Body() createPropertyDto: CreatePropertyDto) {
     return this.inventoryService.createProperty(createPropertyDto);
   }
 
   @Get('properties')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({ summary: 'Get all properties with pagination' })
+  @ApiOperation({
+    summary: 'Get all properties with pagination',
+    description: 'Returns paginated list of all registered properties.',
+  })
+  @ApiResponse({ status: 200, description: 'Paginated list of properties.' })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   findAllProperties(@Query() pageOptionsDto: PageOptionsDto) {
     return this.inventoryService.findAllProperties(pageOptionsDto);
   }
 
   @Get('properties/list')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({ summary: 'Get lightweight property list for dropdowns' })
+  @ApiOperation({
+    summary: 'Get lightweight property list for dropdowns',
+    description:
+      'Returns ID + Name only. Ideal for select/dropdown components in frontend.',
+  })
+  @ApiResponse({ status: 200, description: 'Array of {id, name} objects.' })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   findPropertiesList() {
     return this.inventoryService.findPropertiesList();
   }
 
   @Get('properties/:id')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({ summary: 'Get property details' })
+  @ApiOperation({
+    summary: 'Get property details',
+    description: 'Returns full property data including screens and blocklist.',
+  })
+  @ApiResponse({ status: 200, description: 'Property detail object.' })
+  @ApiStandardErrors({
+    badRequest: false,
+    notFound: 'Property with specified ID not found.',
+  })
   findPropertyById(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.findPropertyById(id);
   }
 
   @Patch('properties/:id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Update property' })
+  @ApiOperation({
+    summary: 'Update property',
+    description:
+      'Modifies property data (name, address, classification, etc.).',
+  })
+  @ApiStandardErrors({
+    badRequest: 'Invalid update data.',
+    notFound: 'Property not found.',
+  })
   updateProperty(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePropertyDto: UpdatePropertyDto,
@@ -116,21 +157,40 @@ export class InventoryController {
 
   @Delete('properties/:id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Delete property' })
+  @ApiOperation({
+    summary: 'Delete property',
+    description:
+      'Permanently removes a property and cascades to related screens.',
+  })
+  @ApiStandardErrors({ badRequest: false, notFound: 'Property not found.' })
   removeProperty(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.removeProperty(id);
   }
 
   @Post('screens')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Register new screen' })
+  @ApiOperation({
+    summary: 'Register new screen',
+    description: 'Adds a new TV/display screen to an existing property.',
+  })
+  @ApiResponse({ status: 201, description: 'Screen registered successfully.' })
+  @ApiStandardErrors({
+    badRequest: 'Invalid screen data or duplicate code.',
+    notFound: 'Referenced property not found.',
+  })
   createScreen(@Body() createScreenDto: CreateScreenDto) {
     return this.inventoryService.createScreen(createScreenDto);
   }
 
   @Get('screens')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({ summary: 'Get screens (can filter by propertyId)' })
+  @ApiOperation({
+    summary: 'Get screens (can filter by propertyId)',
+    description:
+      'Returns paginated list of screens. Filter by propertyId query param.',
+  })
+  @ApiResponse({ status: 200, description: 'Paginated list of screens.' })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   findAllScreens(@Query() pageOptionsDto: ScreenPageOptionsDto) {
     return this.inventoryService.findAllScreens(
       pageOptionsDto,
@@ -140,7 +200,16 @@ export class InventoryController {
 
   @Get('screens/list')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER)
-  @ApiOperation({ summary: 'Get lightweight screen list for dropdowns' })
+  @ApiOperation({
+    summary: 'Get lightweight screen list for dropdowns',
+    description:
+      'Returns ID + Code + PropertyName only. Ideal for select/dropdown components.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Array of lightweight screen objects.',
+  })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   findScreensList(@Query('propertyId') propertyId?: string) {
     return this.inventoryService.findScreensList(
       propertyId ? +propertyId : undefined,
@@ -149,14 +218,30 @@ export class InventoryController {
 
   @Get('screens/:id')
   @Roles(Role.SUPER_ADMIN, Role.ADVERTISER, Role.PROPERTY_OPERATOR)
-  @ApiOperation({ summary: 'Get screen details' })
+  @ApiOperation({
+    summary: 'Get screen details',
+    description:
+      'Returns full screen data including property info and connected campaigns.',
+  })
+  @ApiResponse({ status: 200, description: 'Screen detail object.' })
+  @ApiStandardErrors({
+    badRequest: false,
+    notFound: 'Screen with specified ID not found.',
+  })
   findScreenById(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.findScreenById(id);
   }
 
   @Patch('screens/:id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Update screen configuration' })
+  @ApiOperation({
+    summary: 'Update screen configuration',
+    description: 'Modifies screen data (orientation, status, placement, etc.).',
+  })
+  @ApiStandardErrors({
+    badRequest: 'Invalid update data.',
+    notFound: 'Screen not found.',
+  })
   updateScreen(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateScreenDto: UpdateScreenDto,
@@ -166,28 +251,54 @@ export class InventoryController {
 
   @Delete('screens/:id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Delete screen' })
+  @ApiOperation({
+    summary: 'Delete screen',
+    description: 'Permanently removes a screen.',
+  })
+  @ApiStandardErrors({ badRequest: false, notFound: 'Screen not found.' })
   removeScreen(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.removeScreen(id);
   }
 
   @Post('rate-cards')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Create new pricing rule (Admin Only)' })
+  @ApiOperation({
+    summary: 'Create new pricing rule (Admin Only)',
+    description:
+      'Creates a rate card defining CPM pricing per slot, duration, and property.',
+  })
+  @ApiResponse({ status: 201, description: 'Rate card created.' })
+  @ApiStandardErrors({
+    badRequest:
+      'Conflicting rate card already exists for this slot/property/duration.',
+    notFound: false,
+  })
   createRateCard(@Body() dto: CreateRateCardDto) {
     return this.inventoryService.createRateCard(dto);
   }
 
   @Get('rate-cards')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'List all active pricing rules' })
+  @ApiOperation({
+    summary: 'List all active pricing rules',
+    description: 'Returns all rate cards with property and slot information.',
+  })
+  @ApiResponse({ status: 200, description: 'Array of rate card objects.' })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   findAllRateCards() {
     return this.inventoryService.findAllRateCards();
   }
 
   @Patch('rate-cards/:id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Update pricing rule' })
+  @ApiOperation({
+    summary: 'Update pricing rule',
+    description: 'Modifies an existing rate card.',
+  })
+  @ApiStandardErrors({
+    badRequest: 'Invalid update data.',
+    notFound: 'Rate card not found.',
+  })
   updateRateCard(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateRateCardDto,
@@ -197,7 +308,12 @@ export class InventoryController {
 
   @Delete('rate-cards/:id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Delete pricing rule (Permanently)' })
+  @ApiOperation({
+    summary: 'Delete pricing rule (Permanently)',
+    description:
+      'Removes pricing rule. Active campaigns referencing this card are not affected.',
+  })
+  @ApiStandardErrors({ badRequest: false, notFound: 'Rate card not found.' })
   removeRateCard(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.removeRateCard(id);
   }
@@ -208,21 +324,48 @@ export class InventoryController {
 
   @Get('categories')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'List all industry categories' })
+  @ApiOperation({
+    summary: 'List all industry categories',
+    description:
+      'Returns all available content categories (TRAVEL, F&B, ALCOHOL, etc.) for campaign tagging and blocklist management.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Array of industry category objects.',
+  })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   findAllCategories() {
     return this.inventoryService.findAllCategories();
   }
 
   @Get('properties/:id/blocklist')
   @Roles(Role.SUPER_ADMIN, Role.PROPERTY_OPERATOR)
-  @ApiOperation({ summary: 'Get blocked categories for a property' })
+  @ApiOperation({
+    summary: 'Get blocked categories for a property',
+    description:
+      'Returns the list of industry categories that are blocked from advertising on this property.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Array of blocked category objects.',
+  })
+  @ApiStandardErrors({ badRequest: false, notFound: 'Property not found.' })
   getBlocklist(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.getBlocklist(id);
   }
 
   @Post('properties/:id/blocklist')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Update blocked categories for a property' })
+  @ApiOperation({
+    summary: 'Update blocked categories for a property',
+    description:
+      'Sets the blocklist for a property. Pass an array of category IDs to block.',
+  })
+  @ApiResponse({ status: 200, description: 'Blocklist updated successfully.' })
+  @ApiStandardErrors({
+    badRequest: 'Invalid category IDs.',
+    notFound: 'Property not found.',
+  })
   updateBlocklist(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBlocklistDto,
@@ -234,7 +377,11 @@ export class InventoryController {
   @Roles(Role.SUPER_ADMIN, Role.PROPERTY_OPERATOR)
   @ApiOperation({
     summary: 'Check campaign availability (with blocklist filtering)',
+    description:
+      'Returns available campaigns for a property, automatically filtering out blocked categories.',
   })
+  @ApiResponse({ status: 200, description: 'Filtered availability data.' })
+  @ApiStandardErrors({ badRequest: false, notFound: 'Property not found.' })
   checkAvailability(@Param('id', ParseIntPipe) id: number) {
     return this.inventoryService.checkAvailability(id);
   }

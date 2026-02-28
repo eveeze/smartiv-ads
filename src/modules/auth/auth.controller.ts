@@ -24,6 +24,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
 import type { User } from '@prisma/client';
@@ -37,18 +38,37 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  @ApiOperation({ summary: 'Register new advertiser' })
-  @ApiResponse({ status: 201, description: 'User successfully registered' })
-  @ApiResponse({ status: 400, description: 'Email already exists' })
+  @ApiOperation({
+    summary: 'Register new advertiser',
+    description:
+      'Creates a new user account with ADVERTISER role. Returns user data on success.',
+  })
+  @ApiResponse({ status: 201, description: 'User successfully registered.' })
+  @ApiStandardErrors({
+    badRequest: 'Email already exists or validation failed.',
+    unauthorized: false,
+    forbidden: false,
+  })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login to get Access Token' })
-  @ApiResponse({ status: 200, description: 'Return Access Token' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiOperation({
+    summary: 'Login to get Access Token',
+    description:
+      'Authenticates with email & password. Returns a JWT Bearer token to be used in the `Authorization` header for subsequent requests.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns `accessToken` (JWT) and `user` object.',
+  })
+  @ApiStandardErrors({
+    badRequest: 'Missing or malformed email/password fields.',
+    unauthorized: 'Invalid email or password.',
+    forbidden: false,
+  })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
@@ -56,7 +76,17 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current logged in user profile' })
+  @ApiOperation({
+    summary: 'Get current logged in user profile',
+    description:
+      'Returns the full profile of the currently authenticated user based on the JWT token.',
+  })
+  @ApiResponse({ status: 200, description: 'Returns the current user object.' })
+  @ApiStandardErrors({
+    badRequest: false,
+    unauthorized: true,
+    forbidden: false,
+  })
   getProfile(@CurrentUser() user: User) {
     return user;
   }
@@ -65,9 +95,18 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Change current user password' })
-  @ApiResponse({ status: 200, description: 'Password changed successfully' })
-  @ApiResponse({ status: 400, description: 'Old password wrong' })
+  @ApiOperation({
+    summary: 'Change current user password',
+    description:
+      'Requires the old password for verification. Returns success message on completion.',
+  })
+  @ApiResponse({ status: 200, description: 'Password changed successfully.' })
+  @ApiStandardErrors({
+    badRequest:
+      'Old password is incorrect or new password does not meet requirements.',
+    unauthorized: true,
+    forbidden: false,
+  })
   async changePassword(
     @CurrentUser() user: User,
     @Body() dto: ChangePasswordDto,
@@ -77,17 +116,42 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request password reset token (via email)' })
-  @ApiResponse({ status: 200, description: 'If email exists, token sent' })
+  @ApiOperation({
+    summary: 'Request password reset token (via email)',
+    description:
+      'Sends a password reset link to the provided email. Always returns 200 for security (does not reveal if email exists).',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Reset token sent (if email exists). Always returns 200 for security.',
+  })
+  @ApiStandardErrors({
+    badRequest: 'Invalid email format.',
+    unauthorized: false,
+    forbidden: false,
+  })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset password using token' })
-  @ApiResponse({ status: 200, description: 'Password reset successfully' })
-  @ApiResponse({ status: 400, description: 'Token invalid or expired' })
+  @ApiOperation({
+    summary: 'Reset password using token',
+    description:
+      'Resets user password using the token received via email from the forgot-password endpoint.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password has been reset successfully.',
+  })
+  @ApiStandardErrors({
+    badRequest:
+      'Token is invalid, expired, or new password does not meet requirements.',
+    unauthorized: false,
+    forbidden: false,
+  })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
   }

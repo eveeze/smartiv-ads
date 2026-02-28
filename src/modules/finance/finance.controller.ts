@@ -20,7 +20,13 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ApiStandardErrors } from '../../common/decorators/api-errors.decorator';
 import { Role } from '@prisma/client';
 import type { User } from '@prisma/client';
 
@@ -34,7 +40,20 @@ export class FinanceController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('calculate-cost')
-  @ApiOperation({ summary: 'Hitung Estimasi Biaya Campaign (Rate Card)' })
+  @ApiOperation({
+    summary: 'Hitung Estimasi Biaya Campaign (Rate Card)',
+    description:
+      'Calculates the estimated campaign cost based on selected property, slot, and duration. Does not create any transaction.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns estimated cost breakdown.',
+  })
+  @ApiStandardErrors({
+    badRequest: 'Invalid calculation parameters.',
+    forbidden: false,
+    notFound: 'No matching rate card found.',
+  })
   calculateCost(@Body() dto: CalculateCostDto) {
     return this.financeService.calculateCampaignCost(dto);
   }
@@ -44,7 +63,16 @@ export class FinanceController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('wallet')
-  @ApiOperation({ summary: 'Get My Wallet Balance & History' })
+  @ApiOperation({
+    summary: 'Get My Wallet Balance & History',
+    description:
+      'Returns the current wallet balance and recent transaction history for the logged-in user.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Wallet object with balance and transactions.',
+  })
+  @ApiStandardErrors({ badRequest: false, forbidden: false, notFound: false })
   getMyWallet(@CurrentUser() user: User) {
     return this.financeService.getMyWallet(user.id);
   }
@@ -53,7 +81,19 @@ export class FinanceController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADVERTISER)
   @Post('topup')
-  @ApiOperation({ summary: 'Request Topup (Get Midtrans Token)' })
+  @ApiOperation({
+    summary: 'Request Topup (Get Midtrans Token)',
+    description:
+      'Creates a top-up request and returns a Midtrans payment token/redirect URL for the user to complete payment.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Returns Midtrans snap token and redirect URL.',
+  })
+  @ApiStandardErrors({
+    badRequest: 'Invalid topup amount (must be > 0).',
+    notFound: false,
+  })
   requestTopup(@CurrentUser() user: User, @Body() dto: CreateTopupDto) {
     return this.financeService.requestTopup(user, dto);
   }
@@ -62,7 +102,19 @@ export class FinanceController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADVERTISER)
   @Post('withdrawal')
-  @ApiOperation({ summary: 'Request Balance Withdrawal' })
+  @ApiOperation({
+    summary: 'Request Balance Withdrawal',
+    description:
+      'Creates a withdrawal request. Admin approval is required before funds are released.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Withdrawal request created (pending admin review).',
+  })
+  @ApiStandardErrors({
+    badRequest: 'Insufficient wallet balance or invalid amount.',
+    notFound: false,
+  })
   requestWithdrawal(
     @CurrentUser() user: User,
     @Body() dto: WithdrawalRequestDto,
@@ -73,7 +125,18 @@ export class FinanceController {
   // --- PUBLIC WEBHOOK ---
 
   @Post('webhook/midtrans')
-  @ApiOperation({ summary: 'Midtrans Notification Webhook' })
+  @ApiOperation({
+    summary: 'Midtrans Notification Webhook',
+    description:
+      'Receives payment status notifications from Midtrans. This is called by Midtrans servers, not by the frontend.',
+  })
+  @ApiResponse({ status: 200, description: 'Webhook processed.' })
+  @ApiStandardErrors({
+    badRequest: false,
+    unauthorized: false,
+    forbidden: false,
+    notFound: false,
+  })
   handleMidtransWebhook(@Body() notification: unknown) {
     return this.financeService.handleMidtransNotification(notification);
   }
@@ -84,7 +147,13 @@ export class FinanceController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPER_ADMIN)
   @Get('admin/transactions')
-  @ApiOperation({ summary: 'Get All System Transactions (Audit Log)' })
+  @ApiOperation({
+    summary: 'Get All System Transactions (Audit Log)',
+    description:
+      'Returns all financial transactions across the platform. Supports filtering by type and pagination.',
+  })
+  @ApiResponse({ status: 200, description: 'Paginated list of transactions.' })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   getAllTransactions(@Query() query: TransactionQueryDto) {
     return this.financeService.getAllTransactions(query);
   }
@@ -93,7 +162,15 @@ export class FinanceController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPER_ADMIN)
   @Get('admin/withdrawals')
-  @ApiOperation({ summary: 'Get Pending Withdrawals' })
+  @ApiOperation({
+    summary: 'Get Pending Withdrawals',
+    description: 'Returns all withdrawal requests awaiting admin approval.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of pending withdrawal requests.',
+  })
+  @ApiStandardErrors({ badRequest: false, notFound: false })
   getPendingWithdrawals() {
     return this.financeService.getPendingWithdrawals();
   }
@@ -102,7 +179,19 @@ export class FinanceController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPER_ADMIN)
   @Patch('admin/withdrawals/:id/review')
-  @ApiOperation({ summary: 'Approve/Reject Withdrawal' })
+  @ApiOperation({
+    summary: 'Approve/Reject Withdrawal',
+    description:
+      'Admin approves or rejects a pending withdrawal request. Approved withdrawals deduct the wallet balance.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Withdrawal reviewed (approved or rejected).',
+  })
+  @ApiStandardErrors({
+    badRequest: 'Withdrawal is not in PENDING status.',
+    notFound: 'Withdrawal request not found.',
+  })
   reviewWithdrawal(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ReviewWithdrawalDto,
@@ -119,6 +208,13 @@ export class FinanceController {
   @Get('publisher/report')
   @ApiOperation({
     summary: 'Get publisher revenue report (Daily breakdown)',
+    description:
+      'Returns earnings breakdown for the property operator. Includes total earning, daily breakdown, and revenue share percentage.',
+  })
+  @ApiResponse({ status: 200, description: 'Publisher revenue report object.' })
+  @ApiStandardErrors({
+    badRequest: false,
+    notFound: 'Operator not assigned to any property.',
   })
   getPublisherReport(
     @CurrentUser() user: User,
