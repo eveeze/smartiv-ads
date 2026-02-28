@@ -105,7 +105,8 @@ jobs:
             fi
 
             # 1. DATABASE & AUTH
-            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+            # Force DATABASE_URL to use the 'postgres' container instead of 'localhost' from secrets
+            echo "DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/${{ secrets.POSTGRES_DB }}?schema=public" >> .env
             echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
             echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
             echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
@@ -148,10 +149,18 @@ jobs:
             sleep 30
 
             # 1. Migrasi Database (Gunakan pnpm)
-            docker compose -f docker-compose.prod.yml exec -T app pnpm exec prisma migrate deploy
+            if ! docker compose -f docker-compose.prod.yml exec -T app pnpm exec prisma migrate deploy; then
+              echo "❌ Migration failed! Printing app logs:"
+              docker compose -f docker-compose.prod.yml logs app
+              exit 1
+            fi
 
             # 2. Seeding Database
             echo "🌱 Running database seeding..."
-            docker compose -f docker-compose.prod.yml exec -T app pnpm exec prisma db seed
+            if ! docker compose -f docker-compose.prod.yml exec -T app pnpm exec prisma db seed; then
+              echo "❌ Seeding failed! Printing app logs:"
+              docker compose -f docker-compose.prod.yml logs app
+              exit 1
+            fi
 
             docker image prune -f
