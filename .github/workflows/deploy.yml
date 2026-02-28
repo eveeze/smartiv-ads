@@ -142,24 +142,30 @@ jobs:
             # --- EXECUTE ---
             docker pull $APP_IMAGE
 
-            # Pass variabel ke docker compose
-            ENV_NAME=$ENV_NAME APP_PORT=$APP_PORT APP_IMAGE=$APP_IMAGE POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} POSTGRES_DB=${{ secrets.POSTGRES_DB }} docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            echo "🚀 Starting Postgres and Redis..."
+            ENV_NAME=$ENV_NAME APP_PORT=$APP_PORT APP_IMAGE=$APP_IMAGE POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} POSTGRES_DB=${{ secrets.POSTGRES_DB }} docker compose -f docker-compose.prod.yml up -d postgres redis
 
-            echo "⏳ Waiting for DB to be ready (30s)..."
-            sleep 30
+            echo "⏳ Waiting for DB to be ready (15s)..."
+            sleep 15
 
-            # 1. Migrasi Database (Gunakan pnpm)
-            if ! docker compose -f docker-compose.prod.yml exec -T app pnpm exec prisma migrate deploy; then
-              echo "❌ Migration failed! Printing app logs:"
-              docker compose -f docker-compose.prod.yml logs app
+            # 1. Migrasi Database (Gunakan docker compose run instead of exec to avoid crash loop dependencies)
+            echo "🔄 Running database migration..."
+            if ! ENV_NAME=$ENV_NAME APP_PORT=$APP_PORT APP_IMAGE=$APP_IMAGE POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} POSTGRES_DB=${{ secrets.POSTGRES_DB }} docker compose -f docker-compose.prod.yml run --rm app pnpm exec prisma migrate deploy; then
+              echo "❌ Migration failed!"
               exit 1
             fi
 
+            echo "🚀 Starting main application..."
+            ENV_NAME=$ENV_NAME APP_PORT=$APP_PORT APP_IMAGE=$APP_IMAGE POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} POSTGRES_DB=${{ secrets.POSTGRES_DB }} docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "⏳ Waiting for App to be ready (10s)..."
+            sleep 10
+
             # 2. Seeding Database
             echo "🌱 Running database seeding..."
-            if ! docker compose -f docker-compose.prod.yml exec -T app pnpm exec prisma db seed; then
+            if ! ENV_NAME=$ENV_NAME APP_PORT=$APP_PORT APP_IMAGE=$APP_IMAGE POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} POSTGRES_DB=${{ secrets.POSTGRES_DB }} docker compose -f docker-compose.prod.yml exec -T app pnpm exec prisma db seed; then
               echo "❌ Seeding failed! Printing app logs:"
-              docker compose -f docker-compose.prod.yml logs app
+              ENV_NAME=$ENV_NAME APP_PORT=$APP_PORT APP_IMAGE=$APP_IMAGE POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} POSTGRES_DB=${{ secrets.POSTGRES_DB }} docker compose -f docker-compose.prod.yml logs app
               exit 1
             fi
 
