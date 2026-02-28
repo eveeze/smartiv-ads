@@ -91,7 +91,7 @@ export class PlacementService implements OnModuleInit {
     }
 
     // 1. Check media type compatibility
-    if (!placement.allowedMediaTypes.includes(media.type as MediaType)) {
+    if (!placement.allowedMediaTypes.includes(media.type)) {
       throw new BadRequestException(
         `Media type "${media.type}" is not allowed for placement "${placement.name}". ` +
           `Allowed types: ${placement.allowedMediaTypes.join(', ')}`,
