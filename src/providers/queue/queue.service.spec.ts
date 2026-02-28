@@ -45,7 +45,7 @@ describe('QueueService', () => {
   });
 
   it('should add impression job', async () => {
-    const payload = { screenId: 1, data: [] };
+    const payload = { screenId: 1, impressions: [], receivedAt: new Date() };
     await service.addImpressionJob(payload);
     expect(mockQueue.add).toHaveBeenCalledWith(
       expect.any(String),

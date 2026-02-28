@@ -70,7 +70,9 @@ const mockMedia: Media = {
   thumbnailUrl: null,
   description: null,
   title: 'Test Media',
+  displayName: 'Test Media',
   actionUrl: null,
+  previewUrl: null,
 };
 
 const mockScreenA: Screen = {
@@ -104,6 +106,7 @@ const mockCampaign: Campaign = {
   rejectionReason: null,
   targetSlot: AdSlot.SCREENSAVER,
   durationPackage: DurationPackage.WEEKLY,
+  categoryId: null,
 };
 
 // ==========================================

@@ -86,6 +86,7 @@ describe('InventoryController', () => {
     enabledSlots: [AdSlot.SCREENSAVER],
     createdAt: new Date(),
     updatedAt: new Date(),
+    revenueSharePercentage: 0,
   };
 
   const mockScreen: Screen = {

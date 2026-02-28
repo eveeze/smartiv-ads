@@ -72,9 +72,10 @@ describe('FinanceController', () => {
   describe('calculateCost', () => {
     it('should return cost calculation result', async () => {
       const dto: CalculateCostDto = {
-        screenIds: [1, 2],
+        propertyId: 1,
+        targetSlot: 'SCREENSAVER' as any,
+        durationPackage: 'WEEKLY' as any,
         startDate: '2025-01-01',
-        endDate: '2025-01-05',
       };
 
       const mockResult = {
