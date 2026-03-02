@@ -168,6 +168,11 @@ export class InventoryController {
     description:
       'Modifies property data (name, address, classification, etc.).',
   })
+  @ApiResponse({
+    status: 200,
+    description: 'Property updated.',
+    type: PropertyResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Invalid update data.',
     notFound: 'Property not found.',
@@ -185,6 +190,11 @@ export class InventoryController {
     summary: 'Delete property',
     description:
       'Permanently removes a property and cascades to related screens.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Property deleted.',
+    type: MessageResponseDto,
   })
   @ApiStandardErrors({ badRequest: false, notFound: 'Property not found.' })
   removeProperty(@Param('id', ParseIntPipe) id: number) {
@@ -275,6 +285,11 @@ export class InventoryController {
     summary: 'Update screen configuration',
     description: 'Modifies screen data (orientation, status, placement, etc.).',
   })
+  @ApiResponse({
+    status: 200,
+    description: 'Screen updated.',
+    type: ScreenResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Invalid update data.',
     notFound: 'Screen not found.',
@@ -291,6 +306,11 @@ export class InventoryController {
   @ApiOperation({
     summary: 'Delete screen',
     description: 'Permanently removes a screen.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Screen deleted.',
+    type: MessageResponseDto,
   })
   @ApiStandardErrors({ badRequest: false, notFound: 'Screen not found.' })
   removeScreen(@Param('id', ParseIntPipe) id: number) {
@@ -340,6 +360,11 @@ export class InventoryController {
     summary: 'Update pricing rule',
     description: 'Modifies an existing rate card.',
   })
+  @ApiResponse({
+    status: 200,
+    description: 'Rate card updated.',
+    type: RateCardResponseDto,
+  })
   @ApiStandardErrors({
     badRequest: 'Invalid update data.',
     notFound: 'Rate card not found.',
@@ -357,6 +382,11 @@ export class InventoryController {
     summary: 'Delete pricing rule (Permanently)',
     description:
       'Removes pricing rule. Active campaigns referencing this card are not affected.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Rate card deleted.',
+    type: MessageResponseDto,
   })
   @ApiStandardErrors({ badRequest: false, notFound: 'Rate card not found.' })
   removeRateCard(@Param('id', ParseIntPipe) id: number) {
