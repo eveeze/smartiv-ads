@@ -240,6 +240,7 @@ export class InventoryController {
   @ApiResponse({
     status: 200,
     description: 'Array of lightweight screen objects.',
+    type: [ScreenResponseDto],
   })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findScreensList(@Query('propertyId') propertyId?: string) {
@@ -376,6 +377,7 @@ export class InventoryController {
   @ApiResponse({
     status: 200,
     description: 'Array of industry category objects.',
+    type: [CategoryResponseDto],
   })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findAllCategories() {

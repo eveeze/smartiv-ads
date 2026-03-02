@@ -87,6 +87,7 @@ export class MediaController {
   @ApiResponse({
     status: 200,
     description: 'Array of media objects with presigned URLs.',
+    type: [MediaResponseDto],
   })
   @ApiStandardErrors({ badRequest: false, notFound: false })
   findAll(@CurrentUser() user: User, @Query('search') search?: string) {

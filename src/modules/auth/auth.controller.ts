@@ -143,6 +143,7 @@ export class AuthController {
     status: 200,
     description:
       'Reset token sent (if email exists). Always returns 200 for security.',
+    type: MessageResponseDto,
   })
   @ApiStandardErrors({
     badRequest: 'Invalid email format.',

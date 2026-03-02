@@ -151,6 +151,7 @@ export class CampaignsController {
   @ApiResponse({
     status: 200,
     description: 'Campaign submitted for review. Wallet balance frozen.',
+    type: CampaignResponseDto,
   })
   @ApiStandardErrors({
     badRequest:
@@ -191,6 +192,7 @@ export class CampaignsController {
   @ApiResponse({
     status: 200,
     description: 'Campaign cancelled. Refund applied if applicable.',
+    type: CampaignResponseDto,
   })
   @ApiStandardErrors({
     badRequest: 'Campaign cannot be cancelled in its current status.',
@@ -210,6 +212,7 @@ export class CampaignsController {
   @ApiResponse({
     status: 200,
     description: 'Campaign reviewed (approved or rejected).',
+    type: CampaignResponseDto,
   })
   @ApiStandardErrors({
     badRequest: 'Campaign is not in PENDING_REVIEW status.',
