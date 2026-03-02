@@ -6,12 +6,18 @@ import {
   ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
 } from '@nestjs/swagger';
-import { ApiErrorResponseDto } from '../dto/api-response.dto';
+import {
+  BadRequestErrorDto,
+  UnauthorizedErrorDto,
+  ForbiddenErrorDto,
+  NotFoundErrorDto,
+  InternalServerErrorDto,
+} from '../dto/api-response.dto';
 
 /**
  * A reusable decorator to apply standard error responses to API endpoints.
- * Each error response includes the `ApiErrorResponseDto` schema so the frontend
- * can see the exact shape of error responses in Scalar docs.
+ * Each error response uses a dedicated DTO with correct statusCode/error examples
+ * so Scalar docs display accurate example bodies per status code.
  */
 export function ApiStandardErrors(
   options: {
@@ -35,7 +41,7 @@ export function ApiStandardErrors(
           typeof options.badRequest === 'string'
             ? options.badRequest
             : 'Validation failed or invalid input data.',
-        type: ApiErrorResponseDto,
+        type: BadRequestErrorDto,
       }),
     );
   }
@@ -47,7 +53,7 @@ export function ApiStandardErrors(
           typeof options.unauthorized === 'string'
             ? options.unauthorized
             : 'Missing or invalid authentication token.',
-        type: ApiErrorResponseDto,
+        type: UnauthorizedErrorDto,
       }),
     );
   }
@@ -59,7 +65,7 @@ export function ApiStandardErrors(
           typeof options.forbidden === 'string'
             ? options.forbidden
             : 'User does not have required permissions (Role restriction).',
-        type: ApiErrorResponseDto,
+        type: ForbiddenErrorDto,
       }),
     );
   }
@@ -71,7 +77,7 @@ export function ApiStandardErrors(
           typeof options.notFound === 'string'
             ? options.notFound
             : 'The requested resource was not found.',
-        type: ApiErrorResponseDto,
+        type: NotFoundErrorDto,
       }),
     );
   }
@@ -80,7 +86,7 @@ export function ApiStandardErrors(
   decorators.push(
     ApiInternalServerErrorResponse({
       description: 'Unexpected server/database error.',
-      type: ApiErrorResponseDto,
+      type: InternalServerErrorDto,
     }),
   );
 

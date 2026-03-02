@@ -84,6 +84,90 @@ export class ApiErrorResponseDto {
   path: string;
 }
 
+/** 400 Bad Request error response with correct example values. */
+export class BadRequestErrorDto {
+  @ApiProperty({ example: 400 })
+  statusCode: number;
+  @ApiProperty({ example: false })
+  success: boolean;
+  @ApiProperty({ example: 'Validation failed or invalid input data.' })
+  message: string;
+  @ApiProperty({ example: 'Bad Request' })
+  error: string;
+  @ApiProperty({ example: '2026-01-01T00:00:00.000Z' })
+  timestamp: string;
+  @ApiProperty({ example: '/api/resource' })
+  path: string;
+}
+
+/** 401 Unauthorized error response with correct example values. */
+export class UnauthorizedErrorDto {
+  @ApiProperty({ example: 401 })
+  statusCode: number;
+  @ApiProperty({ example: false })
+  success: boolean;
+  @ApiProperty({ example: 'Missing or invalid authentication token.' })
+  message: string;
+  @ApiProperty({ example: 'Unauthorized' })
+  error: string;
+  @ApiProperty({ example: '2026-01-01T00:00:00.000Z' })
+  timestamp: string;
+  @ApiProperty({ example: '/api/resource' })
+  path: string;
+}
+
+/** 403 Forbidden error response with correct example values. */
+export class ForbiddenErrorDto {
+  @ApiProperty({ example: 403 })
+  statusCode: number;
+  @ApiProperty({ example: false })
+  success: boolean;
+  @ApiProperty({
+    example: 'You do not have permission to access this resource.',
+  })
+  message: string;
+  @ApiProperty({ example: 'Forbidden' })
+  error: string;
+  @ApiProperty({ example: '2026-01-01T00:00:00.000Z' })
+  timestamp: string;
+  @ApiProperty({ example: '/api/resource' })
+  path: string;
+}
+
+/** 404 Not Found error response with correct example values. */
+export class NotFoundErrorDto {
+  @ApiProperty({ example: 404 })
+  statusCode: number;
+  @ApiProperty({ example: false })
+  success: boolean;
+  @ApiProperty({ example: 'The requested resource was not found.' })
+  message: string;
+  @ApiProperty({ example: 'Not Found' })
+  error: string;
+  @ApiProperty({ example: '2026-01-01T00:00:00.000Z' })
+  timestamp: string;
+  @ApiProperty({ example: '/api/resource/999' })
+  path: string;
+}
+
+/** 500 Internal Server Error response with correct example values. */
+export class InternalServerErrorDto {
+  @ApiProperty({ example: 500 })
+  statusCode: number;
+  @ApiProperty({ example: false })
+  success: boolean;
+  @ApiProperty({
+    example: 'An unexpected error occurred. Please try again later.',
+  })
+  message: string;
+  @ApiProperty({ example: 'Internal Server Error' })
+  error: string;
+  @ApiProperty({ example: '2026-01-01T00:00:00.000Z' })
+  timestamp: string;
+  @ApiProperty({ example: '/api/resource' })
+  path: string;
+}
+
 /**
  * Standard message-only response (e.g., for delete, password change).
  */
