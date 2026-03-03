@@ -2,6 +2,27 @@ import Ffmpeg from 'fluent-ffmpeg';
 
 export class MediaUtils {
   // =================================================================
+  // Static Config: Set once at bootstrap from ConfigService
+  // =================================================================
+  private static _publicUrl: string | null = null;
+
+  /**
+   * Initialize MediaUtils with config values.
+   * Call this once in main.ts after NestFactory.create().
+   */
+  static configure(publicUrl: string): void {
+    MediaUtils._publicUrl = publicUrl.replace(/\/$/, '');
+  }
+
+  private static getPublicUrl(): string {
+    if (MediaUtils._publicUrl) return MediaUtils._publicUrl;
+    // Fallback to process.env only if not configured via configure()
+    return (
+      process.env.MINIO_PUBLIC_URL || 'http://localhost:9000/smartiv-media'
+    ).replace(/\/$/, '');
+  }
+
+  // =================================================================
   // 1. Helper Logic: Cek Audio Stream (Untuk TranscodeProcessor)
   // =================================================================
   static async hasAudioStream(filePath: string): Promise<boolean> {
@@ -54,9 +75,7 @@ export class MediaUtils {
     // Jika path sudah berupa URL lengkap, kembalikan langsung
     if (relativePath.startsWith('http')) return relativePath;
 
-    const baseUrl = (
-      process.env.MINIO_PUBLIC_URL || 'http://localhost:9000'
-    ).replace(/\/$/, '');
+    const baseUrl = MediaUtils.getPublicUrl();
 
     const cleanPath = relativePath.startsWith('/')
       ? relativePath

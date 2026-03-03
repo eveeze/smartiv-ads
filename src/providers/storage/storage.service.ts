@@ -24,7 +24,9 @@ export class StorageService {
 
     const minioHost = this.configService.getOrThrow<string>('minio.endpoint');
     const minioPort = this.configService.getOrThrow<number>('minio.port');
-    const fullS3Endpoint = `http://${minioHost}:${minioPort}`;
+    const useSSL = this.configService.get<boolean>('minio.useSSL', false);
+    const protocol = useSSL ? 'https' : 'http';
+    const fullS3Endpoint = `${protocol}://${minioHost}:${minioPort}`;
 
     this.s3Client = new S3Client({
       region: 'us-east-1',
@@ -92,7 +94,13 @@ export class StorageService {
   }
 
   getFileUrl(key: string): string {
-    return `http://localhost:9000/${this.bucketName}/${key}`;
+    const publicUrl = this.configService.get<string>(
+      'minio.publicUrl',
+      `http://localhost:9000/${this.bucketName}`,
+    );
+    // Remove trailing slash to prevent double-slash in URL
+    const base = publicUrl.replace(/\/$/, '');
+    return `${base}/${key}`;
   }
 
   // Helper: Download file dari S3 ke folder lokal (untuk diproses FFmpeg)

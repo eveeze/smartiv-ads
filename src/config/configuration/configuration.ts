@@ -19,6 +19,7 @@ export const validationSchema = Joi.object({
   MINIO_SECRET_KEY: Joi.string().required(),
   MINIO_BUCKET: Joi.string().default('smartiv-media'),
   MINIO_PUBLIC_URL: Joi.string().uri().optional(),
+  MINIO_USE_SSL: Joi.boolean().default(false),
 
   // Redis Config
   REDIS_HOST: Joi.string().default('localhost'),
@@ -50,6 +51,7 @@ export default () => ({
     publicUrl:
       process.env.MINIO_PUBLIC_URL ||
       `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}/${process.env.MINIO_BUCKET || 'smartiv-media'}`,
+    useSSL: process.env.MINIO_USE_SSL === 'true',
   },
   redis: {
     host: process.env.REDIS_HOST,

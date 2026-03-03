@@ -63,7 +63,11 @@ export class MediaController {
     badRequest: 'No file attached or invalid file type/signature.',
     notFound: false,
   })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 500 * 1024 * 1024 }, // 500MB max
+    }),
+  )
   uploadFile(
     @UploadedFile(FileSignatureValidatorPipe) file: Express.Multer.File,
     @Body() dto: UploadMediaDto,

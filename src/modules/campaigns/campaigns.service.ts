@@ -58,6 +58,13 @@ export class CampaignsService {
     }
 
     const start = new Date(dto.startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (start < today) {
+      throw new BadRequestException(
+        'Start date must be today or in the future',
+      );
+    }
     let end = new Date(start);
     if (dto.durationPackage === DurationPackage.CUSTOM) {
       if (!dto.endDate)

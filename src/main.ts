@@ -7,12 +7,20 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions/all-excepti
 import { ConfigService } from '@nestjs/config';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import { applyBigIntSerializers } from './common/utils/bigint.util';
+import { MediaUtils } from './common/utils/media.utils';
 async function bootstrap() {
   applyBigIntSerializers();
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
   const configService = app.get(ConfigService);
   const httpAdapter = app.get(HttpAdapterHost);
+
+  // Initialize MediaUtils with configured public URL
+  const minioPublicUrl = configService.get<string>(
+    'minio.publicUrl',
+    'http://localhost:9000/smartiv-media',
+  );
+  MediaUtils.configure(minioPublicUrl);
 
   // Global Settings
   app.setGlobalPrefix('api');
