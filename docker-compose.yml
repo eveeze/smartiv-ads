@@ -17,7 +17,7 @@ services:
     image: postgres:16-alpine
     container_name: smartiv-postgres
     ports:
-      - '5432:5432'
+      - '5433:5432'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -45,8 +45,8 @@ services:
     image: minio/minio
     container_name: smartiv-minio
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - '9002:9000'
+      - '9003:9001'
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin

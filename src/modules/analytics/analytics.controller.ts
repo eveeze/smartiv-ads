@@ -12,7 +12,6 @@ import { RolesGuard } from '../../common/guards/roles/roles.guard';
 import { Roles } from '../../common/decorators/roles/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user/current-user.decorator';
 import { AdvertiserSummaryDto, AdminSummaryDto } from './dto/summary.dto';
-// [FIX] Pisahkan import value (Role) dan type (User)
 import { Role } from '@prisma/client';
 import type { User } from '@prisma/client';
 
